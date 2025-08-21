@@ -2,27 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import dayjs from "dayjs";
 import OpenAI from "openai";
 import { z } from "zod";
-// import { ReportSchema } from "@/lib/report.schema";
-// import { getBars, barsQualityOk } from "@/lib/ohlcv";
-// import { computeIndicators } from "@/lib/indicators";
-// import { levelCandidates } from "@/lib/levels";
-// import { searchAndRerankNewsStrict } from "@/lib/news.search";
-// import { combinedAnalysisPrompt } from "@/lib/report.prompts";
-// import { buildNewsQAPrompt, buildTechnicalQAPrompt, buildFinalAnswerPrompt, buildSnapshotTemplate } from "@/lib/report.prompts";
-// import { detectSymbolFromQuestion } from "@/lib/simple-symbol-detection";
-
-// Temporary functions
-const ReportSchema = { parse: (data: any) => data };
-const getBars = async () => [];
-const barsQualityOk = () => true;
-const computeIndicators = () => ({});
-const levelCandidates = () => [];
-const searchAndRerankNewsStrict = async () => [];
-const buildNewsQAPrompt = () => "";
-const buildTechnicalQAPrompt = () => "";
-const buildFinalAnswerPrompt = () => "";
-const buildSnapshotTemplate = () => "";
-const detectSymbolFromQuestion = (question: string) => "NVDA";
+import { ReportSchema } from "@/lib/report.schema";
+import { barsQualityOk } from "@/lib/ohlcv";
+import { computeIndicators } from "@/lib/indicators";
+import { levelCandidates } from "@/lib/levels";
+import { searchAndRerankNewsStrict } from "@/lib/news.search";
+import { buildNewsQAPrompt, buildTechnicalQAPrompt, buildFinalAnswerPrompt, buildSnapshotTemplate } from "@/lib/report.prompts";
+import { detectSymbolFromQuestion } from "@/lib/simple-symbol-detection";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
 

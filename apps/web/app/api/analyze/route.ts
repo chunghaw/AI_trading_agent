@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import dayjs from "dayjs";
-// import OpenAI from "openai";
+import OpenAI from "openai";
 import { z } from "zod";
 // import { ReportSchema } from "../../../lib/report.schema";
 // import { barsQualityOk } from "../../../lib/ohlcv";
@@ -29,7 +29,7 @@ const detectSymbolFromQuestion = (question: string) => {
   return 'NVDA'; // default
 };
 
-// const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
 
 const Body = z.object({
   prompt: z.string().min(1), // Changed from query to match frontend

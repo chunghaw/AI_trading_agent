@@ -3,6 +3,8 @@
 !apps/
 !apps/web/
 !apps/web/**
+!lib/
+!lib/**
 !package.json
 !.vercelignore
 !vercel.json

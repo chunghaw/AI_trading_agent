@@ -2,25 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import dayjs from "dayjs";
 import OpenAI from "openai";
 import { z } from "zod";
-// import { ReportSchema } from "@/lib/report.schema";
-// import { barsQualityOk } from "@/lib/ohlcv";
-// import { computeIndicators } from "@/lib/indicators";
-// import { levelCandidates } from "@/lib/levels";
-// import { searchAndRerankNewsStrict } from "@/lib/news.search";
-// import { buildNewsQAPrompt, buildTechnicalQAPrompt, buildFinalAnswerPrompt, buildSnapshotTemplate } from "@/lib/report.prompts";
-// import { detectSymbolFromQuestion } from "@/lib/simple-symbol-detection";
-
-// Temporary functions to get build working
-const ReportSchema = { parse: (data: any) => data };
-const barsQualityOk = () => true;
-const computeIndicators = () => ({});
-const levelCandidates = () => [];
-const searchAndRerankNewsStrict = async () => [];
-const buildNewsQAPrompt = () => "";
-const buildTechnicalQAPrompt = () => "";
-const buildFinalAnswerPrompt = () => "";
-const buildSnapshotTemplate = () => "";
-const detectSymbolFromQuestion = (question: string) => "NVDA";
+import { ReportSchema } from "@/lib/report.schema";
+import { barsQualityOk } from "@/lib/ohlcv";
+import { computeIndicators } from "@/lib/indicators";
+import { levelCandidates } from "@/lib/levels";
+import { searchAndRerankNewsStrict } from "@/lib/news.search";
+import { buildNewsQAPrompt, buildTechnicalQAPrompt, buildFinalAnswerPrompt, buildSnapshotTemplate } from "@/lib/report.prompts";
+import { detectSymbolFromQuestion } from "@/lib/simple-symbol-detection";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
 
@@ -45,7 +33,7 @@ export async function POST(req: NextRequest) {
     try {
       const fs = require('fs');
       const path = require('path');
-      const jsonPath = path.join(process.cwd(), "data", "sample_exploration.json");
+      const jsonPath = path.join(process.cwd(), "data", "sample_exploration_small.json");
       
       console.log(`🔍 Loading real data for ${detectedSymbol} from: ${jsonPath}`);
       const jsonContent = fs.readFileSync(jsonPath, 'utf-8');

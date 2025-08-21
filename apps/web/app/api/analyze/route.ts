@@ -16,8 +16,30 @@ const barsQualityOk = (bars: any) => true;
 const computeIndicators = (bars: any) => ({ rsi14: 50, macd: { macd: 0, signal: 0, histogram: 0 } });
 const levelCandidates = (bars: any) => [];
 const searchAndRerankNewsStrict = async (query: string, symbol: string) => [];
-const buildNewsQAPrompt = (query: string, news: any[]) => "";
-const buildTechnicalQAPrompt = (query: string, indicators: any) => "";
+const buildNewsQAPrompt = (query: string, news: any[]) => `Please analyze the following news data and provide a JSON response. 
+
+Query: ${query}
+
+News data: ${JSON.stringify(news)}
+
+Please respond with a JSON object containing:
+- answer_sentence: A brief analysis
+- key_points: Array of key insights
+- citations: Array of source URLs
+
+JSON response:`;
+const buildTechnicalQAPrompt = (query: string, indicators: any) => `Please analyze the following technical indicators and provide a JSON response.
+
+Query: ${query}
+
+Technical indicators: ${JSON.stringify(indicators)}
+
+Please respond with a JSON object containing:
+- answer_sentence: A brief technical analysis
+- key_points: Array of technical insights
+- trend: Overall trend direction
+
+JSON response:`;
 const buildFinalAnswerPrompt = (query: string, newsQA: string, techQA: string) => "";
 const buildSnapshotTemplate = (symbol: string, bars: any, indicators: any) => "";
 const detectSymbolFromQuestion = (question: string) => {

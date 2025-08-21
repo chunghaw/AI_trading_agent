@@ -198,7 +198,7 @@ export default function AgentsPage() {
                   disabled={isLoading || !prompt.trim()}
                   className="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-black/20 disabled:pointer-events-none disabled:opacity-50 h-10 w-10 p-0 bg-[var(--accent)] hover:bg-[var(--accent-600)] text-black rounded-full shadow-lg hover:shadow-xl transition-all duration-200"
                 >
-                  <Send className="w-6 h-6" />
+                  <Send className="w-7 h-7" />
                 </Button>
               </div>
             </div>

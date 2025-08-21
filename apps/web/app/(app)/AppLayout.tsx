@@ -60,7 +60,19 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <div className="container max-w-[1200px] mx-auto px-6 h-full flex items-center justify-between">
           <div className="flex items-center space-x-12">
             {/* <Logo size={36} /> */}
-            <div className="flex items-center gap-1 select-none">
+            <div className="flex items-center gap-2 select-none">
+              <svg viewBox="0 0 256 256" role="img" aria-label="Trading AI logo" width="28" height="28">
+                <defs>
+                  <linearGradient id="spark" x1="22" y1="176" x2="248" y2="66" gradientUnits="userSpaceOnUse">
+                    <stop stopColor="var(--accent, #22C55E)" /><stop offset="1" stopColor="var(--accent, #22C55E)" />
+                  </linearGradient>
+                </defs>
+                <path d="M128 32 L28 208 H228 Z" stroke="#C7CBD4" strokeWidth="12" strokeLinejoin="round" fill="none" />
+                <path d="M92 168 H164" stroke="#C7CBD4" strokeWidth="10" strokeLinecap="round" opacity={0.3} />
+                <path d="M22 176 C 62 148, 102 154, 122 160 C 146 168, 150 132, 172 112 C 188 98, 206 92, 236 84"
+                      stroke="url(#spark)" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                <path d="M232 66 L248 80 L228 86 Z" fill="var(--accent, #22C55E)" />
+              </svg>
               <span className="text-[20px] font-semibold tracking-tight text-zinc-100">Trading</span>
               <span className="text-[20px] font-semibold tracking-tight" style={{ color: "var(--accent, #22C55E)" }}>
                 AI

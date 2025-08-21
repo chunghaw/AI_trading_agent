@@ -4,37 +4,41 @@ import { NextRequest, NextResponse } from "next/server";
 
 // Temporary functions
 const SentimentMetricsSchema = { parse: (data: any) => data };
-const mockData = { sentiment: [] };
+const mockData = { 
+  sentiment: [
+    {
+      source: "News",
+      sentiment: 0.6,
+      confidence: 0.8,
+      count: 150
+    },
+    {
+      source: "Social Media",
+      sentiment: 0.4,
+      confidence: 0.7,
+      count: 300
+    }
+  ]
+};
 
 const WORKER_BASE_URL = process.env.WORKER_BASE_URL;
 
-export async function GET(request: NextRequest) {
+export async function GET(req: NextRequest) {
   try {
-    // If no worker URL, return mock data
-    if (!WORKER_BASE_URL) {
-      return NextResponse.json(mockData.sentimentMetrics);
+    // Try to fetch from worker first
+    if (WORKER_BASE_URL) {
+      const response = await fetch(`${WORKER_BASE_URL}/api/metrics/sentiment`);
+      if (response.ok) {
+        const data = await response.json();
+        return NextResponse.json(data);
+      }
     }
 
-    // Forward to worker
-    const response = await fetch(`${WORKER_BASE_URL}/metrics/sentiment`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
-
-    if (!response.ok) {
-      // Return mock data if worker is not available
-      return NextResponse.json(mockData.sentimentMetrics);
-    }
-
-    const data = await response.json();
-    
-    // Validate response
-    const validatedData = SentimentMetricsSchema.parse(data);
-    return NextResponse.json(validatedData);
-  } catch (error: any) {
-    // Return mock data on any error
-    return NextResponse.json(mockData.sentimentMetrics);
+    // Fallback to mock data
+    const mockResponse = mockData;
+    return NextResponse.json(mockResponse);
+  } catch (error) {
+    console.error("Error fetching sentiment metrics:", error);
+    return NextResponse.json(mockData);
   }
 }

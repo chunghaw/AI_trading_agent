@@ -4,37 +4,41 @@ import { NextRequest, NextResponse } from "next/server";
 
 // Temporary functions
 const MarketMetricsSchema = { parse: (data: any) => data };
-const mockData = { market: [] };
+const mockData = { 
+  market: [
+    {
+      metric: "S&P 500",
+      value: 4500,
+      change: 0.5,
+      changePercent: 0.01
+    },
+    {
+      metric: "NASDAQ",
+      value: 14000,
+      change: -0.3,
+      changePercent: -0.02
+    }
+  ]
+};
 
 const WORKER_BASE_URL = process.env.WORKER_BASE_URL;
 
-export async function GET(request: NextRequest) {
+export async function GET(req: NextRequest) {
   try {
-    // If no worker URL, return mock data
-    if (!WORKER_BASE_URL) {
-      return NextResponse.json(mockData.marketMetrics);
+    // Try to fetch from worker first
+    if (WORKER_BASE_URL) {
+      const response = await fetch(`${WORKER_BASE_URL}/api/metrics/market`);
+      if (response.ok) {
+        const data = await response.json();
+        return NextResponse.json(data);
+      }
     }
 
-    // Forward to worker
-    const response = await fetch(`${WORKER_BASE_URL}/metrics/market`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
-
-    if (!response.ok) {
-      // Return mock data if worker is not available
-      return NextResponse.json(mockData.marketMetrics);
-    }
-
-    const data = await response.json();
-    
-    // Validate response
-    const validatedData = MarketMetricsSchema.parse(data);
-    return NextResponse.json(validatedData);
-  } catch (error: any) {
-    // Return mock data on any error
-    return NextResponse.json(mockData.marketMetrics);
+    // Fallback to mock data
+    const mockResponse = mockData;
+    return NextResponse.json(mockResponse);
+  } catch (error) {
+    console.error("Error fetching market metrics:", error);
+    return NextResponse.json(mockData);
   }
 }

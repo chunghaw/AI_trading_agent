@@ -1,4 +1,15 @@
 # Ignore everything except the web app
 *
+!apps/
 !apps/web/
 !apps/web/**
+!package.json
+!.vercelignore
+!vercel.json
+
+# But ignore these specific files/directories
+apps/web/node_modules/
+apps/web/.next/
+apps/web/.env*
+apps/web/data/
+apps/web/server.log

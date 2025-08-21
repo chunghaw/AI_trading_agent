@@ -28,6 +28,16 @@ const nextConfig = {
     if (!dev && !isServer) {
       config.optimization.splitChunks.chunks = 'all';
     }
+    
+    // Add resolve configuration for better module resolution
+    config.resolve = {
+      ...config.resolve,
+      alias: {
+        ...config.resolve.alias,
+        '@': require('path').resolve(__dirname, './'),
+      },
+    };
+    
     return config;
   },
 }

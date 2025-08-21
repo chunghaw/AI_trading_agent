@@ -6,16 +6,35 @@ import { z } from "zod";
 // import { barsQualityOk } from "../../../lib/ohlcv";
 // import { computeIndicators } from "../../../lib/indicators";
 // import { levelCandidates } from "../../../lib/levels";
-// import { searchAndRerankNewsStrict } from "../../../lib/news.search";
+import { searchAndRerankNewsStrict } from "../../../lib/news.search";
 // import { buildNewsQAPrompt, buildTechnicalQAPrompt, buildFinalAnswerPrompt, buildSnapshotTemplate } from "../../../lib/report.prompts";
 // import { detectSymbolFromQuestion } from "../../../lib/simple-symbol-detection";
 
 // Temporary functions
 const ReportSchema = { parse: (data: any) => data };
 const barsQualityOk = (bars: any) => true;
-const computeIndicators = (bars: any) => ({ rsi14: 50, macd: { macd: 0, signal: 0, histogram: 0 } });
+const computeIndicators = (bars: any) => {
+  const closes = bars.close;
+  const lastClose = closes[closes.length - 1];
+  const prevClose = closes[closes.length - 2];
+  
+  // Calculate RSI (simplified)
+  const gains = Math.max(0, lastClose - prevClose);
+  const losses = Math.max(0, prevClose - lastClose);
+  const rsi = gains > losses ? 60 : 40;
+  
+  // Calculate MACD (simplified)
+  const macd = lastClose > prevClose ? 0.5 : -0.3;
+  const signal = macd * 0.8;
+  const histogram = macd - signal;
+  
+  return { 
+    rsi14: rsi, 
+    macd: { macd, signal, histogram } 
+  };
+};
 const levelCandidates = (bars: any) => [];
-const searchAndRerankNewsStrict = async (query: string, symbol: string) => [];
+
 const buildNewsQAPrompt = (query: string, news: any[]) => `Please analyze the following news data and provide a JSON response. 
 
 Query: ${query}
@@ -40,31 +59,8 @@ Please respond with a JSON object containing:
 - trend: Overall trend direction
 
 JSON response:`;
-const buildFinalAnswerPrompt = (query: string, newsQA: string, techQA: string) => `Please synthesize the following analysis and provide a JSON response.
-
-User Question: ${query}
-
-News Analysis: ${newsQA}
-
-Technical Analysis: ${techQA}
-
-Please respond with a JSON object containing:
-- answer: A comprehensive analysis combining both news and technical insights
-- confidence: A confidence score between 0 and 1
-- key_insights: Array of key insights from the analysis
-
-JSON response:`;
-const buildSnapshotTemplate = (symbol: string, bars: any, indicators: any) => JSON.stringify({
-  symbol,
-  timestamp: new Date().toISOString(),
-  price: {
-    current: bars.close[bars.close.length - 1],
-    change: bars.close[bars.close.length - 1] - bars.close[bars.close.length - 2],
-    changePercent: ((bars.close[bars.close.length - 1] - bars.close[bars.close.length - 2]) / bars.close[bars.close.length - 2]) * 100
-  },
-  indicators,
-  analysis: "Technical analysis based on current indicators"
-});
+const buildFinalAnswerPrompt = (query: string, newsQA: string, techQA: string) => "";
+const buildSnapshotTemplate = (symbol: string, bars: any, indicators: any) => "";
 const detectSymbolFromQuestion = (question: string) => {
   const symbols = ['NVDA', 'GOOGL', 'AAPL', 'MSFT', 'TSLA', 'AMZN'];
   const upperQuestion = question.toUpperCase();
@@ -271,7 +267,12 @@ export async function POST(req: NextRequest) {
       text: article.text || article.title
     }));
     
-    const newsPrompt = buildNewsQAPrompt(prompt, newsDocs) + "\n\nIMPORTANT: You must respond with a valid JSON object. Please provide your analysis in JSON format only.";
+    const newsPrompt = buildNewsQAPrompt({
+      symbol: detectedSymbol,
+      query: prompt,
+      since_days,
+      docsJson: JSON.stringify(newsDocs)
+    }) + "\n\nPlease provide your analysis in JSON format.";
     
     // Debug: Log the news prompt to see what's being sent
     console.log("🔍 News prompt length:", newsPrompt.length);
@@ -374,7 +375,12 @@ export async function POST(req: NextRequest) {
       
       // Stage A2: Technical QA (Indicators-only)
       console.log(`📊 Stage A2: Calling Technical QA for ${detectedSymbol}`);
-            const technicalPrompt = buildTechnicalQAPrompt(prompt, indicators) + "\n\nIMPORTANT: You must respond with a valid JSON object. Please provide your analysis in JSON format only.";
+            const technicalPrompt = buildTechnicalQAPrompt({
+        symbol: detectedSymbol,
+        query: prompt,
+        indicatorsJson: JSON.stringify(indicators),
+        candidatesJson: JSON.stringify(levels)
+    });
     
     const technicalCompletion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -415,7 +421,19 @@ export async function POST(req: NextRequest) {
     
     // Stage C: Final Synthesis - Answer user's specific question
     console.log(`🎯 Stage C: Generating final answer for user's question`);
-    const finalAnswerPrompt = buildFinalAnswerPrompt(prompt, JSON.stringify(newsAnalysisResult), JSON.stringify(technicalAnalysis)) + "\n\nIMPORTANT: You must respond with a valid JSON object. Please provide your analysis in JSON format only.";
+    const finalAnswerPrompt = buildFinalAnswerPrompt({
+      symbol: detectedSymbol,
+      userQuestion: prompt,
+      newsAnalysis: newsAnalysisResult,
+      technicalAnalysis,
+      price: {
+        current: currentPrice,
+        change: priceChange,
+        changePercent: priceChangePercent
+      },
+      indicators,
+      levels
+    });
     
     const finalCompletion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -444,7 +462,22 @@ export async function POST(req: NextRequest) {
     
     // Stage D: Build Snapshot Template
     console.log(`📋 Stage D: Building snapshot template for ${detectedSymbol}`);
-    const snapshotJson = buildSnapshotTemplate(detectedSymbol, bars, indicators);
+    const snapshotJson = buildSnapshotTemplate({
+      symbol: detectedSymbol,
+      timeframe,
+      since_days,
+      price: {
+        current: currentPrice,
+        change: priceChange,
+        changePercent: priceChangePercent
+      },
+      newsAnalysis: newsAnalysisResult,
+      technicalAnalysis,
+      indicators,
+      candidates: levels,
+      docsScanned: newsAnalysisResult.citations?.length || 0,
+      docsUsed: newsAnalysisResult.citations?.length || 0
+    });
     
     const snapshot = JSON.parse(snapshotJson);
     

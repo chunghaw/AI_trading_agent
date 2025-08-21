@@ -9,8 +9,7 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
-    "vercel-build": "npm run build",
-    "postinstall": "npm run build"
+    "vercel-build": "npm run build"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",

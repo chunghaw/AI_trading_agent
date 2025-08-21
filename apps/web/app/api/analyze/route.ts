@@ -1,30 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
 import dayjs from "dayjs";
-import OpenAI from "openai";
+// import OpenAI from "openai";
 import { z } from "zod";
-// import { ReportSchema } from "@/lib/report.schema";
-// import { getBars, barsQualityOk } from "@/lib/ohlcv";
-// import { computeIndicators } from "@/lib/indicators";
-// import { levelCandidates } from "@/lib/levels";
-// import { searchAndRerankNewsStrict } from "@/lib/news.search";
-// import { combinedAnalysisPrompt } from "@/lib/report.prompts";
-// import { buildNewsQAPrompt, buildTechnicalQAPrompt, buildFinalAnswerPrompt, buildSnapshotTemplate } from "@/lib/report.prompts";
-// import { detectSymbolFromQuestion } from "@/lib/simple-symbol-detection";
+// import { ReportSchema } from "../../../lib/report.schema";
+// import { barsQualityOk } from "../../../lib/ohlcv";
+// import { computeIndicators } from "../../../lib/indicators";
+// import { levelCandidates } from "../../../lib/levels";
+// import { searchAndRerankNewsStrict } from "../../../lib/news.search";
+// import { buildNewsQAPrompt, buildTechnicalQAPrompt, buildFinalAnswerPrompt, buildSnapshotTemplate } from "../../../lib/report.prompts";
+// import { detectSymbolFromQuestion } from "../../../lib/simple-symbol-detection";
 
 // Temporary functions
 const ReportSchema = { parse: (data: any) => data };
-const getBars = async () => [];
-const barsQualityOk = () => true;
-const computeIndicators = () => ({});
-const levelCandidates = () => [];
-const searchAndRerankNewsStrict = async () => [];
-const buildNewsQAPrompt = () => "";
-const buildTechnicalQAPrompt = () => "";
-const buildFinalAnswerPrompt = () => "";
-const buildSnapshotTemplate = () => "";
-const detectSymbolFromQuestion = (question: string) => "NVDA";
+const barsQualityOk = (bars: any) => true;
+const computeIndicators = (bars: any) => ({ rsi14: 50, macd: { macd: 0, signal: 0, histogram: 0 } });
+const levelCandidates = (bars: any) => [];
+const searchAndRerankNewsStrict = async (query: string, symbol: string) => [];
+const buildNewsQAPrompt = (query: string, news: any[]) => "";
+const buildTechnicalQAPrompt = (query: string, indicators: any) => "";
+const buildFinalAnswerPrompt = (query: string, newsQA: string, techQA: string) => "";
+const buildSnapshotTemplate = (symbol: string, bars: any, indicators: any) => "";
+const detectSymbolFromQuestion = (question: string) => {
+  const symbols = ['NVDA', 'GOOGL', 'AAPL', 'MSFT', 'TSLA', 'AMZN'];
+  const upperQuestion = question.toUpperCase();
+  for (const symbol of symbols) {
+    if (upperQuestion.includes(symbol)) return symbol;
+  }
+  return 'NVDA'; // default
+};
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
+// const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
 
 const Body = z.object({
   prompt: z.string().min(1), // Changed from query to match frontend
@@ -52,28 +57,28 @@ export async function POST(req: NextRequest) {
       console.log(`🔍 Loading real data for ${detectedSymbol} from: ${jsonPath}`);
       const jsonContent = fs.readFileSync(jsonPath, 'utf-8');
       const rows = JSON.parse(jsonContent);
-      const symbolData = rows.filter(row => row.symbol === detectedSymbol);
+      const symbolData = rows.filter((row: any) => row.symbol === detectedSymbol);
       
       if (symbolData.length > 0) {
         // Sort by date (oldest first)
-        symbolData.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        symbolData.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
         
         // Take the last 260 periods
         const recentData = symbolData.slice(-260);
         
         bars = {
-          open: recentData.map(row => parseFloat(row.open)),
-          high: recentData.map(row => parseFloat(row.high)),
-          low: recentData.map(row => parseFloat(row.low)),
-          close: recentData.map(row => parseFloat(row.close)),
-          volume: recentData.map(row => parseFloat(row.volume)),
-          date: recentData.map(row => row.date)
+          open: recentData.map((row: any) => parseFloat(row.open)),
+          high: recentData.map((row: any) => parseFloat(row.high)),
+          low: recentData.map((row: any) => parseFloat(row.low)),
+          close: recentData.map((row: any) => parseFloat(row.close)),
+          volume: recentData.map((row: any) => parseFloat(row.volume)),
+          date: recentData.map((row: any) => row.date)
         };
         
         console.log(`✅ REAL DATA: Loaded ${bars.close.length} ${detectedSymbol} bars, latest close: $${bars.close[bars.close.length - 1]}`);
       } else {
         // Check what symbols are available for better error message
-        const availableSymbols = Array.from(new Set(rows.map(row => row.symbol)));
+        const availableSymbols = Array.from(new Set(rows.map((row: any) => row.symbol)));
         console.log(`📊 Available symbols in data: ${availableSymbols.join(', ')}`);
         
         return NextResponse.json({ 

@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
     try {
       const fs = require('fs');
       const path = require('path');
-      const jsonPath = path.join(process.cwd(), "data", "sample_exploration.json");
+      const jsonPath = path.join(process.cwd(), "data", "sample_exploration_small.json");
       
       console.log(`🔍 Loading real data for ${detectedSymbol} from: ${jsonPath}`);
       const jsonContent = fs.readFileSync(jsonPath, 'utf-8');

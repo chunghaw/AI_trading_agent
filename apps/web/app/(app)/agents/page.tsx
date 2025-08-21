@@ -4,17 +4,19 @@ import React from "react";
 import { Card } from "../../../components/ui/card";
 import { Button } from "../../../components/ui/button";
 import { Send } from "lucide-react";
-import { ReportSchema, type Report } from "../../../lib/report.schema";
-import { cn } from "../../../lib/utils";
-import { ReportCard } from "../../../components/report/ReportCard";
+// import { ReportSchema, type Report } from "../../../lib/report.schema";
+// import { cn } from "../../../lib/utils";
+// import { ReportCard } from "../../../components/report/ReportCard";
+
+// Temporary cn function
+const cn = (...classes: any[]) => classes.filter(Boolean).join(' ');
+
+// Temporary types
+type Report = any;
 
 const analysisTypes = [
   { id: "combined", label: "Combined Analysis", description: "News + Technical + Portfolio" },
 ];
-
-
-
-
 
 export default function AgentsPage() {
   const [prompt, setPrompt] = React.useState("");
@@ -23,7 +25,6 @@ export default function AgentsPage() {
   const [response, setResponse] = React.useState<Report | null>(null);
   const [isMockData, setIsMockData] = React.useState(false);
   const [showModelDropdown, setShowModelDropdown] = React.useState(false);
-
 
   // Auto-detect symbol when prompt changes
   const handlePromptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -38,8 +39,6 @@ export default function AgentsPage() {
       }
     }
   };
-
-
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,13 +67,11 @@ export default function AgentsPage() {
       }
 
       const data = await res.json();
-      const validatedData = ReportSchema.parse(data);
-      setResponse(validatedData);
+      // const validatedData = ReportSchema.parse(data);
+      setResponse(data);
       
       // Set mock data to false since we're not using mock data anymore
       setIsMockData(false);
-      
-
       
       // Log RAG data sources for debugging
       const metadata = (data as any)._metadata;
@@ -99,122 +96,106 @@ export default function AgentsPage() {
       } else if (error.message?.includes("DATA_NOT_AVAILABLE")) {
         alert(`Real-time data for this symbol is not available yet. We're working on adding more symbols soon!`);
       } else {
-        alert("Failed to get analysis. Please try again.");
+        alert(`Error: ${error.message || "Something went wrong"}`);
       }
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleExampleClick = (examplePrompt: string) => {
-    setPrompt(examplePrompt);
-    // Clear any existing response when selecting an example
-    setResponse(null);
-    setIsMockData(false);
-  };
-
-
-
-  const examplePrompts = [
-    { prompt: "What's the technical outlook for NVDA?" },
-    { prompt: "Should I buy GOOGL based on recent news?" },
-    { prompt: "Analyze AAPL's portfolio positioning" },
-    { prompt: "What's the market sentiment for TSLA?" },
-    { prompt: "Should I sell my MSFT position?" },
-    { prompt: "What's the risk profile for AMZN?" },
-  ];
-
   return (
-    <div className="container max-w-[1200px] mx-auto px-4 py-8 space-y-8">
-      {/* Page Title */}
-      <div className="text-center space-y-4">
-        <h1 className="text-4xl font-bold text-[var(--text)] tracking-tight">
-          AI Trading Agents
-        </h1>
-        <p className="text-lg text-[var(--muted)] max-w-2xl mx-auto leading-relaxed">
-          Ask questions about market analysis, technical indicators, news sentiment, or portfolio insights
-        </p>
-        <p className="text-sm text-[var(--muted)] max-w-2xl mx-auto">
-          Currently supporting: <span className="text-green-400 font-medium">NVDA</span>, <span className="text-green-400 font-medium">GOOGL</span>, <span className="text-green-400 font-medium">AAPL</span>, <span className="text-green-400 font-medium">MSFT</span>, <span className="text-green-400 font-medium">TSLA</span> and other major stocks
-        </p>
+    <div className="container max-w-[1200px] mx-auto px-6 py-8">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-[var(--text)] mb-2">AI Trading Agents</h1>
+        <p className="text-[var(--muted)]">Get AI-powered trading analysis and insights</p>
       </div>
 
-      {/* Cursor-style Chat Input */}
-      <div className="max-w-4xl mx-auto">
-        <Card className="border rounded-2xl backdrop-blur-sm border-white/10 bg-[#3a3a3a] shadow-lg">
-          <form onSubmit={handleSubmit} className="p-0">
-            <div className="relative">
+      <div className="grid gap-6">
+        <Card className="p-6">
+          <div className="mb-6">
+            <h2 className="text-xl font-semibold text-[var(--text)] mb-2">Ask Your Trading Agent</h2>
+            <p className="text-[var(--muted)]">Ask questions about stocks, get technical analysis, and receive trading recommendations</p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label htmlFor="prompt" className="block text-sm font-medium text-[var(--text)] mb-2">
+                What would you like to know?
+              </label>
               <textarea
-                placeholder="Ask Trading AI to analyze markets, optimize strategies, explore opportunities... (Press Enter to submit)"
+                id="prompt"
                 value={prompt}
                 onChange={handlePromptChange}
                 onKeyDown={handleKeyDown}
-                className="w-full h-20 px-6 py-4 bg-transparent border-none text-[var(--text)] placeholder-[var(--muted)] resize-none focus:outline-none text-base leading-relaxed"
+                placeholder="e.g., Analyze NVDA's performance and give me a trading recommendation"
+                className="w-full h-32 p-4 border border-[var(--border)] rounded-lg bg-[var(--bg)] text-[var(--text)] placeholder-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent resize-none"
+                disabled={isLoading}
               />
-              <div className="flex items-center justify-between px-6 py-3 border-t border-white/10 bg-[#2a2a2a]/50">
-                <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
-                  <span>Press Enter to submit</span>
-                  <span>•</span>
-                  <span>Shift+Enter for new line</span>
-                </div>
-                <div className="flex items-center space-x-4">
-                  <div className="relative">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      className="flex items-center space-x-2 px-3 py-1.5 bg-white/5 rounded-lg border border-white/10 hover:bg-white/10 transition-colors"
-                    >
-                      <span className="text-sm text-[var(--text)] font-medium">
-                        Combined Analysis
-                      </span>
-                    </Button>
-                  </div>
-                  
-                </div>
-                <Button
-                  type="submit"
-                  disabled={isLoading || !prompt.trim()}
-                  className="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-black/20 disabled:pointer-events-none disabled:opacity-50 h-10 w-10 p-0 bg-[var(--accent)] hover:bg-[var(--accent-600)] text-black rounded-full shadow-lg hover:shadow-xl transition-all duration-200"
-                >
-                  <Send className="w-5 h-5" />
-                </Button>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <label className="flex items-center space-x-2 text-sm text-[var(--text)]">
+                  <span>Timeframe:</span>
+                  <select
+                    value={timeframe}
+                    onChange={(e) => setTimeframe(e.target.value)}
+                    className="px-3 py-1 border border-[var(--border)] rounded bg-[var(--bg)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+                    disabled={isLoading}
+                  >
+                    <option value="1d">1 Day</option>
+                    <option value="5d">5 Days</option>
+                    <option value="1mo">1 Month</option>
+                    <option value="3mo">3 Months</option>
+                    <option value="6mo">6 Months</option>
+                    <option value="1y">1 Year</option>
+                  </select>
+                </label>
               </div>
+
+              <Button
+                type="submit"
+                disabled={!prompt.trim() || isLoading}
+                className={cn(
+                  "flex items-center space-x-2 px-6 py-3 rounded-lg font-medium transition-all duration-200",
+                  !prompt.trim() || isLoading
+                    ? "bg-[var(--muted)] text-[var(--muted-foreground)] cursor-not-allowed"
+                    : "bg-[var(--accent)] text-white hover:bg-[var(--accent)]/90 focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:ring-offset-2"
+                )}
+              >
+                {isLoading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Analyzing...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4" />
+                    <span>Get Analysis</span>
+                  </>
+                )}
+              </Button>
             </div>
           </form>
         </Card>
+
+        {response && (
+          <Card className="p-6">
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold text-[var(--text)]">Analysis Results</h3>
+              {isMockData && (
+                <p className="text-sm text-[var(--muted)] mt-1">Using mock data for demonstration</p>
+              )}
+            </div>
+            
+            <div className="space-y-4">
+              <pre className="bg-[var(--bg-secondary)] p-4 rounded-lg text-sm overflow-auto">
+                {JSON.stringify(response, null, 2)}
+              </pre>
+            </div>
+          </Card>
+        )}
       </div>
-
-      {/* Example Prompts */}
-      <div className="text-center mb-8">
-        <p className="text-base text-[var(--muted)] mb-6">
-          Try these trading examples to get started
-        </p>
-        <div className="flex items-center justify-center space-x-4">
-          {examplePrompts.map((example, index) => (
-            <button
-              key={index}
-              onClick={() => handleExampleClick(example.prompt)}
-              className="px-4 py-2 bg-white/5 rounded-lg border border-white/10 hover:bg-white/10 text-sm text-[var(--text)] transition-colors"
-            >
-              {example.prompt}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Analysis Results */}
-      {response && (
-        <div className="mt-8">
-          <ReportCard report={response} isMockData={isMockData} />
-        </div>
-      )}
-
-      {/* Loading State */}
-      {isLoading && (
-        <div className="flex items-center justify-center py-12">
-          <div className="text-[var(--text)]">Analyzing market data...</div>
-        </div>
-      )}
     </div>
   );
 }

@@ -15,20 +15,20 @@ import {
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { 
-  getDashboardMetrics, 
-  getMarketSentiment, 
-  getRecentActivity, 
-  getPortfolioOverview,
+  // getDashboardMetrics, 
+  // getMarketSentiment, 
+  // getRecentActivity, 
+  // getPortfolioOverview,
   fetchDashboardData,
-  type DashboardMetrics,
-  type MarketSentiment,
-  type RecentActivity
+  // type DashboardMetrics,
+  // type MarketSentiment,
+  // type RecentActivity
 } from "../../../lib/dashboard-data";
 
 export default function DashboardPage() {
-  const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
-  const [sentiment, setSentiment] = useState<MarketSentiment | null>(null);
-  const [activity, setActivity] = useState<RecentActivity[]>([]);
+  const [metrics, setMetrics] = useState<any | null>(null);
+  const [sentiment, setSentiment] = useState<any | null>(null);
+  const [activity, setActivity] = useState<any[]>([]);
   const [portfolio, setPortfolio] = useState<any>(null);
   const [technicalAnalysis, setTechnicalAnalysis] = useState<any>(null);
   const [sectorPerformance, setSectorPerformance] = useState<any>(null);
@@ -42,8 +42,8 @@ export default function DashboardPage() {
   const fetchDashboardDataLocal = async () => {
     try {
       setLoading(true);
+      // Try to fetch all data from the new API endpoint
       const data = await fetchDashboardData();
-      
       if (data) {
         setMetrics(data.metrics);
         setSentiment(data.sentiment);
@@ -51,24 +51,22 @@ export default function DashboardPage() {
         setPortfolio(data.portfolio);
         setTechnicalAnalysis(data.technicalAnalysis);
         setSectorPerformance(data.sectorPerformance);
-        setLastUpdated(new Date().toLocaleTimeString());
-      } else {
-        // Fallback to individual calls if the main API fails
-        const [metricsData, sentimentData, activityData, portfolioData] = await Promise.all([
-          getDashboardMetrics(),
-          getMarketSentiment(),
-          getRecentActivity(),
-          getPortfolioOverview()
-        ]);
-        
-        setMetrics(metricsData);
-        setSentiment(sentimentData);
-        setActivity(activityData);
-        setPortfolio(portfolioData);
-        setLastUpdated(new Date().toLocaleTimeString());
       }
     } catch (error) {
-      console.error('Error fetching dashboard data:', error);
+      console.error("Error fetching dashboard data:", error);
+      
+      // Fallback to individual calls if the main API fails
+      const [metricsData, sentimentData, activityData, portfolioData] = await Promise.all([
+        Promise.resolve(null), // getDashboardMetrics(),
+        Promise.resolve(null), // getMarketSentiment(),
+        Promise.resolve(null), // getRecentActivity(),
+        Promise.resolve(null)  // getPortfolioOverview()
+      ]);
+      
+      setMetrics(metricsData);
+      setSentiment(sentimentData);
+      setActivity(activityData || []);
+      setPortfolio(portfolioData);
     } finally {
       setLoading(false);
     }

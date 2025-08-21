@@ -7,7 +7,6 @@ import { Input } from "../../../components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui/tabs";
 import { Badge } from "../../../components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select";
-import { Separator } from "../../../components/ui/separator";
 import { 
   CheckCircle,
   XCircle,
@@ -17,7 +16,10 @@ import {
   Zap,
   Bot
 } from "lucide-react";
-import { cn } from "../../../lib/utils";
+// import { cn } from "../../../lib/utils";
+
+// Temporary cn function
+const cn = (...classes: any[]) => classes.filter(Boolean).join(' ');
 
 interface StatusItem {
   id: string;

@@ -1,0 +1,4 @@
+# Ignore everything except the web app
+*
+!apps/web/
+!apps/web/**

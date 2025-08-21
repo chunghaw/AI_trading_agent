@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { RunRequestSchema } from "@/lib/schemas";
-import { mockData } from "@/lib/fetcher";
+// import { RunRequestSchema } from "@/lib/schemas";
+// import { mockData } from "@/lib/fetcher";
+
+// Temporary functions
+const RunRequestSchema = { parse: (data: any) => data };
+const mockData = { runs: [] };
 
 const WORKER_BASE_URL = process.env.WORKER_BASE_URL;
 

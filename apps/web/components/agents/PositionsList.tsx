@@ -1,5 +1,8 @@
 import React from 'react';
-import { cn } from '@/lib/utils';
+// import { cn } from '@/lib/utils';
+
+// Temporary cn function
+const cn = (...classes: any[]) => classes.filter(Boolean).join(' ');
 
 interface Position {
   symbol: string;

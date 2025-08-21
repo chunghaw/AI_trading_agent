@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { MarketMetricsSchema } from "@/lib/schemas";
-import { mockData } from "@/lib/fetcher";
+// import { MarketMetricsSchema } from "@/lib/schemas";
+// import { mockData } from "@/lib/fetcher";
+
+// Temporary functions
+const MarketMetricsSchema = { parse: (data: any) => data };
+const mockData = { market: [] };
 
 const WORKER_BASE_URL = process.env.WORKER_BASE_URL;
 

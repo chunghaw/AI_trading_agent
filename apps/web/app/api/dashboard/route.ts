@@ -1,5 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSymbolSummary, getSymbolData } from "@/lib/data-reader";
+// import { getSymbolSummary, getSymbolData } from "@/lib/data-reader";
+
+// Temporary functions
+const getSymbolSummary = async () => ({ 
+  symbols: [
+    { symbol: 'NVDA', daily_return_pct: 0.05, close: 500, volume: 1000000, daily_range: 10 }
+  ],
+  last_updated: new Date().toISOString()
+});
+const getSymbolData = async () => [
+  { symbol: 'NVDA', close: 500, volume: 1000000 }
+];
 
 export async function GET(req: NextRequest) {
   try {

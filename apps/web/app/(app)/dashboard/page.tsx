@@ -14,19 +14,30 @@ import {
   Minus
 } from "lucide-react";
 // import { cn } from "../../../lib/utils";
-import { 
-  // getDashboardMetrics, 
-  // getMarketSentiment, 
-  // getRecentActivity, 
-  // getPortfolioOverview,
-  fetchDashboardData,
-  // type DashboardMetrics,
-  // type MarketSentiment,
-  // type RecentActivity
-} from "../../../lib/dashboard-data";
+// import { 
+//   // getDashboardMetrics, 
+//   // getMarketSentiment, 
+//   // getRecentActivity, 
+//   // getPortfolioOverview,
+//   fetchDashboardData,
+//   // type DashboardMetrics,
+//   // type MarketSentiment,
+//   // type RecentActivity
+// } from "../../../lib/dashboard-data";
 
 // Temporary cn function
 const cn = (...classes: any[]) => classes.filter(Boolean).join(' ');
+
+// Temporary fetchDashboardData function
+const fetchDashboardData = async () => {
+  try {
+    const response = await fetch('/api/dashboard');
+    return response.json();
+  } catch (error) {
+    console.error('Error fetching dashboard data:', error);
+    return null;
+  }
+};
 
 export default function DashboardPage() {
   const [metrics, setMetrics] = useState<any | null>(null);

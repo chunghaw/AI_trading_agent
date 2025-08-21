@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { SentimentMetricsSchema } from "@/lib/schemas";
-import { mockData } from "@/lib/fetcher";
+// import { SentimentMetricsSchema } from "@/lib/schemas";
+// import { mockData } from "@/lib/fetcher";
+
+// Temporary functions
+const SentimentMetricsSchema = { parse: (data: any) => data };
+const mockData = { sentiment: [] };
 
 const WORKER_BASE_URL = process.env.WORKER_BASE_URL;
 

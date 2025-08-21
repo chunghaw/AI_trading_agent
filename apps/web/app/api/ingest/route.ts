@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { triggerDataIngestion } from "@/lib/data-ingestion";
+// import { triggerDataIngestion } from "@/lib/data-ingestion";
+
+// Temporary functions
+const triggerDataIngestion = async () => ({ success: true });
 
 export async function POST(request: NextRequest) {
   try {

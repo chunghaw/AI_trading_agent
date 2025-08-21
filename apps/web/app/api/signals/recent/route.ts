@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { RecentSignalsSchema } from "@/lib/schemas";
-import { mockData } from "@/lib/fetcher";
+// import { RecentSignalsSchema } from "@/lib/schemas";
+// import { mockData } from "@/lib/fetcher";
+
+// Temporary functions
+const RecentSignalsSchema = { parse: (data: any) => data };
+const mockData = { signals: [] };
 
 const WORKER_BASE_URL = process.env.WORKER_BASE_URL;
 

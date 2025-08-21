@@ -7,8 +7,13 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Play, Clock, Hash } from "lucide-react";
-import { cn, formatTime } from "@/lib/utils";
-import { RunState } from "@/lib/schemas";
+// import { cn, formatTime } from "@/lib/utils";
+// import { RunState } from "@/lib/schemas";
+
+// Temporary functions
+const cn = (...classes: any[]) => classes.filter(Boolean).join(' ');
+const formatTime = (date: string) => new Date(date).toLocaleTimeString();
+type RunState = 'idle' | 'running' | 'completed' | 'failed' | 'paused';
 
 interface RunHeaderProps {
   runState?: RunState;

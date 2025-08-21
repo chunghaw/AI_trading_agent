@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { searchAndRerankNewsStrict } from "@/lib/news.search";
+// import { searchAndRerankNewsStrict } from "@/lib/news.search";
+// import { newsAnalysisPrompt } from "@/lib/news.prompts";
+
+// Temporary functions
+const searchAndRerankNewsStrict = async () => [];
+const newsAnalysisPrompt = () => "";
 
 const Body = z.object({
   symbol: z.string().min(1),

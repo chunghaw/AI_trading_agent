@@ -1,13 +1,37 @@
 "use client";
 
-import React from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronRight, ExternalLink } from "lucide-react";
-import { cn, getActionColor, formatPercentage } from "@/lib/utils";
-import { Opinion } from "@/lib/schemas";
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { Button } from '../ui/button';
+import { Badge } from '../ui/badge';
+import { Progress } from '../ui/progress';
+import { 
+  TrendingUp, 
+  TrendingDown, 
+  Minus, 
+  Activity, 
+  Target, 
+  Zap,
+  AlertTriangle,
+  CheckCircle,
+  XCircle,
+  Clock
+} from 'lucide-react';
+// import { cn, getActionColor, formatPercentage } from "@/lib/utils";
+// import { Opinion } from "@/lib/schemas";
+
+// Temporary functions
+const cn = (...classes: any[]) => classes.filter(Boolean).join(' ');
+const getActionColor = (action: string) => {
+  switch (action.toLowerCase()) {
+    case 'buy': return 'text-emerald-400';
+    case 'sell': return 'text-red-400';
+    case 'hold': return 'text-yellow-400';
+    default: return 'text-gray-400';
+  }
+};
+const formatPercentage = (value: number) => `${(value * 100).toFixed(1)}%`;
+type Opinion = any;
 
 interface AgentPanelProps {
   title: string;

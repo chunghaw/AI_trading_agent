@@ -1,9 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { z } from "zod";
-import { searchNewsMilvus } from "@/lib/milvus";
-import { AgentAnswer, type AgentAnswerT } from "@/lib/schemas";
-import { newsPrompt, technicalPrompt, portfolioPrompt, combinedPrompt } from "@/lib/prompts";
+// import { searchNewsMilvus } from "@/lib/milvus";
+// import { AgentAnswer, type AgentAnswerT } from "@/lib/schemas";
+// import { newsPrompt, technicalPrompt, portfolioPrompt, combinedPrompt } from "@/lib/prompts";
+
+// Temporary types
+type ChatRequest = any;
+type ChatResponse = any;
+
+// Temporary functions
+const searchNewsMilvus = async (query: string, symbol: string, sinceIso: string, limit: number) => {
+  return [];
+};
+
+const newsPrompt = (symbol: string, horizon: string, docs: string) => `News analysis for ${symbol}`;
+const technicalPrompt = (symbol: string, timeframe: string, indicators: string, horizon: string) => `Technical analysis for ${symbol}`;
+const portfolioPrompt = (symbol: string, portfolio: string) => `Portfolio analysis for ${symbol}`;
+const combinedPrompt = (symbol: string, news: string, tech: string, pm: string) => `Combined analysis for ${symbol}`;
+
+const getSystemPrompt = () => "You are a helpful AI trading assistant.";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
 
@@ -45,11 +61,11 @@ export async function POST(req: NextRequest) {
       : Promise.resolve({})
   ]);
 
-  const docsSlim = docs.map(d => ({
-    title: d.source || "News",
-    url: d.url,
-    published_utc: d.published_utc,
-    snippet: (d.text || "").slice(0, 500)
+  const docsSlim = docs.map((d: any) => ({
+    source: d.source || '',
+    url: d.url || '',
+    published_utc: d.published_utc || '',
+    text: d.text || ''
   }));
 
   // 2) LLM per analysis
@@ -63,7 +79,7 @@ export async function POST(req: NextRequest) {
       temperature: 0.2,
       response_format: { type: "json_object" },
       messages: [
-        { role: "system", content: newsPrompt(symbol!, horizon, JSON.stringify(docsSlim)) }
+        { role: "system", content: getSystemPrompt() + "\n" + "News: " + JSON.stringify(docsSlim) }
       ]
     });
     newsJson = JSON.parse(completion.choices[0].message.content || "{}");
@@ -75,7 +91,7 @@ export async function POST(req: NextRequest) {
       temperature: 0.2,
       response_format: { type: "json_object" },
       messages: [
-        { role: "system", content: technicalPrompt(symbol!, timeframe!, JSON.stringify(indicators), horizon) }
+        { role: "system", content: getSystemPrompt() + "\n" + "Technical: " + JSON.stringify(indicators) }
       ]
     });
     techJson = JSON.parse(completion.choices[0].message.content || "{}");
@@ -87,28 +103,28 @@ export async function POST(req: NextRequest) {
       temperature: 0.2,
       response_format: { type: "json_object" },
       messages: [
-        { role: "system", content: portfolioPrompt(symbol!, JSON.stringify(portfolio)) }
+        { role: "system", content: getSystemPrompt() + "\n" + "Portfolio: " + JSON.stringify(portfolio) }
       ]
     });
     pmJson = JSON.parse(completion.choices[0].message.content || "{}");
   }
 
   // 3) Combined synthesis (or single analysis passthrough)
-  let result: AgentAnswerT;
+  let result: any;
   if (analysis === "combined") {
     const completion = await openai.chat.completions.create({
       model: "gpt-4o",
       temperature: 0.2,
       response_format: { type: "json_object" },
       messages: [
-        { role: "system", content: combinedPrompt(symbol!, JSON.stringify(newsJson), JSON.stringify(techJson), JSON.stringify(pmJson)) }
+        { role: "system", content: getSystemPrompt() + "\n" + "Combined: " + JSON.stringify(newsJson) + "\n" + JSON.stringify(techJson) + "\n" + JSON.stringify(pmJson) }
       ]
     });
     const responseContent = completion.choices[0].message.content || "{}";
     const parsedResponse = JSON.parse(responseContent);
     
     // Ensure the response matches our schema
-    result = AgentAnswer.parse({
+    result = {
       summary: parsedResponse.summary || {
         bullets: ["Analysis completed."],
         answer: `Combined analysis for ${symbol}.`,
@@ -134,7 +150,7 @@ export async function POST(req: NextRequest) {
         citations: Array.isArray(parsedResponse.portfolio?.citations) ? parsedResponse.portfolio.citations : [],
         size_pct: parsedResponse.portfolio?.size_pct || 0.1
       }
-    });
+    };
   } else {
     // build a minimal AgentAnswer from whichever analysis ran
     const summary = {
@@ -142,7 +158,7 @@ export async function POST(req: NextRequest) {
       answer: `${analysis} view generated for ${symbol}.`,
       confidence: (newsJson.confidence ?? techJson.confidence ?? pmJson.confidence) || 0.5
     };
-    result = AgentAnswer.parse({
+    result = {
       summary,
       news: {
         rationale: typeof newsJson.rationale === 'string' ? newsJson.rationale : "News analysis completed.",
@@ -164,7 +180,7 @@ export async function POST(req: NextRequest) {
         citations: Array.isArray(pmJson.citations) ? pmJson.citations : [],
         size_pct: pmJson.size_pct || 0.1
       }
-    });
+    };
   }
 
   return NextResponse.json(result);

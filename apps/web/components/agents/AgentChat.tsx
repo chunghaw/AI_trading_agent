@@ -1,25 +1,49 @@
 "use client";
 
-import React from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import React, { useState, useRef, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { Button } from '../ui/button';
+import { Input } from '../ui/input';
+import { Badge } from '../ui/badge';
+import { Separator } from '../ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { 
   Send, 
-  ExternalLink, 
-  ChevronDown, 
-  ChevronRight,
-  BarChart3,
+  Bot, 
+  User, 
+  Clock, 
+  TrendingUp, 
+  TrendingDown, 
+  Minus,
+  AlertTriangle,
+  CheckCircle,
+  XCircle,
+  Loader2,
+  Copy,
+  Check,
+  ExternalLink,
+  Database,
   FileText,
-  TrendingUp,
-  MessageSquare
-} from "lucide-react";
-import { cn, formatPercentage } from "@/lib/utils";
-import { AgentAnswer, ChatRequest } from "@/lib/schemas";
-import { fetcher } from "@/lib/fetcher";
+  BarChart3,
+  Activity,
+  Target,
+  Zap,
+  Shield,
+  Eye,
+  EyeOff
+} from 'lucide-react';
+// import { cn, formatPercentage } from "@/lib/utils";
+// import { AgentAnswer, ChatRequest } from "@/lib/schemas";
+// import { fetcher } from "@/lib/fetcher";
 import useSWR from "swr";
+
+// Temporary functions
+const cn = (...classes: any[]) => classes.filter(Boolean).join(' ');
+const formatPercentage = (value: number) => `${(value * 100).toFixed(1)}%`;
+type AgentAnswer = any;
+type ChatRequest = any;
+const fetcher = async (url: string) => fetch(url).then(res => res.json());
 
 export default function AgentChat() {
   const [message, setMessage] = React.useState("");

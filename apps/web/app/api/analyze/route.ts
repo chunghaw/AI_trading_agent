@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
         }
       ];
       
-      console.log(`🔍 Loading embedded data for ${detectedSymbol}`);
+      console.log(`🔍 Loading embedded data for ${detectedSymbol} - Vercel deployment fix`);
       const symbolData = sampleData.filter((row: any) => row.symbol === detectedSymbol);
       
       if (symbolData.length > 0) {

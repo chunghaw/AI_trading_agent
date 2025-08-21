@@ -40,8 +40,31 @@ Please respond with a JSON object containing:
 - trend: Overall trend direction
 
 JSON response:`;
-const buildFinalAnswerPrompt = (query: string, newsQA: string, techQA: string) => "";
-const buildSnapshotTemplate = (symbol: string, bars: any, indicators: any) => "";
+const buildFinalAnswerPrompt = (query: string, newsQA: string, techQA: string) => `Please synthesize the following analysis and provide a JSON response.
+
+User Question: ${query}
+
+News Analysis: ${newsQA}
+
+Technical Analysis: ${techQA}
+
+Please respond with a JSON object containing:
+- answer: A comprehensive analysis combining both news and technical insights
+- confidence: A confidence score between 0 and 1
+- key_insights: Array of key insights from the analysis
+
+JSON response:`;
+const buildSnapshotTemplate = (symbol: string, bars: any, indicators: any) => JSON.stringify({
+  symbol,
+  timestamp: new Date().toISOString(),
+  price: {
+    current: bars.close[bars.close.length - 1],
+    change: bars.close[bars.close.length - 1] - bars.close[bars.close.length - 2],
+    changePercent: ((bars.close[bars.close.length - 1] - bars.close[bars.close.length - 2]) / bars.close[bars.close.length - 2]) * 100
+  },
+  indicators,
+  analysis: "Technical analysis based on current indicators"
+});
 const detectSymbolFromQuestion = (question: string) => {
   const symbols = ['NVDA', 'GOOGL', 'AAPL', 'MSFT', 'TSLA', 'AMZN'];
   const upperQuestion = question.toUpperCase();

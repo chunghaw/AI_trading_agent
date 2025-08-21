@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Force new deployment - Vercel monorepo fix
   typescript: {
     ignoreBuildErrors: true, // Temporarily ignore for deployment
   },

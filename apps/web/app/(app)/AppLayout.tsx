@@ -60,7 +60,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <div className="container max-w-[1200px] mx-auto px-6 h-full flex items-center justify-between">
           <div className="flex items-center space-x-12">
             {/* <Logo size={36} /> */}
-            <div className="text-2xl font-bold text-white">AI Trading</div>
+            <div className="flex items-center gap-1 select-none">
+              <span className="text-[20px] font-semibold tracking-tight text-zinc-100">Trading</span>
+              <span className="text-[20px] font-semibold tracking-tight" style={{ color: "var(--accent, #22C55E)" }}>
+                AI
+              </span>
+            </div>
             <nav className="flex items-center space-x-3">
               {navigation.map((item) => {
                 const isActive = pathname === item.href;

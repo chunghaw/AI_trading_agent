@@ -1,3 +1,5 @@
+import path from 'path';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Force new deployment - Vercel monorepo fix
@@ -34,7 +36,7 @@ const nextConfig = {
       ...config.resolve,
       alias: {
         ...config.resolve.alias,
-        '@': require('path').resolve(__dirname, './'),
+        '@': path.resolve(__dirname, './'),
       },
     };
     

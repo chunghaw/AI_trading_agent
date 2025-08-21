@@ -248,12 +248,7 @@ export async function POST(req: NextRequest) {
       text: article.text || article.title
     }));
     
-    const newsPrompt = buildNewsQAPrompt({
-      symbol: detectedSymbol,
-      query: prompt,
-      since_days,
-      docsJson: JSON.stringify(newsDocs)
-    }) + "\n\nIMPORTANT: You must respond with a valid JSON object. Please provide your analysis in JSON format only.";
+    const newsPrompt = buildNewsQAPrompt(prompt, newsDocs) + "\n\nIMPORTANT: You must respond with a valid JSON object. Please provide your analysis in JSON format only.";
     
     // Debug: Log the news prompt to see what's being sent
     console.log("🔍 News prompt length:", newsPrompt.length);
@@ -356,12 +351,7 @@ export async function POST(req: NextRequest) {
       
       // Stage A2: Technical QA (Indicators-only)
       console.log(`📊 Stage A2: Calling Technical QA for ${detectedSymbol}`);
-            const technicalPrompt = buildTechnicalQAPrompt({
-        symbol: detectedSymbol,
-        query: prompt,
-        indicatorsJson: JSON.stringify(indicators),
-        candidatesJson: JSON.stringify(levels)
-    });
+            const technicalPrompt = buildTechnicalQAPrompt(prompt, indicators) + "\n\nIMPORTANT: You must respond with a valid JSON object. Please provide your analysis in JSON format only.";
     
     const technicalCompletion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -402,19 +392,7 @@ export async function POST(req: NextRequest) {
     
     // Stage C: Final Synthesis - Answer user's specific question
     console.log(`🎯 Stage C: Generating final answer for user's question`);
-    const finalAnswerPrompt = buildFinalAnswerPrompt({
-      symbol: detectedSymbol,
-      userQuestion: prompt,
-      newsAnalysis: newsAnalysisResult,
-      technicalAnalysis,
-      price: {
-        current: currentPrice,
-        change: priceChange,
-        changePercent: priceChangePercent
-      },
-      indicators,
-      levels
-    });
+    const finalAnswerPrompt = buildFinalAnswerPrompt(prompt, JSON.stringify(newsAnalysisResult), JSON.stringify(technicalAnalysis)) + "\n\nIMPORTANT: You must respond with a valid JSON object. Please provide your analysis in JSON format only.";
     
     const finalCompletion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -443,22 +421,7 @@ export async function POST(req: NextRequest) {
     
     // Stage D: Build Snapshot Template
     console.log(`📋 Stage D: Building snapshot template for ${detectedSymbol}`);
-    const snapshotJson = buildSnapshotTemplate({
-      symbol: detectedSymbol,
-      timeframe,
-      since_days,
-      price: {
-        current: currentPrice,
-        change: priceChange,
-        changePercent: priceChangePercent
-      },
-      newsAnalysis: newsAnalysisResult,
-      technicalAnalysis,
-      indicators,
-      candidates: levels,
-      docsScanned: newsAnalysisResult.citations?.length || 0,
-      docsUsed: newsAnalysisResult.citations?.length || 0
-    });
+    const snapshotJson = buildSnapshotTemplate(detectedSymbol, bars, indicators);
     
     const snapshot = JSON.parse(snapshotJson);
     

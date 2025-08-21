@@ -1,11 +1,11 @@
 "use client";
 
-import { cn } from "@/lib/utils";
+import { cn } from "../../../lib/utils";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Button } from "@/components/ui/button";
+import { Button } from "../../../components/ui/button";
 import { Command, Settings } from "lucide-react";
-import Logo from "@/components/brand/Logo";
+import Logo from "../../../components/brand/Logo";
 
 const navigation = [
   {

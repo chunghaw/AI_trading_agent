@@ -6,12 +6,12 @@ const __dirname = path.dirname(__filename);
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Force new deployment - Vercel monorepo fix
+  // Temporarily disable TypeScript for deployment
   typescript: {
-    ignoreBuildErrors: true, // Temporarily ignore for deployment
+    ignoreBuildErrors: true,
   },
   eslint: {
-    ignoreDuringBuilds: true, // Temporarily ignore for deployment
+    ignoreDuringBuilds: true,
   },
   // Production optimizations
   compress: true,

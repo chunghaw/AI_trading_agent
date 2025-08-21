@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { cn } from '@/lib/utils';
+import { cn } from '../../lib/utils';
 import { Copy, Check, Printer, Database, AlertTriangle, ExternalLink, Link as LinkIcon, TrendingUp, TrendingDown } from 'lucide-react';
 import { ActionBadge } from './ActionBadge';
 import { ConfidenceBar } from './ConfidenceBar';
@@ -7,7 +7,7 @@ import { IndicatorsRow } from './IndicatorsRow';
 import { LevelsBlock } from './LevelsBlock';
 import { CitationsChips } from './CitationsChips';
 import AnalystResponses from './AnalystResponses';
-import type { Report } from '@/lib/report.schema';
+import type { Report } from '../../lib/report.schema';
 
 interface ReportCardProps {
   report: Report;

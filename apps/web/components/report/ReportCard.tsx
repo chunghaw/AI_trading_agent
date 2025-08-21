@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { cn } from '../../lib/utils';
+// import { cn } from '../../lib/utils';
 import { Copy, Check, Printer, Database, AlertTriangle, ExternalLink, Link as LinkIcon, TrendingUp, TrendingDown } from 'lucide-react';
 import { ActionBadge } from './ActionBadge';
 import { ConfidenceBar } from './ConfidenceBar';
@@ -7,7 +7,7 @@ import { IndicatorsRow } from './IndicatorsRow';
 import { LevelsBlock } from './LevelsBlock';
 import { CitationsChips } from './CitationsChips';
 import AnalystResponses from './AnalystResponses';
-import type { Report } from '../../lib/report.schema';
+// import type { Report } from '../../lib/report.schema';
 
 interface ReportCardProps {
   report: Report;
@@ -30,6 +30,12 @@ function host(url?: string) {
   try { return url ? new URL(url).hostname.replace(/^www\./, '') : ''; }
   catch { return ''; }
 }
+
+// Temporary cn function
+const cn = (...classes: any[]) => classes.filter(Boolean).join(' ');
+
+// Temporary type
+type Report = any;
 
 export function ReportCard({ report, className, isMockData = false, dataSource = 'none' }: ReportCardProps) {
   const [copiedJson, setCopiedJson] = useState(false);

@@ -1,5 +1,8 @@
-import * as React from "react";
-import { cn } from "../../lib/utils";
+import * as React from "react"
+// import { cn } from "../../lib/utils"
+
+// Temporary cn function
+const cn = (...classes: any[]) => classes.filter(Boolean).join(' ');
 
 export interface InputProps
   extends React.InputHTMLAttributes<HTMLInputElement> {}

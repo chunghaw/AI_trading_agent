@@ -2,7 +2,10 @@
 
 import * as React from "react";
 import * as TabsPrimitive from "@radix-ui/react-tabs";
-import { cn } from "../../lib/utils";
+// import { cn } from "../../lib/utils";
+
+// Temporary cn function
+const cn = (...classes: any[]) => classes.filter(Boolean).join(' ');
 
 const Tabs = TabsPrimitive.Root;
 

@@ -47,17 +47,78 @@ export async function POST(req: NextRequest) {
     
     const sinceIso = dayjs().subtract(since_days, "day").toISOString();
 
-    // Step 1: Load OHLCV data directly from JSON
+    // Step 1: Load OHLCV data from embedded sample data
     let bars: any = null;
     try {
-      const fs = require('fs');
-      const path = require('path');
-      const jsonPath = path.join(process.cwd(), "data", "sample_exploration_small.json");
+      // Embedded sample data for Vercel deployment
+      const sampleData = [
+        {
+          "symbol": "NVDA",
+          "date": "2024-08-20",
+          "open": "125.50",
+          "high": "127.80",
+          "low": "124.90",
+          "close": "126.75",
+          "volume": "45000000"
+        },
+        {
+          "symbol": "NVDA",
+          "date": "2024-08-19",
+          "open": "124.20",
+          "high": "126.10",
+          "low": "123.50",
+          "close": "125.50",
+          "volume": "42000000"
+        },
+        {
+          "symbol": "NVDA",
+          "date": "2024-08-18",
+          "open": "123.00",
+          "high": "125.30",
+          "low": "122.80",
+          "close": "124.20",
+          "volume": "41000000"
+        },
+        {
+          "symbol": "AAPL",
+          "date": "2024-08-20",
+          "open": "225.77",
+          "high": "227.17",
+          "low": "225.45",
+          "close": "226.51",
+          "volume": "30299033"
+        },
+        {
+          "symbol": "AAPL",
+          "date": "2024-08-19",
+          "open": "224.50",
+          "high": "226.80",
+          "low": "223.90",
+          "close": "225.77",
+          "volume": "29500000"
+        },
+        {
+          "symbol": "MSFT",
+          "date": "2024-08-20",
+          "open": "415.20",
+          "high": "418.50",
+          "low": "414.80",
+          "close": "417.30",
+          "volume": "25000000"
+        },
+        {
+          "symbol": "MSFT",
+          "date": "2024-08-19",
+          "open": "413.90",
+          "high": "416.20",
+          "low": "412.50",
+          "close": "415.20",
+          "volume": "24500000"
+        }
+      ];
       
-      console.log(`🔍 Loading real data for ${detectedSymbol} from: ${jsonPath}`);
-      const jsonContent = fs.readFileSync(jsonPath, 'utf-8');
-      const rows = JSON.parse(jsonContent);
-      const symbolData = rows.filter((row: any) => row.symbol === detectedSymbol);
+      console.log(`🔍 Loading embedded data for ${detectedSymbol}`);
+      const symbolData = sampleData.filter((row: any) => row.symbol === detectedSymbol);
       
       if (symbolData.length > 0) {
         // Sort by date (oldest first)
@@ -78,7 +139,7 @@ export async function POST(req: NextRequest) {
         console.log(`✅ REAL DATA: Loaded ${bars.close.length} ${detectedSymbol} bars, latest close: $${bars.close[bars.close.length - 1]}`);
       } else {
         // Check what symbols are available for better error message
-        const availableSymbols = Array.from(new Set(rows.map((row: any) => row.symbol)));
+        const availableSymbols = Array.from(new Set(sampleData.map((row: any) => row.symbol)));
         console.log(`📊 Available symbols in data: ${availableSymbols.join(', ')}`);
         
         return NextResponse.json({ 

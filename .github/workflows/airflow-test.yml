@@ -1,0 +1,116 @@
+name: Airflow DAG Testing
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'apps/worker/dags/**'
+      - 'apps/worker/test_airflow_dag.py'
+      - '.github/workflows/airflow-test.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'apps/worker/dags/**'
+      - 'apps/worker/test_airflow_dag.py'
+      - '.github/workflows/airflow-test.yml'
+
+jobs:
+  test-airflow-dag:
+    runs-on: ubuntu-latest
+    
+    services:
+      # Mock services for testing
+      mock-milvus:
+        image: nginx:alpine
+        ports:
+          - 19530:80
+      
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('apps/worker/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+          
+    - name: Install dependencies
+      run: |
+        cd apps/worker
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest pytest-mock
+        
+    - name: Set up environment variables
+      run: |
+        cd apps/worker
+        echo "POLYGON_API_KEY=test_key" >> .env.test
+        echo "OPENAI_API_KEY=test_openai_key" >> .env.test
+        echo "MILVUS_HOST=localhost" >> .env.test
+        echo "MILVUS_PORT=19530" >> .env.test
+        echo "MILVUS_SSL=false" >> .env.test
+        echo "MILVUS_COLLECTION_NEWS=test_news_chunks" >> .env.test
+        echo "NEWS_TICKERS=NVDA,AMD" >> .env.test
+        echo "NEWS_TTL_DAYS=120" >> .env.test
+        
+    - name: Run unit tests
+      run: |
+        cd apps/worker
+        source .env.test
+        python test_airflow_dag.py
+        
+    - name: Run pytest
+      run: |
+        cd apps/worker
+        source .env.test
+        pytest test_airflow_dag.py -v
+        
+    - name: Validate DAG syntax
+      run: |
+        cd apps/worker
+        python -c "
+        import sys
+        sys.path.append('dags')
+        try:
+            import polygon_news_to_milvus
+            print('✅ DAG syntax is valid')
+        except Exception as e:
+            print(f'❌ DAG syntax error: {e}')
+            sys.exit(1)
+        "
+        
+    - name: Check for linting issues
+      run: |
+        cd apps/worker
+        pip install flake8 black
+        flake8 dags/ --max-line-length=120 --ignore=E501,W503
+        black --check dags/ --line-length=120
+
+  deploy-airflow:
+    needs: test-airflow-dag
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Deploy to Airflow (placeholder)
+      run: |
+        echo "🚀 Deploying to Airflow..."
+        echo "This would typically copy DAGs to Airflow DAGs folder"
+        echo "or deploy to a cloud Airflow service"
+        
+    - name: Notify deployment
+      run: |
+        echo "✅ Airflow DAG deployed successfully!"
+        echo "DAG: polygon_news_to_milvus"
+        echo "Schedule: Every 30 minutes"

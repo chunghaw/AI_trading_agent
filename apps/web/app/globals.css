@@ -1,0 +1,100 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg: #1a1a1a;
+    --panel: #2a2a2a;
+    --panel2: #333333;
+    --border: #404040;
+    --text: #ffffff;
+    --muted: #888888;
+    --accent: #22c55e;
+    --accent-600: #16a34a;
+    --danger: #ef4444;
+    --radius: 16px;
+  }
+
+  html,
+  body {
+    background: var(--bg);
+    color: var(--text);
+  }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+
+  .panel2 {
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+
+  .clamp-2 {
+    -webkit-line-clamp: 2;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .clamp-3 {
+    -webkit-line-clamp: 3;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--panel);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--muted);
+  }
+}
+
+/* Print styles */
+@media print {
+  /* Hide navigation and UI elements */
+  header,
+  nav,
+  .sticky,
+  button,
+  .no-print {
+    display: none !important;
+  }
+  
+  /* Ensure content is visible */
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  
+  /* Remove shadows and borders for clean print */
+  * {
+    box-shadow: none !important;
+    border: 1px solid #ddd !important;
+  }
+  
+  /* Ensure panels are visible */
+  .panel {
+    background: white !important;
+    border: 1px solid #ddd !important;
+    color: black !important;
+  }
+}

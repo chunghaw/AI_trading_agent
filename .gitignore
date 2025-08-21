@@ -1,0 +1,200 @@
+# Build outputs
+**/.next/
+**/dist/
+**/build/
+**/.nuxt/
+**/.output/
+**/.gatsby/
+**/.svelte-kit/
+**/.astro/
+**/.parcel-cache/
+**/.cache/
+**/.esbuild/
+**/.rollup.cache/
+**/.swc/
+**/.tsbuildinfo
+**/*.tsbuildinfo
+
+# Virtual environments
+**/.venv/
+**/venv/
+**/env/
+**/.env/
+**/ENV/
+**/env.bak/
+**/venv.bak/
+
+# Python
+**/__pycache__/
+**/*.py[cod]
+**/*$py.class
+**/*.so
+**/.Python
+**/build/
+**/develop-eggs/
+**/dist/
+**/downloads/
+**/eggs/
+**/.eggs/
+**/lib/
+**/lib64/
+**/parts/
+**/sdist/
+**/var/
+**/wheels/
+**/*.egg-info/
+**/.installed.cfg
+**/*.egg
+**/MANIFEST
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/.coverage
+**/.coverage.*
+**/htmlcov/
+**/.tox/
+**/.nox/
+**/.hypothesis/
+
+# Node.js
+**/node_modules/
+**/npm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+**/lerna-debug.log*
+**/.pnpm-debug.log*
+**/.npm
+**/.eslintcache
+**/.stylelintcache
+**/.parcel-cache
+**/.next
+**/.nuxt
+**/.vuepress/dist
+**/.serverless/
+**/.fusebox/
+**/.dynamodb/
+**/.tern-port
+**/.vscode-test
+
+# IDEs
+**/.vscode/
+**/.idea/
+**/*.swp
+**/*.swo
+**/*~
+**/.vs/
+**/.vscode/
+**/.idea/
+**/*.sublime-project
+**/*.sublime-workspace
+
+# OS
+**/.DS_Store
+**/.DS_Store?
+**/_*
+**/.Spotlight-V100
+**/.Trashes
+**/ehthumbs.db
+**/Thumbs.db
+**/.fseventsd
+**/.VolumeIcon.icns
+**/.com.apple.timemachine.donotpresent
+**/.AppleDouble
+**/.LSOverride
+**/Icon
+**/.DocumentRevisions-V100
+**/.TemporaryItems
+**/.apdisk
+
+# Logs
+**/logs
+**/*.log
+**/npm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+**/lerna-debug.log*
+**/.pnpm-debug.log*
+
+# Runtime data
+**/pids
+**/*.pid
+**/*.seed
+**/*.pid.lock
+
+# Coverage directory used by tools like istanbul
+**/coverage/
+**/.nyc_output
+
+# Dependency directories
+**/jspm_packages/
+
+# Optional npm cache directory
+**/.npm
+
+# Optional eslint cache
+**/.eslintcache
+
+# Microbundle cache
+**/.rpt2_cache/
+**/.rts2_cache_cjs/
+**/.rts2_cache_es/
+**/.rts2_cache_umd/
+
+# Optional REPL history
+**/.node_repl_history
+
+# Output of 'npm pack'
+**/*.tgz
+
+# Yarn Integrity file
+**/.yarn-integrity
+
+# dotenv environment variables file
+**/.env
+**/.env.local
+**/.env.development.local
+**/.env.test.local
+**/.env.production.local
+
+# parcel-bundler cache (https://parceljs.org/)
+**/.cache
+**/.parcel-cache
+
+# Next.js build output
+**/.next
+
+# Nuxt.js build / generate output
+**/.nuxt
+**/dist
+
+# Gatsby files
+**/.cache/
+**/public
+
+# Storybook build outputs
+**/.out
+**/.storybook-out
+
+# Temporary folders
+**/tmp/
+**/temp/
+
+# Database files
+**/*.db
+**/*.sqlite
+**/*.sqlite3
+**/state/
+
+# Data files
+**/data/
+**/*.csv
+**/*.parquet
+**/*.jsonl
+
+# Airflow
+**/airflow.cfg
+**/airflow.db
+**/logs/
+**/plugins/
+**/standalone_admin_password.txt
+**/webserver_config.py 

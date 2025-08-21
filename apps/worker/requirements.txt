@@ -1,0 +1,45 @@
+# Core dependencies
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
+python-dotenv==1.0.0
+
+# Database
+sqlalchemy==2.0.23
+alembic==1.13.1
+
+# AI/ML
+openai==1.3.7
+langchain==0.0.350
+langchain-openai==0.0.2
+langchain-community==0.0.10
+
+# Vector database
+pymilvus==2.3.4
+
+# Data processing - Updated for Python 3.13 compatibility
+pandas>=2.2.0
+numpy>=1.26.0
+requests==2.31.0
+
+# Airflow
+apache-airflow==2.7.3
+apache-airflow-providers-http==4.7.0
+apache-airflow-providers-postgres==5.7.0
+
+# Testing
+pytest==7.4.3
+pytest-mock==3.12.0
+pytest-asyncio==0.21.1
+
+# Code quality
+flake8==6.1.0
+black==23.11.0
+isort==5.12.0
+
+# Utilities
+tiktoken==0.5.2
+python-dateutil==2.8.2
+
+# Polygon API
+polygon-api-client==1.13.3 

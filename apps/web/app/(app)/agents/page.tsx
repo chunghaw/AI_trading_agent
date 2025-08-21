@@ -1,12 +1,12 @@
 "use client";
 
 import React from "react";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Card } from "../../../components/ui/card";
+import { Button } from "../../../components/ui/button";
 import { Send } from "lucide-react";
-import { ReportSchema, type Report } from "@/lib/report.schema";
-import { cn } from "@/lib/utils";
-import { ReportCard } from "@/components/report/ReportCard";
+import { ReportSchema, type Report } from "../../../lib/report.schema";
+import { cn } from "../../../lib/utils";
+import { ReportCard } from "../../../components/report/ReportCard";
 
 const analysisTypes = [
   { id: "combined", label: "Combined Analysis", description: "News + Technical + Portfolio" },

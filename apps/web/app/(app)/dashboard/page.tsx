@@ -13,7 +13,7 @@ import {
   RefreshCw,
   Minus
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "../../../lib/utils";
 import { 
   getDashboardMetrics, 
   getMarketSentiment, 
@@ -23,7 +23,7 @@ import {
   type DashboardMetrics,
   type MarketSentiment,
   type RecentActivity
-} from "@/lib/dashboard-data";
+} from "../../../lib/dashboard-data";
 
 export default function DashboardPage() {
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);

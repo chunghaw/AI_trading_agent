@@ -6,7 +6,7 @@ import { z } from "zod";
 // import { barsQualityOk } from "../../../lib/ohlcv";
 // import { computeIndicators } from "../../../lib/indicators";
 // import { levelCandidates } from "../../../lib/levels";
-import { searchAndRerankNewsStrict } from "../../../lib/news_search.js";
+import { searchAndRerankNewsStrict } from "../../../lib/news_search.ts";
 // import { buildNewsQAPrompt, buildTechnicalQAPrompt, buildFinalAnswerPrompt, buildSnapshotTemplate } from "../../../lib/report.prompts";
 // import { detectSymbolFromQuestion } from "../../../lib/simple-symbol-detection";
 

@@ -5,9 +5,9 @@ import { MilvusClient } from "@zilliz/milvus2-sdk-node";
 
 function client(){
   return new MilvusClient({
-    address: process.env.MILVUS_ADDRESS || "localhost:19530",
+    address: process.env.MILVUS_URI || process.env.MILVUS_ADDRESS || "localhost:19530",
     ssl: (process.env.MILVUS_SSL||"false")==="true",
-    username: process.env.MILVUS_USERNAME || "",
+    username: process.env.MILVUS_USER || process.env.MILVUS_USERNAME || "",
     password: process.env.MILVUS_PASSWORD || "",
   });
 }
@@ -35,8 +35,8 @@ export async function searchAndRerankNewsStrict(
   const coll = process.env.MILVUS_COLLECTION_NEWS || "polygon_news_data";
   
   // Check if Milvus is configured
-  if (!process.env.MILVUS_ADDRESS || process.env.MILVUS_ADDRESS === "localhost:19530") {
-    console.warn("⚠️ Milvus not configured or using localhost. Skipping news search.");
+  if (!process.env.MILVUS_URI && !process.env.MILVUS_ADDRESS) {
+    console.warn("⚠️ Milvus not configured. Skipping news search.");
     return [];
   }
   

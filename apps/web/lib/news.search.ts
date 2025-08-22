@@ -33,20 +33,34 @@ export async function searchAndRerankNewsStrict(
   sinceIso: string
 ) {
   const coll = process.env.MILVUS_COLLECTION_NEWS || "polygon_news_data";
+  
+  // Check if Milvus is configured
+  if (!process.env.MILVUS_ADDRESS || process.env.MILVUS_ADDRESS === "localhost:19530") {
+    console.warn("⚠️ Milvus not configured or using localhost. Skipping news search.");
+    return [];
+  }
+  
   const c = client();
 
   try {
     console.log(`🔍 News Search Debug - Symbol: ${symbol}, Query: ${userQuery}, Since: ${sinceIso}`);
     
-    const list = await c.showCollections?.();
-    console.log(`🔍 Debug - Milvus showCollections response:`, JSON.stringify(list, null, 2));
-    
-    const names: string[] = list?.collection_names ?? list?.data?.map((x:any)=>x.name) ?? [];
-    console.log(`🔍 Debug - Available collections:`, names);
-    console.log(`🔍 Debug - Looking for collection: ${coll}`);
-    
-    if (!names.includes(coll)) {
-      console.warn(`Milvus collection '${coll}' not found. Returning empty news results.`);
+    // Test Milvus connection
+    try {
+      const list = await c.showCollections?.();
+      console.log(`🔍 Debug - Milvus showCollections response:`, JSON.stringify(list, null, 2));
+      
+      const names: string[] = list?.collection_names ?? list?.data?.map((x:any)=>x.name) ?? [];
+      console.log(`🔍 Debug - Available collections:`, names);
+      console.log(`🔍 Debug - Looking for collection: ${coll}`);
+      
+      if (!names.includes(coll)) {
+        console.warn(`Milvus collection '${coll}' not found. Returning empty news results.`);
+        return [];
+      }
+    } catch (connectionError) {
+      console.error("❌ Milvus connection failed:", connectionError);
+      console.warn("⚠️ Skipping news search due to Milvus connection failure");
       return [];
     }
 

@@ -269,18 +269,43 @@ export async function POST(req: NextRequest) {
     
     // Debug: Check function call
     console.log("🔍 Calling buildNewsQAPrompt with:", { prompt, newsDocsLength: newsDocs.length });
-    const newsPromptRaw = buildNewsQAPrompt(prompt, newsDocs);
-    console.log("🔍 buildNewsQAPrompt returned:", newsPromptRaw);
-    console.log("🔍 Is newsPromptRaw a string?", typeof newsPromptRaw);
-    console.log("🔍 Is newsPromptRaw empty?", !newsPromptRaw);
+    console.log("🔍 newsDocs sample:", newsDocs.slice(0, 2));
+    
+    let newsPromptRaw;
+    try {
+      newsPromptRaw = buildNewsQAPrompt(prompt, newsDocs);
+      console.log("🔍 buildNewsQAPrompt returned:", newsPromptRaw);
+      console.log("🔍 Is newsPromptRaw a string?", typeof newsPromptRaw);
+      console.log("🔍 Is newsPromptRaw empty?", !newsPromptRaw);
+      console.log("🔍 newsPromptRaw length:", newsPromptRaw?.length);
+      console.log("🔍 newsPromptRaw first 100 chars:", newsPromptRaw?.substring(0, 100));
+    } catch (error) {
+      console.error("❌ Error calling buildNewsQAPrompt:", error);
+      newsPromptRaw = "Please analyze the following news data and provide a JSON response. Query: " + prompt + " News data: " + JSON.stringify(newsDocs) + " Please respond with a JSON object containing: - answer_sentence: A brief analysis - key_points: Array of key insights - citations: Array of source URLs JSON response:";
+    }
     
     const newsPrompt = newsPromptRaw + "\n\nPlease provide your analysis in JSON format.";
     
     // Debug: Log the news prompt to see what's being sent
     console.log("🔍 News prompt length:", newsPrompt.length);
     console.log("🔍 News docs count:", newsDocs.length);
-    console.log("🔍 News prompt content:", newsPrompt);
+    console.log("🔍 News prompt content (first 200 chars):", newsPrompt.substring(0, 200));
+    console.log("🔍 News prompt content (last 200 chars):", newsPrompt.substring(Math.max(0, newsPrompt.length - 200)));
     console.log("🔍 Does prompt contain 'json'?", newsPrompt.toLowerCase().includes('json'));
+    console.log("🔍 Does prompt contain 'JSON'?", newsPrompt.includes('JSON'));
+    console.log("🔍 Does prompt contain 'response'?", newsPrompt.toLowerCase().includes('response'));
+    
+    // Final check before OpenAI call
+    console.log("🔍 FINAL CHECK - About to call OpenAI with:");
+    console.log("🔍 - Model: gpt-4o-mini");
+    console.log("🔍 - Temperature: 0.1");
+    console.log("🔍 - Max tokens: 1000");
+    console.log("🔍 - Response format: json_object");
+    console.log("🔍 - Message content length:", newsPrompt.length);
+    console.log("🔍 - Message content contains 'json':", newsPrompt.toLowerCase().includes('json'));
+    console.log("🔍 - Message content contains 'JSON':", newsPrompt.includes('JSON'));
+    console.log("🔍 - Message content contains 'response':", newsPrompt.toLowerCase().includes('response'));
+    console.log("🔍 - Message content contains 'object':", newsPrompt.toLowerCase().includes('object'));
     
     const newsCompletion = await openai.chat.completions.create({
       model: "gpt-4o-mini",

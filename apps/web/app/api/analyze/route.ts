@@ -267,11 +267,20 @@ export async function POST(req: NextRequest) {
       text: article.text || article.title
     }));
     
-    const newsPrompt = buildNewsQAPrompt(prompt, newsDocs) + "\n\nPlease provide your analysis in JSON format.";
+    // Debug: Check function call
+    console.log("🔍 Calling buildNewsQAPrompt with:", { prompt, newsDocsLength: newsDocs.length });
+    const newsPromptRaw = buildNewsQAPrompt(prompt, newsDocs);
+    console.log("🔍 buildNewsQAPrompt returned:", newsPromptRaw);
+    console.log("🔍 Is newsPromptRaw a string?", typeof newsPromptRaw);
+    console.log("🔍 Is newsPromptRaw empty?", !newsPromptRaw);
+    
+    const newsPrompt = newsPromptRaw + "\n\nPlease provide your analysis in JSON format.";
     
     // Debug: Log the news prompt to see what's being sent
     console.log("🔍 News prompt length:", newsPrompt.length);
     console.log("🔍 News docs count:", newsDocs.length);
+    console.log("🔍 News prompt content:", newsPrompt);
+    console.log("🔍 Does prompt contain 'json'?", newsPrompt.toLowerCase().includes('json'));
     
     const newsCompletion = await openai.chat.completions.create({
       model: "gpt-4o-mini",

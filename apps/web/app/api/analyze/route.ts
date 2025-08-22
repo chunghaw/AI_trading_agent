@@ -6,7 +6,7 @@ import { z } from "zod";
 // import { barsQualityOk } from "../../../lib/ohlcv";
 // import { computeIndicators } from "../../../lib/indicators";
 // import { levelCandidates } from "../../../lib/levels";
-import { searchAndRerankNewsStrict } from "../../../lib/news.search";
+import { searchAndRerankNewsStrict } from "@/lib/news.search";
 // import { buildNewsQAPrompt, buildTechnicalQAPrompt, buildFinalAnswerPrompt, buildSnapshotTemplate } from "../../../lib/report.prompts";
 // import { detectSymbolFromQuestion } from "../../../lib/simple-symbol-detection";
 
@@ -267,12 +267,7 @@ export async function POST(req: NextRequest) {
       text: article.text || article.title
     }));
     
-    const newsPrompt = buildNewsQAPrompt({
-      symbol: detectedSymbol,
-      query: prompt,
-      since_days,
-      docsJson: JSON.stringify(newsDocs)
-    }) + "\n\nPlease provide your analysis in JSON format.";
+    const newsPrompt = buildNewsQAPrompt(prompt, newsDocs) + "\n\nPlease provide your analysis in JSON format.";
     
     // Debug: Log the news prompt to see what's being sent
     console.log("🔍 News prompt length:", newsPrompt.length);
@@ -375,12 +370,7 @@ export async function POST(req: NextRequest) {
       
       // Stage A2: Technical QA (Indicators-only)
       console.log(`📊 Stage A2: Calling Technical QA for ${detectedSymbol}`);
-            const technicalPrompt = buildTechnicalQAPrompt({
-        symbol: detectedSymbol,
-        query: prompt,
-        indicatorsJson: JSON.stringify(indicators),
-        candidatesJson: JSON.stringify(levels)
-    });
+            const technicalPrompt = buildTechnicalQAPrompt(prompt, indicators);
     
     const technicalCompletion = await openai.chat.completions.create({
       model: "gpt-4o-mini",

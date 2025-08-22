@@ -1,0 +1,96 @@
+export function buildCombinedPrompt({ 
+  symbol, 
+  timeframe = "1d", 
+  horizon = "1–5 days", 
+  docsJson, 
+  indicatorsJson,
+  contextJson
+}: {
+  symbol: string;
+  timeframe?: string;
+  horizon?: string;
+  docsJson: string;
+  indicatorsJson: string;
+  contextJson?: string;
+}) {
+  // Extract current price from context JSON
+  let currentPrice = 'N/A';
+  try {
+    const context = JSON.parse(contextJson || '{}');
+    currentPrice = context.current || 'N/A';
+  } catch (e) {
+    console.log('Could not parse context JSON for price extraction');
+  }
+
+  return `System:
+You are a disciplined technical analyst. Use ONLY the provided documents and indicators. Return STRICT JSON matching the schema.
+
+📊 CURRENT STOCK PRICE: ${symbol} = $${currentPrice}
+
+Technical Analysis Rules (MUST follow):
+- RSI(14): 70+ overbought; 55–65 bullish zone; 45–55 neutral; <45 losing momentum.
+- MACD(12,26,9): MACD>Signal bullish; rising hist = acceleration; zero-line cross up confirms.
+- EMA stack: 20>50>200 bullish; loss of EMA50 is a caution.
+- ATR(14): stops ≈ 1.0–1.5× ATR below key level in strong trends.
+
+User:
+Symbol: ${symbol}    Timeframe: ${timeframe}    Horizon: ${horizon}
+
+News documents (JSON):
+${docsJson}
+
+Technical indicators (JSON):
+${indicatorsJson}
+
+Numeric candidates (JSON):
+${contextJson || '{}'}
+
+Return STRICT JSON ONLY with this exact schema:
+{
+  "symbol": "${symbol}",
+  "timeframe": "${timeframe}",
+  "answer": "<one sentence synthesis>",
+  "action": "BUY" | "SELL" | "FLAT",
+  "confidence": 0.0-1.0,
+  "bullets": ["<3–6 short, factual bullets>"],
+  "indicators": {
+    "rsi14": <number>,
+    "macd": <number>,
+    "macd_signal": <number>,
+    "macd_hist": <number>,
+    "ema20": <number>,
+    "ema50": <number>,
+    "ema200": <number>,
+    "atr14": <number>
+  },
+  "levels": {
+    "support": [<number>, <number>],
+    "resistance": [<number>, <number>],
+    "breakout_trigger": <number>
+  },
+  "news": {
+    "summary": ["<2-3 news bullets>"],
+    "citations": ["<url1>", "<url2>"]
+  },
+  "technical": {
+    "summary": ["<2-3 technical bullets>"],
+    "chart_notes": "<optional chart observation>"
+  },
+  "portfolio": {
+    "size_suggestion_pct": <0-100>,
+    "tp": <number>,
+    "sl": <number>
+  }
+}
+
+Hard rules:
+- ALWAYS include RSI, MACD, Signal, Hist, EMA20/50/200, ATR numbers from indicators JSON
+- Choose support/resistance/trigger ONLY from provided numeric candidates
+- Do not invent URLs/dates
+- If no material news, say so and prefer FLAT with lower confidence
+- If no data is provided, return "No data available for analysis" with confidence 0.0 and action "FLAT"
+- Keep language crisp; avoid hype
+- Support/resistance should be realistic price levels
+- Portfolio size should be conservative (5-15% typical)
+- Base ALL analysis on the provided data, not general knowledge`;
+}

@@ -74,16 +74,17 @@ Please respond with a JSON object containing:
 
 JSON response:`;
 
-const buildSnapshotTemplate = (symbol: string, bars: any, indicators: any) => JSON.stringify({
-  symbol,
+const buildSnapshotTemplate = (data: any) => JSON.stringify({
+  symbol: data.symbol,
   timestamp: new Date().toISOString(),
-  price: {
-    current: bars.close[bars.close.length - 1],
-    change: bars.close[bars.close.length - 1] - bars.close[bars.close.length - 2],
-    changePercent: ((bars.close[bars.close.length - 1] - bars.close[bars.close.length - 2]) / bars.close[bars.close.length - 2]) * 100
-  },
-  indicators,
-  analysis: "Technical analysis based on current indicators"
+  price: data.price,
+  newsAnalysis: data.newsAnalysis,
+  technicalAnalysis: data.technicalAnalysis,
+  indicators: data.indicators,
+  candidates: data.candidates,
+  docsScanned: data.docsScanned,
+  docsUsed: data.docsUsed,
+  analysis: "Comprehensive analysis combining news and technical insights"
 });
 const detectSymbolFromQuestion = (question: string) => {
   const symbols = ['NVDA', 'GOOGL', 'AAPL', 'MSFT', 'TSLA', 'AMZN'];

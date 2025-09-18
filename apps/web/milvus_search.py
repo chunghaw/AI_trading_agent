@@ -52,17 +52,13 @@ class MilvusSearchClient:
             # Build filter expression
             filter_expr = f'ticker == "{symbol.upper()}" && published_utc >= "{since_iso}"'
             
-            # Get embedding for the query (this would need to be implemented)
-            # For now, we'll use a simple text search
-            search_params = {
-                "collection_name": self.collection,
-                "expr": filter_expr,
-                "output_fields": ["text", "url", "published_utc", "ticker", "source", "title"],
-                "limit": k
-            }
-            
-            # Perform search
-            results = self.client.query(**search_params)
+            # Perform query (fixed parameter names)
+            results = self.client.query(
+                collection_name=self.collection,
+                filter=filter_expr,
+                output_fields=["text", "url", "published_utc", "ticker", "source", "title"],
+                limit=k
+            )
             
             # Format results
             formatted_results = []

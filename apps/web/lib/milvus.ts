@@ -54,7 +54,7 @@ export async function searchNews(symbol:string, query:string, sinceIso:string, k
     const { spawn } = require('child_process');
     const path = require('path');
     
-    const pythonScript = path.join(process.cwd(), 'milvus_search.py');
+    const pythonScript = path.join(process.cwd(), 'milvus_search_optimized.py');
     
     return new Promise((resolve) => {
       const python = spawn('python3', [pythonScript, 'search', symbol, query, sinceIso, k.toString()]);

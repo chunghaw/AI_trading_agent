@@ -1,9 +1,20 @@
 import OpenAI from "openai";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
-import { MilvusClient } from "@zilliz/milvus2-sdk-node";
+
+// Import Milvus with error handling
+let MilvusClient: any;
+try {
+  MilvusClient = require("@zilliz/milvus2-sdk-node").MilvusClient;
+} catch (error) {
+  console.error("❌ Failed to import MilvusClient:", error);
+  MilvusClient = null;
+}
 
 function client(){
+  if (!MilvusClient) {
+    throw new Error("MilvusClient not available - import failed");
+  }
   return new MilvusClient({
     address: process.env.MILVUS_URI || process.env.MILVUS_ADDRESS || "localhost:19530",
     ssl: (process.env.MILVUS_SSL||"false")==="true",
@@ -33,6 +44,12 @@ export async function searchAndRerankNewsStrict(
   sinceIso: string
 ) {
   const coll = process.env.MILVUS_COLLECTION_NEWS || "polygon_news_data";
+  
+  // Check if MilvusClient is available
+  if (!MilvusClient) {
+    console.warn("⚠️ MilvusClient not available. Skipping news search.");
+    return [];
+  }
   
   // Check if Milvus is configured
   if (!process.env.MILVUS_URI && !process.env.MILVUS_ADDRESS) {

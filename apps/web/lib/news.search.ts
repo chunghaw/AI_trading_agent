@@ -63,7 +63,7 @@ export async function searchAndRerankNewsStrict(
     const { spawn } = require('child_process');
     const path = require('path');
     
-    const pythonScript = path.join(process.cwd(), 'milvus_pure_vector_search.py');
+    const pythonScript = path.join(process.cwd(), 'milvus_vercel_optimized.py');
     
     const hits = await new Promise((resolve) => {
       const python = spawn('python3', [pythonScript, 'search', userQuery, sinceIso, '25']);

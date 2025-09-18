@@ -180,21 +180,25 @@ const Body = z.object({
 
 export async function POST(req: NextRequest) {
   try {
+    console.log(`🚀 === ANALYSIS REQUEST START ===`);
     const { prompt, timeframe, since_days } = Body.parse(await req.json());
+    console.log(`📝 Request: ${prompt}, timeframe: ${timeframe}, since_days: ${since_days}`);
     
     // Automatically detect symbol from the user's question
     const detectedSymbol = detectSymbolFromQuestion(prompt);
     if (!detectedSymbol) {
+      console.log(`❌ SYMBOL DETECTION FAILED`);
       return NextResponse.json({ 
         error: `Could not detect a stock symbol from your question. Please include a ticker symbol (e.g., NVDA, AAPL) or company name (e.g., NVIDIA, Apple).`,
         code: "SYMBOL_NOT_DETECTED"
       }, { status: 422 });
     }
-    console.log(`🔍 Auto-detected symbol: "${detectedSymbol}" from prompt: "${prompt}"`);
+    console.log(`✅ SYMBOL DETECTED: "${detectedSymbol}" from prompt: "${prompt}"`);
     
     const sinceIso = dayjs().subtract(since_days, "day").toISOString();
 
     // Step 1: Load OHLCV data from embedded sample data
+    console.log(`📊 STEP 1: Loading OHLCV data for ${detectedSymbol}`);
     let bars: any = null;
     try {
       // Comprehensive embedded data for Vercel deployment (based on original JSON)
@@ -203,6 +207,7 @@ export async function POST(req: NextRequest) {
       
       console.log(`🔍 Loading embedded data for ${detectedSymbol} - Vercel deployment fix`);
       const symbolData = sampleData.filter((row: any) => row.symbol === detectedSymbol);
+      console.log(`📊 Symbol data found: ${symbolData.length} records`);
       
       if (symbolData.length > 0) {
         // Sort by date (oldest first)
@@ -262,6 +267,7 @@ export async function POST(req: NextRequest) {
     */
 
     // Step 2: Milvus search (STRICT)
+    console.log(`📰 STEP 2: Searching for news for ${detectedSymbol} since ${sinceIso}`);
     let newsAnalysis = { rationale: [], citations: [] };
     let newsHits = [];
     try {
@@ -291,12 +297,15 @@ export async function POST(req: NextRequest) {
     }
 
     // Step 3: Compute indicators and levels
+    console.log(`📊 STEP 3: Computing technical indicators for ${detectedSymbol}`);
     const indicators = computeIndicators(bars);
     const levels = levelCandidates(bars);
     const currentPrice = bars.close[bars.close.length - 1];
     const previousPrice = bars.close[bars.close.length - 2];
     const priceChange = currentPrice - previousPrice;
     const priceChangePercent = (priceChange / previousPrice) * 100;
+    
+    console.log(`✅ STEP 3 SUCCESS: Indicators calculated - RSI: ${indicators.rsi14}, MACD: ${indicators.macd?.macd}, Price: $${currentPrice}`);
     
     console.log(`📊 Real data loaded for ${detectedSymbol}:`);
     console.log(`  - Bars: ${bars.close.length} records`);
@@ -309,7 +318,7 @@ export async function POST(req: NextRequest) {
     // Step 4: Two-Stage RAG Flow
     
     // Stage A1: News QA (RAG-only)
-    console.log(`📰 Stage A1: Calling News QA for ${detectedSymbol}`);
+    console.log(`📰 STAGE A1: Calling News QA for ${detectedSymbol}`);
     
     // Format news data properly for the prompt
     const newsDocs = newsAnalysis.rationale.map((article: any) => ({
@@ -456,7 +465,7 @@ export async function POST(req: NextRequest) {
       }
       
       // Stage A2: Technical QA (Indicators-only)
-      console.log(`📊 Stage A2: Calling Technical QA for ${detectedSymbol}`);
+      console.log(`📊 STAGE A2: Calling Technical QA for ${detectedSymbol}`);
       console.log(`📊 Indicators data:`, JSON.stringify(indicators));
       console.log(`📊 Bars data length:`, bars.close.length);
       
@@ -515,7 +524,7 @@ export async function POST(req: NextRequest) {
     console.log(`📊 Technical answer_sentence: ${technicalAnalysis.answer_sentence}`);
     
     // Stage C: Final Synthesis - Answer user's specific question
-    console.log(`🎯 Stage C: Generating final answer for user's question`);
+    console.log(`🎯 STAGE C: Generating final answer for user's question`);
     
     let finalAnswer;
     try {
@@ -653,6 +662,7 @@ export async function POST(req: NextRequest) {
         }
       };
       
+      console.log(`🎉 === ANALYSIS COMPLETED SUCCESSFULLY ===`);
       return NextResponse.json(responseWithMetadata);
     } catch (error: any) {
       console.error("Schema validation failed:", error);

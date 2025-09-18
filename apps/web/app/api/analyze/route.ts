@@ -429,41 +429,59 @@ export async function POST(req: NextRequest) {
       
       // Stage A2: Technical QA (Indicators-only)
       console.log(`📊 Stage A2: Calling Technical QA for ${detectedSymbol}`);
-            const technicalPrompt = buildTechnicalQAPrompt(prompt, indicators);
-    
-    const technicalCompletion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [{ role: "user", content: technicalPrompt }],
-      temperature: 0.1,
-      max_tokens: 1000, // Increased from 500 to prevent truncation
-      response_format: { type: "json_object" }
-    });
-    
-    let technicalAnalysis;
-    try {
-      technicalAnalysis = JSON.parse(technicalCompletion.choices[0].message.content || "{}");
-    } catch (parseError) {
-      console.error("❌ Technical analysis JSON parse error:", parseError);
-      console.error("📊 Raw technical response:", technicalCompletion.choices[0].message.content);
+      console.log(`📊 Indicators data:`, JSON.stringify(indicators));
+      console.log(`📊 Bars data length:`, bars.close.length);
       
-      // Create a fallback technical analysis
-      technicalAnalysis = {
-        role: "technical",
-        answer_sentence: "Technical Analyst: Current indicators suggest a hold on NVDA.",
-        key_points: ["Analysis based on current indicators", "Review technical levels and indicators above"],
-        levels: levels,
-        confidence: 0.5
-      };
-    }
-    
-    // Check for technical errors
-    if (technicalAnalysis.error) {
-      console.log(`❌ Technical QA error: ${technicalAnalysis.error}`);
-      return NextResponse.json({ 
-        error: `Technical analysis failed: ${technicalAnalysis.error}`,
-        code: "TECHNICAL_ANALYSIS_ERROR"
-      }, { status: 422 });
-    }
+      let technicalAnalysis;
+      try {
+        const technicalPrompt = buildTechnicalQAPrompt(prompt, indicators);
+        
+        const technicalCompletion = await openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          messages: [{ role: "user", content: technicalPrompt }],
+          temperature: 0.1,
+          max_tokens: 1000, // Increased from 500 to prevent truncation
+          response_format: { type: "json_object" }
+        });
+        
+        try {
+          technicalAnalysis = JSON.parse(technicalCompletion.choices[0].message.content || "{}");
+        } catch (parseError) {
+          console.error("❌ Technical analysis JSON parse error:", parseError);
+          console.error("📊 Raw technical response:", technicalCompletion.choices[0].message.content);
+          
+          // Create a fallback technical analysis
+          technicalAnalysis = {
+            role: "technical",
+            answer_sentence: `Technical Analyst: Current indicators for ${detectedSymbol} suggest reviewing the technical levels above.`,
+            key_points: ["Analysis based on current indicators", "Review technical levels and indicators above"],
+            levels: levels,
+            confidence: 0.5
+          };
+        }
+        
+        // Check for technical errors
+        if (technicalAnalysis.error) {
+          console.log(`❌ Technical QA error: ${technicalAnalysis.error}`);
+          return NextResponse.json({ 
+            error: `Technical analysis failed: ${technicalAnalysis.error}`,
+            code: "TECHNICAL_ANALYSIS_ERROR"
+          }, { status: 422 });
+        }
+        
+      } catch (technicalError) {
+        console.error("❌ Technical analysis API call failed:", technicalError);
+        
+        // Create a fallback technical analysis when API fails
+        technicalAnalysis = {
+          role: "technical",
+          answer_sentence: `Technical Analyst: Unable to complete full analysis for ${detectedSymbol}, but current indicators are displayed above.`,
+          key_points: ["Technical analysis temporarily unavailable", "Review technical levels and indicators above"],
+          levels: levels,
+          confidence: 0.3,
+          error: "Technical analysis API temporarily unavailable"
+        };
+      }
     
     // Log technical analysis response
     console.log(`📊 Technical answer_sentence: ${technicalAnalysis.answer_sentence}`);

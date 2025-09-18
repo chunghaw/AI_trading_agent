@@ -54,10 +54,10 @@ export async function searchNews(symbol:string, query:string, sinceIso:string, k
     const { spawn } = require('child_process');
     const path = require('path');
     
-    const pythonScript = path.join(process.cwd(), 'milvus_search_vercel_final.py');
+    const pythonScript = path.join(process.cwd(), 'milvus_pure_vector_search.py');
     
     return new Promise((resolve) => {
-      const python = spawn('python3', [pythonScript, 'search', symbol, query, sinceIso, k.toString()]);
+      const python = spawn('python3', [pythonScript, 'search', query, sinceIso, '25']);
       
       let output = '';
       let errorOutput = '';

@@ -63,10 +63,10 @@ export async function searchAndRerankNewsStrict(
     const { spawn } = require('child_process');
     const path = require('path');
     
-    const pythonScript = path.join(process.cwd(), 'milvus_search_vercel_final.py');
+    const pythonScript = path.join(process.cwd(), 'milvus_pure_vector_search.py');
     
     const hits = await new Promise((resolve) => {
-      const python = spawn('python3', [pythonScript, 'search', symbol, userQuery, sinceIso, '20']);
+      const python = spawn('python3', [pythonScript, 'search', userQuery, sinceIso, '25']);
       
       let output = '';
       let errorOutput = '';
@@ -125,7 +125,7 @@ export async function searchAndRerankNewsStrict(
         seenUrl.add(h.url); if (h.domain) seenDom.add(h.domain);
         return true;
       })
-      .slice(0, 5);
+      .slice(0, 20);
 
     console.log(`🔍 Debug - Final reranked results: ${reranked.length} hits`);
     return reranked.map(h => ({

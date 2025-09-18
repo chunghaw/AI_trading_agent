@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { spawn } from 'child_process';
+import path from 'path';
 
 export async function POST(request: NextRequest) {
   try {
@@ -6,12 +8,50 @@ export async function POST(request: NextRequest) {
     
     console.log(`🔍 Milvus search request: ${symbol}, ${query}, ${sinceIso}`);
     
-    // For now, return empty results to prevent the app from crashing
-    // We'll implement a proper solution next
-    return NextResponse.json({
-      success: true,
-      results: [],
-      message: "Milvus search temporarily disabled - returning empty results"
+    // Use Python script to search Milvus
+    const pythonScript = path.join(process.cwd(), 'milvus_search.py');
+    
+    return new Promise((resolve) => {
+      const python = spawn('python3', [pythonScript, 'search', symbol, query, sinceIso, k.toString()]);
+      
+      let output = '';
+      let errorOutput = '';
+      
+      python.stdout.on('data', (data) => {
+        output += data.toString();
+      });
+      
+      python.stderr.on('data', (data) => {
+        errorOutput += data.toString();
+      });
+      
+      python.on('close', (code) => {
+        if (code === 0) {
+          try {
+            const results = JSON.parse(output);
+            resolve(NextResponse.json({
+              success: true,
+              results: results || [],
+              message: `Found ${results?.length || 0} news articles`
+            }));
+          } catch (parseError) {
+            console.error("❌ Failed to parse Python output:", parseError);
+            console.error("Raw output:", output);
+            resolve(NextResponse.json({
+              success: false,
+              error: "Failed to parse search results",
+              results: []
+            }));
+          }
+        } else {
+          console.error("❌ Python script failed:", errorOutput);
+          resolve(NextResponse.json({
+            success: false,
+            error: `Python script failed: ${errorOutput}`,
+            results: []
+          }));
+        }
+      });
     });
     
   } catch (error: any) {

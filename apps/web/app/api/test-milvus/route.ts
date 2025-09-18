@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { spawn } from 'child_process';
+import path from 'path';
 
 export async function GET(request: NextRequest) {
   try {
-    console.log("🧪 Testing Milvus REST API connection...");
+    console.log("🧪 Testing Milvus connection with Python client...");
     
     // Check environment variables
     const config = {
@@ -24,91 +26,59 @@ export async function GET(request: NextRequest) {
       });
     }
     
-    // Test different Milvus API endpoints
-    const uri = process.env.MILVUS_URI || process.env.MILVUS_ADDRESS || "localhost:19530";
+    // Use Python script to test Milvus connection
+    const pythonScript = path.join(process.cwd(), 'milvus_search.py');
     
-    const headers: any = {
-      'Content-Type': 'application/json',
-    };
-    
-    // Add basic auth if credentials are provided
-    if (process.env.MILVUS_USER && process.env.MILVUS_PASSWORD) {
-      const auth = Buffer.from(`${process.env.MILVUS_USER}:${process.env.MILVUS_PASSWORD}`).toString('base64');
-      headers['Authorization'] = `Basic ${auth}`;
-    }
-    
-    // Try different possible endpoints
-    const endpoints = [
-      '/v1/collections',
-      '/collections',
-      '/v1/vector/collections',
-      '/api/v1/collections',
-      '/health',
-      '/'
-    ];
-    
-    let workingEndpoint = null;
-    let collections = [];
-    let data = null;
-    
-    for (const endpoint of endpoints) {
-      const url = `${uri}${endpoint}`;
-      console.log(`🔗 Testing endpoint: ${url}`);
+    return new Promise((resolve) => {
+      const python = spawn('python3', [pythonScript, 'test']);
       
-      try {
-        const response = await fetch(url, {
-          method: 'GET',
-          headers,
-        });
-        
-        console.log(`📊 Response status: ${response.status} ${response.statusText}`);
-        
-        if (response.ok) {
-          workingEndpoint = endpoint;
-          data = await response.json();
-          console.log(`✅ Working endpoint found: ${endpoint}`);
-          console.log(`📄 Response data:`, JSON.stringify(data, null, 2));
-          
-          // Try to extract collections from different response formats
-          if (data?.data?.map) {
-            collections = data.data.map((x: any) => x.name || x);
-          } else if (data?.collections) {
-            collections = data.collections;
-          } else if (Array.isArray(data)) {
-            collections = data;
+      let output = '';
+      let errorOutput = '';
+      
+      python.stdout.on('data', (data) => {
+        output += data.toString();
+      });
+      
+      python.stderr.on('data', (data) => {
+        errorOutput += data.toString();
+      });
+      
+      python.on('close', (code) => {
+        if (code === 0) {
+          try {
+            const result = JSON.parse(output);
+            resolve(NextResponse.json({
+              success: result.success,
+              message: result.success ? "Milvus Python client connection successful!" : "Milvus connection failed",
+              config,
+              ...result
+            }));
+          } catch (parseError) {
+            console.error("❌ Failed to parse Python output:", parseError);
+            console.error("Raw output:", output);
+            resolve(NextResponse.json({
+              success: false,
+              error: "Failed to parse test results",
+              config,
+              rawOutput: output
+            }));
           }
-          break;
         } else {
-          console.log(`❌ Endpoint ${endpoint} failed: ${response.status}`);
+          console.error("❌ Python script failed:", errorOutput);
+          resolve(NextResponse.json({
+            success: false,
+            error: `Python script failed: ${errorOutput}`,
+            config
+          }));
         }
-      } catch (error) {
-        console.log(`❌ Endpoint ${endpoint} error:`, error.message);
-      }
-    }
-    
-    if (!workingEndpoint) {
-      throw new Error(`No working Milvus API endpoint found. Tried: ${endpoints.join(', ')}`);
-    }
-    
-    const targetCollection = process.env.MILVUS_COLLECTION_NEWS || 'polygon_news_data';
-    const hasTargetCollection = collections.includes(targetCollection);
-    
-    return NextResponse.json({
-      success: true,
-      message: "Milvus REST API connection successful!",
-      config,
-      workingEndpoint,
-      collections: collections,
-      targetCollection,
-      hasTargetCollection: hasTargetCollection,
-      responseData: data
+      });
     });
     
   } catch (error: any) {
-    console.error("❌ Milvus REST API test failed:", error);
+    console.error("❌ Milvus test failed:", error);
     return NextResponse.json({
       success: false,
-      error: "Milvus REST API connection failed",
+      error: "Milvus test failed",
       details: error.message,
       config: {
         uri: process.env.MILVUS_URI || 'not set',

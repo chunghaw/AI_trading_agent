@@ -52,8 +52,8 @@ lint: ## Lint all codebases
 
 docker-build: ## Build worker Docker image
 	@echo "Building worker Docker image..."
-	cd apps/worker && docker build -t ai-trading-worker .
-
+	cd apps/worker && docker build -t ai-trading-worker.
+	
 docker-run: ## Run worker in Docker
 	@echo "Running worker in Docker..."
 	docker run -it --rm ai-trading-worker 

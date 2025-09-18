@@ -4,31 +4,9 @@ import React from "react";
 import { Card } from "../../../components/ui/card";
 import { Button } from "../../../components/ui/button";
 import { Send } from "lucide-react";
-// import { ReportSchema, type Report } from "../../../lib/report.schema";
-// import { cn } from "../../../lib/utils";
-// import { ReportCard } from "../../../components/report/ReportCard";
-
-// Temporary functions
-const ReportSchema = { parse: (data: any) => data };
-const cn = (...classes: any[]) => classes.filter(Boolean).join(' ');
-type Report = any;
-
-// Temporary ReportCard component
-const ReportCard = ({ report, isMockData = false }: { report: any; isMockData?: boolean }) => (
-  <Card className="p-6">
-    <div className="mb-4">
-      <h3 className="text-lg font-semibold text-[var(--text)]">Analysis Results</h3>
-      {isMockData && (
-        <p className="text-sm text-[var(--muted)] mt-1">Using mock data for demonstration</p>
-      )}
-    </div>
-    <div className="space-y-4">
-      <pre className="bg-[var(--bg-secondary)] p-4 rounded-lg text-sm overflow-auto">
-        {JSON.stringify(report, null, 2)}
-      </pre>
-    </div>
-  </Card>
-);
+import { ReportSchema, type Report } from "../../../lib/report.schema";
+import { cn } from "../../../lib/utils";
+import { ReportCard } from "../../../components/report/ReportCard";
 
 const analysisTypes = [
   { id: "combined", label: "Combined Analysis", description: "News + Technical + Portfolio" },
@@ -227,7 +205,7 @@ export default function AgentsPage() {
       {/* Analysis Results */}
       {response && (
         <div className="mt-8">
-          <ReportCard report={response} isMockData={isMockData} />
+          <ReportCard report={response} isMockData={isMockData} dataSource="none" />
         </div>
       )}
 

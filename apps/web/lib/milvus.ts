@@ -50,41 +50,11 @@ export async function searchNews(symbol:string, query:string, sinceIso:string, k
   try {
     console.log(`🔍 Searching Milvus collection: ${MILVUS_CONFIG.collection} for symbol: ${symbol}`);
     
-    // Directly call Python script instead of HTTP request
-    const { spawn } = require('child_process');
-    const path = require('path');
+    // Pure JavaScript implementation - NO Python dependency
+    const { searchAndRerankNewsStrict } = await import('./news.search');
+    const results = await searchAndRerankNewsStrict(symbol, query, sinceIso);
     
-    const pythonScript = path.join(process.cwd(), 'milvus_vercel_optimized.py');
-    
-    return new Promise((resolve) => {
-      const python = spawn('python3', [pythonScript, 'search', query, sinceIso, '25']);
-      
-      let output = '';
-      let errorOutput = '';
-      
-      python.stdout.on('data', (data) => {
-        output += data.toString();
-      });
-      
-      python.stderr.on('data', (data) => {
-        errorOutput += data.toString();
-      });
-      
-      python.on('close', (code) => {
-        if (code === 0) {
-          try {
-            const results = JSON.parse(output);
-            resolve(results || []);
-          } catch (parseError) {
-            console.error("❌ Failed to parse search results:", parseError);
-            resolve([]);
-          }
-        } else {
-          console.error("❌ Python search failed:", errorOutput);
-          resolve([]);
-        }
-      });
-    });
+    return results;
     
   } catch (error) {
     console.error(`❌ Milvus search failed for ${symbol}:`, error);

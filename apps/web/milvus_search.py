@@ -6,10 +6,6 @@ import os
 import json
 import sys
 from typing import List, Dict, Any, Optional
-from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
 
 class MilvusSearchClient:
     def __init__(self):
@@ -22,7 +18,15 @@ class MilvusSearchClient:
     def connect(self):
         """Connect to Milvus"""
         try:
-            from pymilvus import MilvusClient
+            # Try to import pymilvus
+            try:
+                from pymilvus import MilvusClient
+            except ImportError:
+                print("❌ pymilvus not available - trying to install...")
+                import subprocess
+                subprocess.check_call([sys.executable, "-m", "pip", "install", "pymilvus"])
+                from pymilvus import MilvusClient
+            
             self.client = MilvusClient(
                 uri=self.uri,
                 user=self.user,

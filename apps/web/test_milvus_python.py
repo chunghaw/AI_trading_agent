@@ -5,10 +5,6 @@ Test Milvus connection using Python client
 import os
 import sys
 import json
-from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
 
 def test_milvus_connection():
     print("🧪 Testing Milvus Connection with Python Client...")

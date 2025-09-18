@@ -40,6 +40,15 @@ export async function searchAndRerankNewsStrict(
     return [];
   }
   
+  console.log(`🔧 Milvus Config Debug:`, {
+    uri: process.env.MILVUS_URI || 'not set',
+    address: process.env.MILVUS_ADDRESS || 'not set', 
+    user: process.env.MILVUS_USER || 'not set',
+    username: process.env.MILVUS_USERNAME || 'not set',
+    ssl: process.env.MILVUS_SSL || 'not set',
+    collection: coll
+  });
+  
   const c = client();
 
   try {

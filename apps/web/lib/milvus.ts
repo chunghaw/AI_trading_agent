@@ -6,9 +6,9 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
 
 function client(){
   return new MilvusClient({
-    address: process.env.MILVUS_ADDRESS || "localhost:19530",
+    address: process.env.MILVUS_URI || process.env.MILVUS_ADDRESS || "localhost:19530",
     ssl: (process.env.MILVUS_SSL||"false")==="true",
-    username: process.env.MILVUS_USERNAME || "",
+    username: process.env.MILVUS_USER || process.env.MILVUS_USERNAME || "",
     password: process.env.MILVUS_PASSWORD || "",
   });
 }
@@ -23,10 +23,16 @@ const SYN = (sym:string) => {
 };
 
 export async function searchNews(symbol:string, query:string, sinceIso:string, k=12){
-  const c = client();
-  const coll = process.env.MILVUS_COLLECTION_NEWS || "news_chunks";
-  const v = await embed(query);
-  const desc = await c.describeCollection({ collection_name: coll });
+  try {
+    const c = client();
+    const coll = process.env.MILVUS_COLLECTION_NEWS || "polygon_news_data";
+    const v = await embed(query);
+    
+    console.log(`🔍 Searching Milvus collection: ${coll} for symbol: ${symbol}`);
+    console.log(`🔗 Milvus URI: ${process.env.MILVUS_URI || 'not set'}`);
+    console.log(`👤 Milvus User: ${process.env.MILVUS_USER || 'not set'}`);
+    
+    const desc = await c.describeCollection({ collection_name: coll });
   const fields = (desc.schema?.fields||[]).map(f=> f.name);
   const hasTicker = fields.includes("ticker");
   const hasDate = fields.includes("published_utc");
@@ -98,4 +104,15 @@ export async function searchNews(symbol:string, query:string, sinceIso:string, k
   }
 
   return out.slice(0,k);
+  } catch (error) {
+    console.error(`❌ Milvus search failed for ${symbol}:`, error);
+    console.error(`Error details:`, {
+      message: error.message,
+      stack: error.stack,
+      milvusUri: process.env.MILVUS_URI,
+      milvusUser: process.env.MILVUS_USER,
+      collection: process.env.MILVUS_COLLECTION_NEWS || "polygon_news_data"
+    });
+    throw new Error(`Milvus connection failed: ${error.message}`);
+  }
 }

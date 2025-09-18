@@ -1,27 +1,40 @@
-// Import Milvus with error handling
-let MilvusClient: any;
-try {
-  MilvusClient = require("@zilliz/milvus2-sdk-node").MilvusClient;
-} catch (error) {
-  console.error("❌ Failed to import MilvusClient:", error);
-  MilvusClient = null;
-}
-
 import OpenAI from "openai";
 
 const EMBED="text-embedding-3-small";
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
 
-function client(){
-  if (!MilvusClient) {
-    throw new Error("MilvusClient not available - import failed");
+// Milvus REST API configuration
+const MILVUS_CONFIG = {
+  uri: process.env.MILVUS_URI || process.env.MILVUS_ADDRESS || "localhost:19530",
+  user: process.env.MILVUS_USER || process.env.MILVUS_USERNAME || "",
+  password: process.env.MILVUS_PASSWORD || "",
+  collection: process.env.MILVUS_COLLECTION_NEWS || "polygon_news_data"
+};
+
+// REST API helper functions
+async function milvusRequest(endpoint: string, method: string = 'GET', body?: any) {
+  const url = `${MILVUS_CONFIG.uri}/v1${endpoint}`;
+  const headers: any = {
+    'Content-Type': 'application/json',
+  };
+  
+  // Add basic auth if credentials are provided
+  if (MILVUS_CONFIG.user && MILVUS_CONFIG.password) {
+    const auth = Buffer.from(`${MILVUS_CONFIG.user}:${MILVUS_CONFIG.password}`).toString('base64');
+    headers['Authorization'] = `Basic ${auth}`;
   }
-  return new MilvusClient({
-    address: process.env.MILVUS_URI || process.env.MILVUS_ADDRESS || "localhost:19530",
-    ssl: (process.env.MILVUS_SSL||"false")==="true",
-    username: process.env.MILVUS_USER || process.env.MILVUS_USERNAME || "",
-    password: process.env.MILVUS_PASSWORD || "",
+  
+  const response = await fetch(url, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
   });
+  
+  if (!response.ok) {
+    throw new Error(`Milvus API error: ${response.status} ${response.statusText}`);
+  }
+  
+  return response.json();
 }
 
 async function embed(q:string){ const r = await openai.embeddings.create({ model: EMBED, input: q }); return r.data[0].embedding as number[]; }
@@ -35,101 +48,101 @@ const SYN = (sym:string) => {
 
 export async function searchNews(symbol:string, query:string, sinceIso:string, k=12){
   try {
-    // Check if MilvusClient is available
-    if (!MilvusClient) {
-      console.warn("⚠️ MilvusClient not available. Skipping news search.");
-      return [];
-    }
+    console.log(`🔍 Searching Milvus collection: ${MILVUS_CONFIG.collection} for symbol: ${symbol}`);
+    console.log(`🔗 Milvus URI: ${MILVUS_CONFIG.uri}`);
+    console.log(`👤 Milvus User: ${MILVUS_CONFIG.user}`);
     
-    const c = client();
-    const coll = process.env.MILVUS_COLLECTION_NEWS || "polygon_news_data";
+    // Get embedding for the query
     const v = await embed(query);
     
-    console.log(`🔍 Searching Milvus collection: ${coll} for symbol: ${symbol}`);
-    console.log(`🔗 Milvus URI: ${process.env.MILVUS_URI || 'not set'}`);
-    console.log(`👤 Milvus User: ${process.env.MILVUS_USER || 'not set'}`);
-    
-    const desc = await c.describeCollection({ collection_name: coll });
-  const fields = (desc.schema?.fields||[]).map(f=> f.name);
-  const hasTicker = fields.includes("ticker");
-  const hasDate = fields.includes("published_utc");
+    // Build filter expression
+    const syms = SYN(symbol);
+    const filter = `ticker in [${syms.map(s=>`"${s}"`).join(",")}] && published_utc >= "${sinceIso}"`;
 
-  const syms = SYN(symbol);
-  const filter = hasTicker || hasDate
-    ? [
-        hasTicker ? `ticker in [${syms.map(s=>`"${s}"`).join(",")}]` : "",
-        hasDate ? `published_utc >= "${sinceIso}"` : ""
-      ].filter(Boolean).join(" && ")
-    : undefined;
-
-  let res = await c.search({
-    collection_name: coll,
-    vector: [v],
-    output_fields: ["text","url","published_utc","ticker","source"],
-    metric_type: "COSINE",
-    limit: k,
-    filter,
-    params: { ef: 128 }
-  } as any);
-
-  let out:any[]=[];
-  for (const g of (res.results||[])){
-    const scores = g.scores||[];
-    const rows = g.fields_data||[];
-    for (let i=0;i<scores.length;i++){
-      const r:any = rows[i] || {};
-      const get=(key:string)=> r?.[key]?.Data?.[0] ?? r?.[key];
-      out.push({
-        title: get("source") || "News",
-        url: get("url") || "",
-        published_utc: get("published_utc") || "",
-        snippet: String(get("text")||"").slice(0,500),
-      });
-    }
-  }
-
-  // Widen if empty: 30d and synonyms already considered
-  if (out.length===0 && hasDate){
-    const d30 = new Date(Date.now()-30*86400_000).toISOString();
-    const wider = await c.search({
-      collection_name: coll,
-      vector: [v],
+    // Search using REST API
+    const searchBody = {
+      collection_name: MILVUS_CONFIG.collection,
+      vector: v,
       output_fields: ["text","url","published_utc","ticker","source"],
-      metric_type:"COSINE",
-      limit:k,
-      filter: [
-        hasTicker ? `ticker in [${syms.map(s=>`"${s}"`).join(",")}]` : "",
-        `published_utc >= "${d30}"`
-      ].filter(Boolean).join(" && "),
-      params:{ ef:128 }
-    } as any);
-    out=[];
-    for (const g of (wider.results||[])){
-      const scores = g.scores||[];
-      const rows = g.fields_data||[];
-      for (let i=0;i<scores.length;i++){
-        const r:any = rows[i] || {};
-        const get=(key:string)=> r?.[key]?.Data?.[0] ?? r?.[key];
-        out.push({
-          title: get("source") || "News",
-          url: get("url") || "",
-          published_utc: get("published_utc") || "",
-          snippet: String(get("text")||"").slice(0,500),
-        });
+      metric_type: "COSINE",
+      limit: k,
+      filter: filter,
+      params: { ef: 128 }
+    };
+
+    const res = await milvusRequest('/vector/search', 'POST', searchBody);
+    
+    let out: any[] = [];
+    if (res.results && res.results.length > 0) {
+      for (const result of res.results) {
+        if (result.fields_data) {
+          const fields = result.fields_data;
+          const scores = result.scores || [];
+          
+          for (let i = 0; i < scores.length; i++) {
+            const get = (key: string) => {
+              const field = fields.find((f: any) => f.field_name === key);
+              return field?.data?.[i] || "";
+            };
+            
+            out.push({
+              title: get("source") || "News",
+              url: get("url") || "",
+              published_utc: get("published_utc") || "",
+              snippet: String(get("text") || "").slice(0, 500),
+            });
+          }
+        }
       }
     }
-  }
 
-  return out.slice(0,k);
+    // If no results, try a wider search (30 days)
+    if (out.length === 0) {
+      const d30 = new Date(Date.now() - 30 * 86400_000).toISOString();
+      const widerFilter = `ticker in [${syms.map(s=>`"${s}"`).join(",")}] && published_utc >= "${d30}"`;
+      
+      const widerSearchBody = {
+        ...searchBody,
+        filter: widerFilter
+      };
+      
+      const widerRes = await milvusRequest('/vector/search', 'POST', widerSearchBody);
+      
+      if (widerRes.results && widerRes.results.length > 0) {
+        for (const result of widerRes.results) {
+          if (result.fields_data) {
+            const fields = result.fields_data;
+            const scores = result.scores || [];
+            
+            for (let i = 0; i < scores.length; i++) {
+              const get = (key: string) => {
+                const field = fields.find((f: any) => f.field_name === key);
+                return field?.data?.[i] || "";
+              };
+              
+              out.push({
+                title: get("source") || "News",
+                url: get("url") || "",
+                published_utc: get("published_utc") || "",
+                snippet: String(get("text") || "").slice(0, 500),
+              });
+            }
+          }
+        }
+      }
+    }
+
+    return out.slice(0, k);
   } catch (error) {
     console.error(`❌ Milvus search failed for ${symbol}:`, error);
     console.error(`Error details:`, {
       message: error.message,
       stack: error.stack,
-      milvusUri: process.env.MILVUS_URI,
-      milvusUser: process.env.MILVUS_USER,
-      collection: process.env.MILVUS_COLLECTION_NEWS || "polygon_news_data"
+      milvusUri: MILVUS_CONFIG.uri,
+      milvusUser: MILVUS_CONFIG.user,
+      collection: MILVUS_CONFIG.collection
     });
-    throw new Error(`Milvus connection failed: ${error.message}`);
+    // Return empty array instead of throwing to allow the app to continue
+    return [];
   }
 }

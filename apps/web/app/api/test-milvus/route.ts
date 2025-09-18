@@ -1,26 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// Import Milvus with error handling
-let MilvusClient: any;
-try {
-  MilvusClient = require("@zilliz/milvus2-sdk-node").MilvusClient;
-} catch (error) {
-  console.error("❌ Failed to import MilvusClient:", error);
-  MilvusClient = null;
-}
-
 export async function GET(request: NextRequest) {
   try {
-    console.log("🧪 Testing Milvus connection...");
-    
-    // Check if MilvusClient is available
-    if (!MilvusClient) {
-      return NextResponse.json({
-        success: false,
-        error: "MilvusClient not available - import failed",
-        details: "The Milvus SDK could not be imported"
-      });
-    }
+    console.log("🧪 Testing Milvus REST API connection...");
     
     // Check environment variables
     const config = {
@@ -42,57 +24,61 @@ export async function GET(request: NextRequest) {
       });
     }
     
-    // Try to create client
-    let client;
-    try {
-      client = new MilvusClient({
-        address: process.env.MILVUS_URI || process.env.MILVUS_ADDRESS || "localhost:19530",
-        ssl: (process.env.MILVUS_SSL||"false")==="true",
-        username: process.env.MILVUS_USER || process.env.MILVUS_USERNAME || "",
-        password: process.env.MILVUS_PASSWORD || "",
-      });
-      console.log("✅ Milvus client created successfully");
-    } catch (clientError) {
-      return NextResponse.json({
-        success: false,
-        error: "Failed to create Milvus client",
-        details: clientError.message,
-        config
-      });
+    // Test Milvus REST API connection
+    const uri = process.env.MILVUS_URI || process.env.MILVUS_ADDRESS || "localhost:19530";
+    const url = `${uri}/v1/collections`;
+    
+    const headers: any = {
+      'Content-Type': 'application/json',
+    };
+    
+    // Add basic auth if credentials are provided
+    if (process.env.MILVUS_USER && process.env.MILVUS_PASSWORD) {
+      const auth = Buffer.from(`${process.env.MILVUS_USER}:${process.env.MILVUS_PASSWORD}`).toString('base64');
+      headers['Authorization'] = `Basic ${auth}`;
     }
     
-    // Try to connect
-    try {
-      const collections = await client.showCollections();
-      console.log("✅ Milvus connection successful");
-      
-      const collectionNames = collections?.collection_names || [];
-      const targetCollection = process.env.MILVUS_COLLECTION_NEWS || 'polygon_news_data';
-      
-      return NextResponse.json({
-        success: true,
-        message: "Milvus connection successful",
-        config,
-        collections: collectionNames,
-        targetCollection,
-        hasTargetCollection: collectionNames.includes(targetCollection)
-      });
-      
-    } catch (connectionError) {
-      return NextResponse.json({
-        success: false,
-        error: "Milvus connection failed",
-        details: connectionError.message,
-        config
-      });
+    console.log("🔗 Testing REST API connection to:", url);
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers,
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Milvus REST API error: ${response.status} ${response.statusText}`);
     }
     
-  } catch (error) {
-    console.error("❌ Test failed:", error);
+    const data = await response.json();
+    console.log("✅ Milvus REST API connection successful");
+    
+    const collections = data?.data?.map((x: any) => x.name) ?? [];
+    const targetCollection = process.env.MILVUS_COLLECTION_NEWS || 'polygon_news_data';
+    const hasTargetCollection = collections.includes(targetCollection);
+    
+    return NextResponse.json({
+      success: true,
+      message: "Milvus REST API connection successful!",
+      config,
+      collections: collections,
+      targetCollection,
+      hasTargetCollection: hasTargetCollection
+    });
+    
+  } catch (error: any) {
+    console.error("❌ Milvus REST API test failed:", error);
     return NextResponse.json({
       success: false,
-      error: "Test failed",
-      details: error.message
+      error: "Milvus REST API connection failed",
+      details: error.message,
+      config: {
+        uri: process.env.MILVUS_URI || 'not set',
+        address: process.env.MILVUS_ADDRESS || 'not set', 
+        user: process.env.MILVUS_USER || 'not set',
+        username: process.env.MILVUS_USERNAME || 'not set',
+        ssl: process.env.MILVUS_SSL || 'not set',
+        collection: process.env.MILVUS_COLLECTION_NEWS || 'polygon_news_data'
+      }
     });
   }
 }

@@ -318,20 +318,12 @@ export async function POST(req: NextRequest) {
       }
     } catch (error) {
       console.error("❌ STEP 1 ERROR: Failed to fetch OHLCV data from Postgres:", error);
-      
-      // Temporary fallback: Create mock data for testing when database is unavailable
-      console.log("🔄 Creating temporary mock data for testing...");
-      const mockData = Array.from({length: 30}, (_, i) => ({
-        date: new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        open: (125 + Math.random() * 10).toFixed(2),
-        high: (127 + Math.random() * 10).toFixed(2),
-        low: (123 + Math.random() * 10).toFixed(2),
-        close: (126 + Math.random() * 10).toFixed(2),
-        volume: Math.floor(40000000 + Math.random() * 10000000)
-      }));
-      
-      symbolData = mockData;
-      console.log(`📊 Using mock data: ${symbolData.length} records for ${detectedSymbol}`);
+      return NextResponse.json({ 
+        error: `Database connection failed. Cannot fetch OHLCV data for ${detectedSymbol}. Please ensure database is properly configured.`,
+        code: "DATABASE_CONNECTION_ERROR",
+        symbol: detectedSymbol,
+        details: error.message
+      }, { status: 500 });
     }
 
     console.log(`🔍 About to call barsQualityOk with bars:`, bars);

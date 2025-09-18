@@ -58,81 +58,36 @@ export async function searchAndRerankNewsStrict(
 ) {
   try {
     console.log(`🔍 News Search Debug - Symbol: ${symbol}, Query: ${userQuery}, Since: ${sinceIso}`);
-    console.log(`🔧 Milvus Config Debug:`, {
-      uri: MILVUS_CONFIG.uri,
-      user: MILVUS_CONFIG.user,
-      collection: MILVUS_CONFIG.collection
+    
+    // Call our internal API endpoint that will handle Milvus connection
+    const response = await fetch('/api/milvus-search', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        symbol,
+        query: userQuery,
+        sinceIso,
+        k: 20
+      })
     });
     
-    // Check if Milvus is configured
-    if (!MILVUS_CONFIG.uri) {
-      console.warn("⚠️ Milvus not configured. Skipping news search.");
+    if (!response.ok) {
+      throw new Error(`API request failed: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    if (!data.success) {
+      console.warn(`⚠️ Milvus search failed: ${data.error}`);
       return [];
     }
-
-    console.log(`🔍 News Search Debug - Creating embedding for: ${symbol} ${userQuery}`);
-    const vec = await openai.embeddings.create({ 
-      model: EMBED, 
-      input: `${symbol} ${userQuery}`.trim() 
-    });
-    const qv = vec.data[0].embedding as number[];
-
-    // Build search expression
-    const clauses: string[] = [];
-    clauses.push(`ticker == "${symbol.toUpperCase()}"`);
-    if (sinceIso) {
-      clauses.push(`published_utc >= "${sinceIso}"`);
-    }
-    const expr = clauses.join(" && ");
-    console.log(`🔍 Debug - Search expression:`, expr);
-
-    console.log(`🔍 News Search Debug - Searching Milvus with vector...`);
-    const OUT_FIELDS = ["text","url","published_utc","tickers","ticker","title","source","sentiment"];
     
-    const searchBody = {
-      collection_name: MILVUS_CONFIG.collection,
-      vector: qv,
-      output_fields: OUT_FIELDS,
-      metric_type: "COSINE",
-      limit: RECALL_K,
-      filter: expr,
-      params: { nprobe: 16 }
-    };
-
-    const res = await milvusRequest('/vector/search', 'POST', searchBody);
-    console.log(`🔍 News Search Debug - Search completed, found ${res?.results?.length || 0} hits`);
-
-    const groups = res?.results ?? [];
-    const hits: any[] = [];
+    const hits = data.results || [];
     
-    for (const g of groups) {
-      if (g.fields_data && g.scores) {
-        const fields = g.fields_data;
-        const scores = g.scores;
-        
-        for (let i = 0; i < scores.length; i++) {
-          const get = (key: string) => {
-            const field = fields.find((f: any) => f.field_name === key);
-            return field?.data?.[i] || "";
-          };
-          
-          hits.push({
-            text: get("text"),
-            url: get("url"),
-            published_utc: get("published_utc"),
-            ticker: get("ticker"),
-            tickers: get("tickers"),
-            title: get("title"),
-            source: get("source"),
-            sentiment: get("sentiment"),
-            score: scores[i] ?? 0
-          });
-        }
-      }
-    }
-
     if (hits.length === 0) {
-      console.warn(`No news found in '${MILVUS_CONFIG.collection}' for ${symbol} since ${sinceIso}.`);
+      console.warn(`No news found for ${symbol} since ${sinceIso}.`);
       return [];
     }
 

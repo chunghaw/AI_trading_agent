@@ -49,99 +49,36 @@ const SYN = (sym:string) => {
 export async function searchNews(symbol:string, query:string, sinceIso:string, k=12){
   try {
     console.log(`🔍 Searching Milvus collection: ${MILVUS_CONFIG.collection} for symbol: ${symbol}`);
-    console.log(`🔗 Milvus URI: ${MILVUS_CONFIG.uri}`);
-    console.log(`👤 Milvus User: ${MILVUS_CONFIG.user}`);
     
-    // Get embedding for the query
-    const v = await embed(query);
+    // Call our internal API endpoint that will handle Milvus connection
+    const response = await fetch('/api/milvus-search', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        symbol,
+        query,
+        sinceIso,
+        k
+      })
+    });
     
-    // Build filter expression
-    const syms = SYN(symbol);
-    const filter = `ticker in [${syms.map(s=>`"${s}"`).join(",")}] && published_utc >= "${sinceIso}"`;
-
-    // Search using REST API
-    const searchBody = {
-      collection_name: MILVUS_CONFIG.collection,
-      vector: v,
-      output_fields: ["text","url","published_utc","ticker","source"],
-      metric_type: "COSINE",
-      limit: k,
-      filter: filter,
-      params: { ef: 128 }
-    };
-
-    const res = await milvusRequest('/vector/search', 'POST', searchBody);
-    
-    let out: any[] = [];
-    if (res.results && res.results.length > 0) {
-      for (const result of res.results) {
-        if (result.fields_data) {
-          const fields = result.fields_data;
-          const scores = result.scores || [];
-          
-          for (let i = 0; i < scores.length; i++) {
-            const get = (key: string) => {
-              const field = fields.find((f: any) => f.field_name === key);
-              return field?.data?.[i] || "";
-            };
-            
-            out.push({
-              title: get("source") || "News",
-              url: get("url") || "",
-              published_utc: get("published_utc") || "",
-              snippet: String(get("text") || "").slice(0, 500),
-            });
-          }
-        }
-      }
+    if (!response.ok) {
+      throw new Error(`API request failed: ${response.status}`);
     }
-
-    // If no results, try a wider search (30 days)
-    if (out.length === 0) {
-      const d30 = new Date(Date.now() - 30 * 86400_000).toISOString();
-      const widerFilter = `ticker in [${syms.map(s=>`"${s}"`).join(",")}] && published_utc >= "${d30}"`;
-      
-      const widerSearchBody = {
-        ...searchBody,
-        filter: widerFilter
-      };
-      
-      const widerRes = await milvusRequest('/vector/search', 'POST', widerSearchBody);
-      
-      if (widerRes.results && widerRes.results.length > 0) {
-        for (const result of widerRes.results) {
-          if (result.fields_data) {
-            const fields = result.fields_data;
-            const scores = result.scores || [];
-            
-            for (let i = 0; i < scores.length; i++) {
-              const get = (key: string) => {
-                const field = fields.find((f: any) => f.field_name === key);
-                return field?.data?.[i] || "";
-              };
-              
-              out.push({
-                title: get("source") || "News",
-                url: get("url") || "",
-                published_utc: get("published_utc") || "",
-                snippet: String(get("text") || "").slice(0, 500),
-              });
-            }
-          }
-        }
-      }
+    
+    const data = await response.json();
+    
+    if (!data.success) {
+      console.warn(`⚠️ Milvus search failed: ${data.error}`);
+      return [];
     }
-
-    return out.slice(0, k);
+    
+    return data.results || [];
+    
   } catch (error) {
     console.error(`❌ Milvus search failed for ${symbol}:`, error);
-    console.error(`Error details:`, {
-      message: error.message,
-      stack: error.stack,
-      milvusUri: MILVUS_CONFIG.uri,
-      milvusUser: MILVUS_CONFIG.user,
-      collection: MILVUS_CONFIG.collection
-    });
     // Return empty array instead of throwing to allow the app to continue
     return [];
   }

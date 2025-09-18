@@ -50,32 +50,41 @@ export async function searchNews(symbol:string, query:string, sinceIso:string, k
   try {
     console.log(`🔍 Searching Milvus collection: ${MILVUS_CONFIG.collection} for symbol: ${symbol}`);
     
-    // Call our internal API endpoint that will handle Milvus connection
-    const response = await fetch('/api/milvus-search', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        symbol,
-        query,
-        sinceIso,
-        k
-      })
+    // Directly call Python script instead of HTTP request
+    const { spawn } = require('child_process');
+    const path = require('path');
+    
+    const pythonScript = path.join(process.cwd(), 'milvus_search.py');
+    
+    return new Promise((resolve) => {
+      const python = spawn('python3', [pythonScript, 'search', symbol, query, sinceIso, k.toString()]);
+      
+      let output = '';
+      let errorOutput = '';
+      
+      python.stdout.on('data', (data) => {
+        output += data.toString();
+      });
+      
+      python.stderr.on('data', (data) => {
+        errorOutput += data.toString();
+      });
+      
+      python.on('close', (code) => {
+        if (code === 0) {
+          try {
+            const results = JSON.parse(output);
+            resolve(results || []);
+          } catch (parseError) {
+            console.error("❌ Failed to parse search results:", parseError);
+            resolve([]);
+          }
+        } else {
+          console.error("❌ Python search failed:", errorOutput);
+          resolve([]);
+        }
+      });
     });
-    
-    if (!response.ok) {
-      throw new Error(`API request failed: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    
-    if (!data.success) {
-      console.warn(`⚠️ Milvus search failed: ${data.error}`);
-      return [];
-    }
-    
-    return data.results || [];
     
   } catch (error) {
     console.error(`❌ Milvus search failed for ${symbol}:`, error);

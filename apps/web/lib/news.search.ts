@@ -59,32 +59,41 @@ export async function searchAndRerankNewsStrict(
   try {
     console.log(`🔍 News Search Debug - Symbol: ${symbol}, Query: ${userQuery}, Since: ${sinceIso}`);
     
-    // Call our internal API endpoint that will handle Milvus connection
-    const response = await fetch('/api/milvus-search', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        symbol,
-        query: userQuery,
-        sinceIso,
-        k: 20
-      })
+    // Directly call Python script instead of HTTP request
+    const { spawn } = require('child_process');
+    const path = require('path');
+    
+    const pythonScript = path.join(process.cwd(), 'milvus_search.py');
+    
+    const hits = await new Promise((resolve) => {
+      const python = spawn('python3', [pythonScript, 'search', symbol, userQuery, sinceIso, '20']);
+      
+      let output = '';
+      let errorOutput = '';
+      
+      python.stdout.on('data', (data) => {
+        output += data.toString();
+      });
+      
+      python.stderr.on('data', (data) => {
+        errorOutput += data.toString();
+      });
+      
+      python.on('close', (code) => {
+        if (code === 0) {
+          try {
+            const results = JSON.parse(output);
+            resolve(results || []);
+          } catch (parseError) {
+            console.error("❌ Failed to parse search results:", parseError);
+            resolve([]);
+          }
+        } else {
+          console.error("❌ Python search failed:", errorOutput);
+          resolve([]);
+        }
+      });
     });
-    
-    if (!response.ok) {
-      throw new Error(`API request failed: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    
-    if (!data.success) {
-      console.warn(`⚠️ Milvus search failed: ${data.error}`);
-      return [];
-    }
-    
-    const hits = data.results || [];
     
     if (hits.length === 0) {
       console.warn(`No news found for ${symbol} since ${sinceIso}.`);

@@ -18,15 +18,12 @@ class MilvusSearchClient:
     def connect(self):
         """Connect to Milvus"""
         try:
-            # Try to import pymilvus
+            # Try to import pymilvus (skip install in production to avoid timeout)
             try:
                 from pymilvus import MilvusClient
-            except ImportError:
-                # Install pymilvus silently
-                import subprocess
-                subprocess.check_call([sys.executable, "-m", "pip", "install", "pymilvus"], 
-                                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                from pymilvus import MilvusClient
+            except ImportError as e:
+                print(f"❌ pymilvus not available: {e}")
+                return False
             
             self.client = MilvusClient(
                 uri=self.uri,

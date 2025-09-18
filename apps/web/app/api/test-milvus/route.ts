@@ -24,9 +24,8 @@ export async function GET(request: NextRequest) {
       });
     }
     
-    // Test Milvus REST API connection
+    // Test different Milvus API endpoints
     const uri = process.env.MILVUS_URI || process.env.MILVUS_ADDRESS || "localhost:19530";
-    const url = `${uri}/v1/collections`;
     
     const headers: any = {
       'Content-Type': 'application/json',
@@ -38,21 +37,59 @@ export async function GET(request: NextRequest) {
       headers['Authorization'] = `Basic ${auth}`;
     }
     
-    console.log("🔗 Testing REST API connection to:", url);
+    // Try different possible endpoints
+    const endpoints = [
+      '/v1/collections',
+      '/collections',
+      '/v1/vector/collections',
+      '/api/v1/collections',
+      '/health',
+      '/'
+    ];
     
-    const response = await fetch(url, {
-      method: 'GET',
-      headers,
-    });
+    let workingEndpoint = null;
+    let collections = [];
+    let data = null;
     
-    if (!response.ok) {
-      throw new Error(`Milvus REST API error: ${response.status} ${response.statusText}`);
+    for (const endpoint of endpoints) {
+      const url = `${uri}${endpoint}`;
+      console.log(`🔗 Testing endpoint: ${url}`);
+      
+      try {
+        const response = await fetch(url, {
+          method: 'GET',
+          headers,
+        });
+        
+        console.log(`📊 Response status: ${response.status} ${response.statusText}`);
+        
+        if (response.ok) {
+          workingEndpoint = endpoint;
+          data = await response.json();
+          console.log(`✅ Working endpoint found: ${endpoint}`);
+          console.log(`📄 Response data:`, JSON.stringify(data, null, 2));
+          
+          // Try to extract collections from different response formats
+          if (data?.data?.map) {
+            collections = data.data.map((x: any) => x.name || x);
+          } else if (data?.collections) {
+            collections = data.collections;
+          } else if (Array.isArray(data)) {
+            collections = data;
+          }
+          break;
+        } else {
+          console.log(`❌ Endpoint ${endpoint} failed: ${response.status}`);
+        }
+      } catch (error) {
+        console.log(`❌ Endpoint ${endpoint} error:`, error.message);
+      }
     }
     
-    const data = await response.json();
-    console.log("✅ Milvus REST API connection successful");
+    if (!workingEndpoint) {
+      throw new Error(`No working Milvus API endpoint found. Tried: ${endpoints.join(', ')}`);
+    }
     
-    const collections = data?.data?.map((x: any) => x.name) ?? [];
     const targetCollection = process.env.MILVUS_COLLECTION_NEWS || 'polygon_news_data';
     const hasTargetCollection = collections.includes(targetCollection);
     
@@ -60,9 +97,11 @@ export async function GET(request: NextRequest) {
       success: true,
       message: "Milvus REST API connection successful!",
       config,
+      workingEndpoint,
       collections: collections,
       targetCollection,
-      hasTargetCollection: hasTargetCollection
+      hasTargetCollection: hasTargetCollection,
+      responseData: data
     });
     
   } catch (error: any) {

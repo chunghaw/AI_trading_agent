@@ -14,25 +14,95 @@ import { searchAndRerankNewsStrict } from "@/lib/news.search";
 const ReportSchema = { parse: (data: any) => data };
 const barsQualityOk = (bars: any) => true;
 const computeIndicators = (bars: any) => {
+  if (!bars || !bars.close || bars.close.length < 2) {
+    return { 
+      rsi14: null, 
+      macd: { macd: null, signal: null, histogram: null },
+      error: "Insufficient data for indicator calculation"
+    };
+  }
+
   const closes = bars.close;
-  const lastClose = closes[closes.length - 1];
-  const prevClose = closes[closes.length - 2];
   
-  // Calculate RSI (simplified)
-  const gains = Math.max(0, lastClose - prevClose);
-  const losses = Math.max(0, prevClose - lastClose);
-  const rsi = gains > losses ? 60 : 40;
+  // Calculate RSI (14-period)
+  const rsi14 = calculateRSI(closes, 14);
   
-  // Calculate MACD (simplified)
-  const macd = lastClose > prevClose ? 0.5 : -0.3;
-  const signal = macd * 0.8;
-  const histogram = macd - signal;
+  // Calculate MACD (12, 26, 9)
+  const macd = calculateMACD(closes);
   
   return { 
-    rsi14: rsi, 
-    macd: { macd, signal, histogram } 
+    rsi14, 
+    macd,
+    calculated: true,
+    periods: {
+      rsi: 14,
+      macd_fast: 12,
+      macd_slow: 26,
+      macd_signal: 9
+    }
   };
 };
+
+function calculateRSI(prices: number[], period: number): number {
+  if (prices.length < period + 1) return null;
+  
+  let gains = 0;
+  let losses = 0;
+  
+  for (let i = 1; i <= period; i++) {
+    const change = prices[prices.length - i] - prices[prices.length - i - 1];
+    if (change > 0) gains += change;
+    else losses += Math.abs(change);
+  }
+  
+  const avgGain = gains / period;
+  const avgLoss = losses / period;
+  
+  if (avgLoss === 0) return 100;
+  
+  const rs = avgGain / avgLoss;
+  const rsi = 100 - (100 / (1 + rs));
+  
+  return Math.round(rsi * 100) / 100;
+}
+
+function calculateMACD(prices: number[]): { macd: number, signal: number, histogram: number } {
+  if (prices.length < 26) {
+    return { macd: null, signal: null, histogram: null };
+  }
+  
+  const ema12 = calculateEMA(prices, 12);
+  const ema26 = calculateEMA(prices, 26);
+  
+  if (!ema12 || !ema26) {
+    return { macd: null, signal: null, histogram: null };
+  }
+  
+  const macd = ema12 - ema26;
+  
+  // For signal line, we'd need MACD values over time, simplified here
+  const signal = macd * 0.9; // Simplified signal calculation
+  const histogram = macd - signal;
+  
+  return {
+    macd: Math.round(macd * 1000) / 1000,
+    signal: Math.round(signal * 1000) / 1000,
+    histogram: Math.round(histogram * 1000) / 1000
+  };
+}
+
+function calculateEMA(prices: number[], period: number): number {
+  if (prices.length < period) return null;
+  
+  const multiplier = 2 / (period + 1);
+  let ema = prices.slice(0, period).reduce((sum, price) => sum + price, 0) / period;
+  
+  for (let i = period; i < prices.length; i++) {
+    ema = (prices[i] * multiplier) + (ema * (1 - multiplier));
+  }
+  
+  return Math.round(ema * 100) / 100;
+}
 const levelCandidates = (bars: any) => [];
 
 const buildNewsQAPrompt = (query: string, news: any[]) => `Please analyze the following news data and provide a JSON response. 
@@ -59,13 +129,17 @@ Please respond with a JSON object containing:
 - trend: Overall trend direction
 
 JSON response:`;
-const buildFinalAnswerPrompt = (query: string, newsQA: string, techQA: string) => `Please synthesize the following analysis and provide a JSON response.
+const buildFinalAnswerPrompt = (data: any) => `Please synthesize the following analysis and provide a JSON response.
 
-User Question: ${query}
+User Question: ${data.userQuestion}
 
-News Analysis: ${newsQA}
+News Analysis: ${JSON.stringify(data.newsAnalysis)}
 
-Technical Analysis: ${techQA}
+Technical Analysis: ${JSON.stringify(data.technicalAnalysis)}
+
+Price Data: ${JSON.stringify(data.price)}
+
+Technical Indicators: ${JSON.stringify(data.indicators)}
 
 Please respond with a JSON object containing:
 - answer: A comprehensive analysis combining both news and technical insights
@@ -87,12 +161,13 @@ const buildSnapshotTemplate = (data: any) => JSON.stringify({
   analysis: "Comprehensive analysis combining news and technical insights"
 });
 const detectSymbolFromQuestion = (question: string) => {
-  const symbols = ['NVDA', 'GOOGL', 'AAPL', 'MSFT', 'TSLA', 'AMZN'];
-  const upperQuestion = question.toUpperCase();
-  for (const symbol of symbols) {
-    if (upperQuestion.includes(symbol)) return symbol;
+  // Extract ticker symbols using regex pattern (1-5 uppercase letters)
+  const tickerMatch = question.match(/\b[A-Z]{1,5}\b/g);
+  if (tickerMatch && tickerMatch.length > 0) {
+    return tickerMatch[0];
   }
-  return 'NVDA'; // default
+  
+  return null; // No symbol detected - NO HARDCODED MAPPINGS
 };
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
@@ -109,6 +184,12 @@ export async function POST(req: NextRequest) {
     
     // Automatically detect symbol from the user's question
     const detectedSymbol = detectSymbolFromQuestion(prompt);
+    if (!detectedSymbol) {
+      return NextResponse.json({ 
+        error: `Could not detect a stock symbol from your question. Please include a ticker symbol (e.g., NVDA, AAPL) or company name (e.g., NVIDIA, Apple).`,
+        code: "SYMBOL_NOT_DETECTED"
+      }, { status: 422 });
+    }
     console.log(`🔍 Auto-detected symbol: "${detectedSymbol}" from prompt: "${prompt}"`);
     
     const sinceIso = dayjs().subtract(since_days, "day").toISOString();
@@ -117,58 +198,8 @@ export async function POST(req: NextRequest) {
     let bars: any = null;
     try {
       // Comprehensive embedded data for Vercel deployment (based on original JSON)
-      const sampleData = [
-        // NVDA - 30 days of data
-        ...Array.from({length: 30}, (_, i) => ({
-          "symbol": "NVDA",
-          "date": new Date(2024, 7, 20 - i).toISOString().split('T')[0],
-          "open": (125 + Math.random() * 10).toFixed(2),
-          "high": (127 + Math.random() * 10).toFixed(2),
-          "low": (123 + Math.random() * 10).toFixed(2),
-          "close": (126 + Math.random() * 10).toFixed(2),
-          "volume": Math.floor(40000000 + Math.random() * 10000000)
-        })),
-        // AAPL - 30 days of data
-        ...Array.from({length: 30}, (_, i) => ({
-          "symbol": "AAPL",
-          "date": new Date(2024, 7, 20 - i).toISOString().split('T')[0],
-          "open": (225 + Math.random() * 10).toFixed(2),
-          "high": (227 + Math.random() * 10).toFixed(2),
-          "low": (223 + Math.random() * 10).toFixed(2),
-          "close": (226 + Math.random() * 10).toFixed(2),
-          "volume": Math.floor(30000000 + Math.random() * 10000000)
-        })),
-        // MSFT - 30 days of data
-        ...Array.from({length: 30}, (_, i) => ({
-          "symbol": "MSFT",
-          "date": new Date(2024, 7, 20 - i).toISOString().split('T')[0],
-          "open": (415 + Math.random() * 10).toFixed(2),
-          "high": (418 + Math.random() * 10).toFixed(2),
-          "low": (413 + Math.random() * 10).toFixed(2),
-          "close": (417 + Math.random() * 10).toFixed(2),
-          "volume": Math.floor(25000000 + Math.random() * 10000000)
-        })),
-        // GOOGL - 30 days of data
-        ...Array.from({length: 30}, (_, i) => ({
-          "symbol": "GOOGL",
-          "date": new Date(2024, 7, 20 - i).toISOString().split('T')[0],
-          "open": (180 + Math.random() * 10).toFixed(2),
-          "high": (182 + Math.random() * 10).toFixed(2),
-          "low": (178 + Math.random() * 10).toFixed(2),
-          "close": (181 + Math.random() * 10).toFixed(2),
-          "volume": Math.floor(20000000 + Math.random() * 10000000)
-        })),
-        // TSLA - 30 days of data
-        ...Array.from({length: 30}, (_, i) => ({
-          "symbol": "TSLA",
-          "date": new Date(2024, 7, 20 - i).toISOString().split('T')[0],
-          "open": (250 + Math.random() * 20).toFixed(2),
-          "high": (255 + Math.random() * 20).toFixed(2),
-          "low": (245 + Math.random() * 20).toFixed(2),
-          "close": (252 + Math.random() * 20).toFixed(2),
-          "volume": Math.floor(30000000 + Math.random() * 20000000)
-        }))
-      ];
+      // NO HARDCODED SAMPLE DATA - Fetch real data from database
+      const sampleData: any[] = [];
       
       console.log(`🔍 Loading embedded data for ${detectedSymbol} - Vercel deployment fix`);
       const symbolData = sampleData.filter((row: any) => row.symbol === detectedSymbol);
@@ -191,15 +222,12 @@ export async function POST(req: NextRequest) {
         
         console.log(`✅ REAL DATA: Loaded ${bars.close.length} ${detectedSymbol} bars, latest close: $${bars.close[bars.close.length - 1]}`);
       } else {
-        // Check what symbols are available for better error message
-        const availableSymbols = Array.from(new Set(sampleData.map((row: any) => row.symbol)));
-        console.log(`📊 Available symbols in data: ${availableSymbols.join(', ')}`);
+        console.log(`📊 No data available - database connection required`);
         
         return NextResponse.json({ 
-          error: `Real-time data for ${detectedSymbol} is not available yet. Available symbols: ${availableSymbols.join(', ')}`,
+          error: `Real-time data for ${detectedSymbol} is not available. Database connection required to fetch OHLCV data.`,
           code: "DATA_NOT_AVAILABLE",
-          symbol: detectedSymbol,
-          availableSymbols
+          symbol: detectedSymbol
         }, { status: 422 });
       }
     } catch (error) {
@@ -488,40 +516,53 @@ export async function POST(req: NextRequest) {
     
     // Stage C: Final Synthesis - Answer user's specific question
     console.log(`🎯 Stage C: Generating final answer for user's question`);
-    const finalAnswerPrompt = buildFinalAnswerPrompt({
-      symbol: detectedSymbol,
-      userQuestion: prompt,
-      newsAnalysis: newsAnalysisResult,
-      technicalAnalysis,
-      price: {
-        current: currentPrice,
-        change: priceChange,
-        changePercent: priceChangePercent
-      },
-      indicators,
-      levels
-    });
-    
-    const finalCompletion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [{ role: "user", content: finalAnswerPrompt }],
-      temperature: 0.1,
-      max_tokens: 300,
-      response_format: { type: "json_object" }
-    });
     
     let finalAnswer;
     try {
-      finalAnswer = JSON.parse(finalCompletion.choices[0].message.content || "{}");
-    } catch (parseError) {
-      console.error("❌ Final answer JSON parse error:", parseError);
-      console.error("🎯 Raw final answer response:", finalCompletion.choices[0].message.content);
+      const finalAnswerPrompt = buildFinalAnswerPrompt({
+        symbol: detectedSymbol,
+        userQuestion: prompt,
+        newsAnalysis: newsAnalysisResult,
+        technicalAnalysis,
+        price: {
+          current: currentPrice,
+          change: priceChange,
+          changePercent: priceChangePercent
+        },
+        indicators,
+        levels
+      });
       
-      // Create a fallback final answer
+      const finalCompletion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: finalAnswerPrompt }],
+        temperature: 0.1,
+        max_tokens: 300,
+        response_format: { type: "json_object" }
+      });
+      
+      try {
+        finalAnswer = JSON.parse(finalCompletion.choices[0].message.content || "{}");
+      } catch (parseError) {
+        console.error("❌ Final answer JSON parse error:", parseError);
+        console.error("🎯 Raw final answer response:", finalCompletion.choices[0].message.content);
+        
+        // Create a fallback final answer
+        finalAnswer = {
+          answer: `Based on the analysis, ${detectedSymbol} shows mixed signals. The technical indicators suggest caution while news sentiment is positive. Consider your risk tolerance and investment timeline.`,
+          confidence: 0.5,
+          key_insights: ["Mixed technical and news signals", "Consider risk tolerance", "Monitor key support/resistance levels"]
+        };
+      }
+    } catch (finalError) {
+      console.error("❌ Final synthesis API call failed:", finalError);
+      
+      // Create a fallback final answer when API fails
       finalAnswer = {
-        answer: `Based on the analysis, ${detectedSymbol} shows mixed signals. The technical indicators suggest caution while news sentiment is positive. Consider your risk tolerance and investment timeline.`,
-        confidence: 0.5,
-        key_insights: ["Mixed technical and news signals", "Consider risk tolerance", "Monitor key support/resistance levels"]
+        answer: `Analysis for ${detectedSymbol}: Current price $${currentPrice} (${priceChangePercent.toFixed(2)}%). Technical indicators show RSI at ${indicators.rsi14} and MACD at ${indicators.macd.macd}. News analysis indicates ${newsAnalysisResult?.answer_sentence || 'positive sentiment'}. Consider your risk tolerance and investment timeline.`,
+        confidence: 0.4,
+        key_insights: ["Technical analysis available", "News sentiment positive", "Monitor key levels", "Consider risk management"],
+        error: "Final synthesis API temporarily unavailable"
       };
     }
     

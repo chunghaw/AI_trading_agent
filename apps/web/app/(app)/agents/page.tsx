@@ -4,31 +4,10 @@ import React from "react";
 import { Card } from "../../../components/ui/card";
 import { Button } from "../../../components/ui/button";
 import { Send } from "lucide-react";
-// import { ReportSchema, type Report } from "../../../lib/report.schema";
-// import { cn } from "../../../lib/utils";
-// import { ReportCard } from "../../../components/report/ReportCard";
+import { ReportSchema, type Report } from "../../../lib/report.schema";
+import { cn } from "../../../lib/utils";
+import { ReportCard } from "../../../components/report/ReportCard";
 
-// Temporary functions
-const ReportSchema = { parse: (data: any) => data };
-const cn = (...classes: any[]) => classes.filter(Boolean).join(' ');
-type Report = any;
-
-// Temporary ReportCard component
-const ReportCard = ({ report, isMockData = false }: { report: any; isMockData?: boolean }) => (
-  <Card className="p-6">
-    <div className="mb-4">
-      <h3 className="text-lg font-semibold text-[var(--text)]">Analysis Results</h3>
-      {isMockData && (
-        <p className="text-sm text-[var(--muted)] mt-1">Using mock data for demonstration</p>
-      )}
-    </div>
-    <div className="space-y-4">
-      <pre className="bg-[var(--bg-secondary)] p-4 rounded-lg text-sm overflow-auto">
-        {JSON.stringify(report, null, 2)}
-      </pre>
-    </div>
-  </Card>
-);
 
 const analysisTypes = [
   { id: "combined", label: "Combined Analysis", description: "News + Technical + Portfolio" },
@@ -196,9 +175,9 @@ export default function AgentsPage() {
                 <Button
                   type="submit"
                   disabled={isLoading || !prompt.trim()}
-                  className="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-black/20 disabled:pointer-events-none disabled:opacity-50 h-12 w-12 p-0 bg-green-700 hover:bg-green-600 text-black rounded-full shadow-lg hover:shadow-xl transition-all duration-200"
+                  className="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-black/20 disabled:pointer-events-none disabled:opacity-50 h-10 w-10 p-0 bg-[var(--accent)] hover:bg-[var(--accent-600)] text-black rounded-full shadow-lg hover:shadow-xl transition-all duration-200"
                 >
-                  <Send className="w-11 h-11 stroke-black fill-none" />
+                  <Send className="w-5 h-5" />
                 </Button>
               </div>
             </div>

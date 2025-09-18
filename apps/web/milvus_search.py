@@ -22,9 +22,10 @@ class MilvusSearchClient:
             try:
                 from pymilvus import MilvusClient
             except ImportError:
-                print("❌ pymilvus not available - trying to install...")
+                # Install pymilvus silently
                 import subprocess
-                subprocess.check_call([sys.executable, "-m", "pip", "install", "pymilvus"])
+                subprocess.check_call([sys.executable, "-m", "pip", "install", "pymilvus"], 
+                                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 from pymilvus import MilvusClient
             
             self.client = MilvusClient(

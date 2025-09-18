@@ -160,14 +160,80 @@ const buildSnapshotTemplate = (data: any) => JSON.stringify({
   docsUsed: data.docsUsed,
   analysis: "Comprehensive analysis combining news and technical insights"
 });
-const detectSymbolFromQuestion = (question: string) => {
-  // Extract ticker symbols using regex pattern (1-5 uppercase letters)
-  const tickerMatch = question.match(/\b[A-Z]{1,5}\b/g);
-  if (tickerMatch && tickerMatch.length > 0) {
-    return tickerMatch[0];
+const detectSymbolFromQuestion = async (question: string, openai: any): Promise<string | null> => {
+  try {
+    console.log(`🤖 AI SYMBOL DETECTION: Analyzing question for stock symbol`);
+    
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: `You are a financial AI assistant. Extract the stock symbol (ticker) from user questions about stocks. 
+          
+          Rules:
+          1. Return ONLY the ticker symbol (e.g., NVDA, AAPL, MSFT)
+          2. If no clear stock symbol is mentioned, return null
+          3. Handle company names (e.g., "Apple" -> AAPL, "Microsoft" -> MSFT)
+          4. Handle common variations (e.g., "Nvidia" -> NVDA)
+          5. If multiple symbols mentioned, return the primary one
+          
+          Examples:
+          - "What's the technical outlook for NVDA?" -> NVDA
+          - "How is Apple doing?" -> AAPL  
+          - "Microsoft stock analysis" -> MSFT
+          - "What stocks should I buy?" -> null`
+        },
+        {
+          role: "user", 
+          content: question
+        }
+      ],
+      functions: [
+        {
+          name: "extract_stock_symbol",
+          description: "Extract the primary stock symbol from the user's question",
+          parameters: {
+            type: "object",
+            properties: {
+              symbol: {
+                type: "string",
+                description: "The stock ticker symbol (e.g., NVDA, AAPL, MSFT) or null if no symbol detected"
+              },
+              confidence: {
+                type: "number",
+                description: "Confidence score from 0-1"
+              },
+              reasoning: {
+                type: "string", 
+                description: "Brief explanation of why this symbol was detected"
+              }
+            },
+            required: ["symbol", "confidence", "reasoning"]
+          }
+        }
+      ],
+      function_call: { name: "extract_stock_symbol" },
+      temperature: 0.1
+    });
+
+    const functionCall = completion.choices[0].message.function_call;
+    if (functionCall && functionCall.name === "extract_stock_symbol") {
+      const args = JSON.parse(functionCall.arguments);
+      console.log(`🤖 AI DETECTED: ${args.symbol} (confidence: ${args.confidence}) - ${args.reasoning}`);
+      
+      if (args.confidence > 0.7 && args.symbol && args.symbol !== "null") {
+        return args.symbol.toUpperCase();
+      }
+    }
+    
+    console.log(`🤖 AI DETECTION: No confident symbol detected`);
+    return null;
+    
+  } catch (error) {
+    console.error("❌ AI SYMBOL DETECTION ERROR:", error);
+    return null;
   }
-  
-  return null; // No symbol detected - NO HARDCODED MAPPINGS
 };
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
@@ -184,16 +250,16 @@ export async function POST(req: NextRequest) {
     const { prompt, timeframe, since_days } = Body.parse(await req.json());
     console.log(`📝 Request: ${prompt}, timeframe: ${timeframe}, since_days: ${since_days}`);
     
-    // Automatically detect symbol from the user's question
-    const detectedSymbol = detectSymbolFromQuestion(prompt);
+    // Automatically detect symbol from the user's question using AI
+    const detectedSymbol = await detectSymbolFromQuestion(prompt, openai);
     if (!detectedSymbol) {
-      console.log(`❌ SYMBOL DETECTION FAILED`);
+      console.log(`❌ AI SYMBOL DETECTION FAILED`);
       return NextResponse.json({ 
         error: `Could not detect a stock symbol from your question. Please include a ticker symbol (e.g., NVDA, AAPL) or company name (e.g., NVIDIA, Apple).`,
         code: "SYMBOL_NOT_DETECTED"
       }, { status: 422 });
     }
-    console.log(`✅ SYMBOL DETECTED: "${detectedSymbol}" from prompt: "${prompt}"`);
+    console.log(`✅ AI SYMBOL DETECTED: "${detectedSymbol}" from prompt: "${prompt}"`);
     
     const sinceIso = dayjs().subtract(since_days, "day").toISOString();
 
@@ -201,13 +267,28 @@ export async function POST(req: NextRequest) {
     console.log(`📊 STEP 1: Loading OHLCV data for ${detectedSymbol}`);
     let bars: any = null;
     try {
-      // Comprehensive embedded data for Vercel deployment (based on original JSON)
-      // NO HARDCODED SAMPLE DATA - Fetch real data from database
-      const sampleData: any[] = [];
+      // Fetch real OHLCV data from Postgres database
+      console.log(`🔍 Fetching real OHLCV data from Postgres for ${detectedSymbol}`);
       
-      console.log(`🔍 Loading embedded data for ${detectedSymbol} - Vercel deployment fix`);
-      const symbolData = sampleData.filter((row: any) => row.symbol === detectedSymbol);
-      console.log(`📊 Symbol data found: ${symbolData.length} records`);
+      const { Pool } = require('pg');
+      const pool = new Pool({
+        connectionString: process.env.POSTGRES_URL,
+        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+      });
+      
+      const query = `
+        SELECT date, open, high, low, close, volume 
+        FROM silver_ohlcv 
+        WHERE symbol = $1 
+        ORDER BY date DESC 
+        LIMIT 260
+      `;
+      
+      const result = await pool.query(query, [detectedSymbol]);
+      const symbolData = result.rows;
+      await pool.end();
+      
+      console.log(`📊 Symbol data found: ${symbolData.length} records from Postgres`);
       
       if (symbolData.length > 0) {
         // Sort by date (oldest first)
@@ -236,12 +317,12 @@ export async function POST(req: NextRequest) {
         }, { status: 422 });
       }
     } catch (error) {
-      console.error("Error loading real data:", error);
+      console.error("❌ STEP 1 ERROR: Failed to fetch OHLCV data from Postgres:", error);
       return NextResponse.json({ 
-        error: `Failed to load data for ${detectedSymbol}: ${(error as Error).message}`,
-        code: "DATA_LOAD_ERROR",
+        error: `Failed to load OHLCV data for ${detectedSymbol} from database: ${(error as Error).message}`,
+        code: "DATABASE_CONNECTION_ERROR",
         symbol: detectedSymbol
-      }, { status: 422 });
+      }, { status: 500 });
     }
 
     console.log(`🔍 About to call barsQualityOk with bars:`, bars);

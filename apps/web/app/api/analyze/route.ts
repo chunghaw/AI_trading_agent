@@ -270,7 +270,7 @@ export async function POST(req: NextRequest) {
       // Fetch real OHLCV data from Postgres database
       console.log(`🔍 Fetching real OHLCV data from Postgres for ${detectedSymbol}`);
       
-      const { Pool } = require('pg');
+      const { Pool } = await import('pg');
       const pool = new Pool({
         connectionString: process.env.POSTGRES_URL,
         ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false

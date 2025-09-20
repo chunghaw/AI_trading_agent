@@ -278,7 +278,7 @@ export async function POST(req: NextRequest) {
       
       const query = `
         SELECT date, open, high, low, close, volume 
-        FROM silver_ohlcv 
+        FROM bronze_ohlcv 
         WHERE symbol = $1 
         ORDER BY date DESC 
         LIMIT 260

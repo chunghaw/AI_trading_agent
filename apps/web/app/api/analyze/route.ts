@@ -276,13 +276,13 @@ export async function POST(req: NextRequest) {
         ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
       });
       
-      const query = `
-        SELECT date, open, high, low, close, volume 
-        FROM bronze_ohlcv 
-        WHERE symbol = $1 
-        ORDER BY date DESC 
-        LIMIT 260
-      `;
+        const query = `
+          SELECT date, open, high, low, close, volume, ma_5, ma_20, ma_50, ma_200, rsi
+          FROM silver_ohlcv 
+          WHERE symbol = $1 
+          ORDER BY date DESC 
+          LIMIT 260
+        `;
       
       const result = await pool.query(query, [detectedSymbol]);
       const symbolData = result.rows;

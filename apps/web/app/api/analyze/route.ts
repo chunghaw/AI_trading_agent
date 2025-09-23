@@ -624,6 +624,9 @@ export async function POST(req: NextRequest) {
         levels
       });
       
+      console.log(`🔍 Final answer prompt length: ${finalAnswerPrompt.length}`);
+      console.log(`🔍 Final answer prompt preview: ${finalAnswerPrompt.substring(0, 200)}...`);
+      
       const finalCompletion = await openai.chat.completions.create({
         model: "gpt-4o-mini",
         messages: [{ role: "user", content: finalAnswerPrompt }],
@@ -632,8 +635,11 @@ export async function POST(req: NextRequest) {
         response_format: { type: "json_object" }
       });
       
+      console.log(`🔍 Final completion response:`, finalCompletion.choices[0].message.content);
+      
       try {
         finalAnswer = JSON.parse(finalCompletion.choices[0].message.content || "{}");
+        console.log(`✅ Final answer parsed successfully:`, finalAnswer);
       } catch (parseError) {
         console.error("❌ Final answer JSON parse error:", parseError);
         console.error("🎯 Raw final answer response:", finalCompletion.choices[0].message.content);
@@ -745,6 +751,14 @@ export async function POST(req: NextRequest) {
       };
       
       console.log(`🎉 === ANALYSIS COMPLETED SUCCESSFULLY ===`);
+      console.log(`🔍 Final response structure:`, {
+        symbol: responseWithMetadata.symbol,
+        hasFinalAnswer: !!responseWithMetadata.finalAnswer,
+        finalAnswerLength: responseWithMetadata.finalAnswer?.length || 0,
+        finalAnswerPreview: responseWithMetadata.finalAnswer?.substring(0, 100) || 'N/A',
+        bulletsCount: responseWithMetadata.bullets?.length || 0,
+        newsCount: responseWithMetadata.news?.summary?.length || 0
+      });
       return NextResponse.json(responseWithMetadata);
     } catch (error: any) {
       console.error("Schema validation failed:", error);

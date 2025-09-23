@@ -2,7 +2,28 @@ import { NextRequest, NextResponse } from "next/server";
 import dayjs from "dayjs";
 import OpenAI from "openai";
 import { z } from "zod";
-import { ReportSchema } from "../../../lib/report.schema";
+// Use a simple schema that matches the original format
+const SimpleReportSchema = z.object({
+  symbol: z.string(),
+  timeframe: z.string(),
+  answer: z.string(),
+  news: z.object({
+    rationale: z.string(),
+    citations: z.array(z.string())
+  }),
+  technical: z.object({
+    rationale: z.string(),
+    indicators: z.object({
+      rsi14: z.number(),
+      macd: z.number(),
+      macd_signal: z.number(),
+      macd_hist: z.number(),
+      ema20: z.number(),
+      ema50: z.number(),
+      ema200: z.number()
+    })
+  })
+});
 // import { barsQualityOk } from "../../../lib/ohlcv";
 // import { computeIndicators } from "../../../lib/indicators";
 // import { levelCandidates } from "../../../lib/levels";
@@ -21,8 +42,11 @@ const computeIndicators = (bars: any, dbData?: any[]) => {
     return {
       rsi14: latestData.rsi ? parseFloat(latestData.rsi) : null,
       macd: macd,
+      ma_20: latestData.ma_20 ? parseFloat(latestData.ma_20) : null,
+      ma_50: latestData.ma_50 ? parseFloat(latestData.ma_50) : null,
+      ma_200: latestData.ma_200 ? parseFloat(latestData.ma_200) : null,
       calculated: true,
-      source: "database_rsi_calculated_macd",
+      source: "database_all_indicators",
       periods: {
         rsi: 14,
         macd_fast: 12,
@@ -37,6 +61,9 @@ const computeIndicators = (bars: any, dbData?: any[]) => {
     return { 
       rsi14: null, 
       macd: { macd: null, signal: null, histogram: null },
+      ma_20: null,
+      ma_50: null,
+      ma_200: null,
       calculated: false,
       source: "calculation_failed",
       error: "Insufficient data for indicator calculation"
@@ -54,8 +81,11 @@ const computeIndicators = (bars: any, dbData?: any[]) => {
   return { 
     rsi14, 
     macd,
+    ma_20: null, // Would need more data to calculate
+    ma_50: null, // Would need more data to calculate  
+    ma_200: null, // Would need more data to calculate
     calculated: true,
-    source: "calculated",
+    source: "calculated_limited",
     periods: {
       rsi: 14,
       macd_fast: 12,
@@ -739,6 +769,7 @@ export async function POST(req: NextRequest) {
     console.log(combinedAnswer);
     
     // Build final response
+    // Build the response in original clean format
     const json = {
       symbol: detectedSymbol,
       timeframe,
@@ -747,56 +778,27 @@ export async function POST(req: NextRequest) {
         change: priceChange,
         changePercent: priceChangePercent
       },
-      answer: combinedAnswer,
-      finalAnswer: finalAnswer.answer, // Add the final synthesized answer
-      finalInsights: finalAnswer.key_insights || [], // Add key insights
-      action: "FLAT" as const, // Will be computed by frontend - must match schema enum
-      confidence: 0.5, // Will be computed by frontend
-      bullets: [
-        ...(newsAnalysisResult.key_points || newsAnalysisResult.bullets || []),
-        ...(technicalAnalysis.key_points || technicalAnalysis.bullets || [])
-      ],
-      indicators: {
-        rsi14: indicators.rsi14 || 0,
-        macd: indicators.macd?.macd || 0,
-        macd_signal: indicators.macd?.signal || 0,
-        macd_hist: indicators.macd?.histogram || 0,
-        ema20: indicators.ma_20 || 0,
-        ema50: indicators.ma_50 || 0,
-        ema200: indicators.ma_200 || 0,
-        atr14: 0 // Not calculated yet
-      },
-      levels: {
-        support: technicalAnalysis.levels?.support || [],
-        resistance: technicalAnalysis.levels?.resistance || [],
-        breakout_trigger: technicalAnalysis.levels?.breakout_trigger || currentPrice * 1.05
-      },
+      answer: finalAnswer.answer || combinedAnswer, // Main answer
       news: {
-        summary: newsAnalysisResult.key_points || newsAnalysisResult.bullets || [],
-        citations: newsAnalysisResult.citations || [],
-        metrics: newsAnalysisResult.metrics || {
-          docs: newsDocs.length,
-          sources: new Set(newsDocs.map(d => d.source)).size,
-          pos: 0,
-          neg: 0,
-          neu: 0,
-          net_sentiment: 0
-        }
+        rationale: newsAnalysisResult.answer_sentence || "News analysis completed",
+        citations: newsAnalysisResult.citations || []
       },
       technical: {
-        summary: technicalAnalysis.key_points || technicalAnalysis.bullets || [],
-        chart_notes: "Analysis based on current indicators"
-      },
-      portfolio: {
-        size_suggestion_pct: 0.1,
-        tp: [String(technicalAnalysis.levels?.breakout_trigger || currentPrice * 1.05)],
-        sl: String(technicalAnalysis.levels?.breakout_trigger || currentPrice * 0.95)
-      },
-      snapshot
+        rationale: technicalAnalysis.answer_sentence || "Technical analysis completed",
+        indicators: {
+          rsi14: indicators.rsi14 || 0,
+          macd: indicators.macd?.macd || 0,
+          macd_signal: indicators.macd?.signal || 0,
+          macd_hist: indicators.macd?.histogram || 0,
+          ema20: indicators.ma_20 || 0,
+          ema50: indicators.ma_50 || 0,
+          ema200: indicators.ma_200 || 0
+        }
+      }
     };
     // Step 5: Validate with ReportSchema
     try {
-      const report = ReportSchema.parse(json);
+      const report = SimpleReportSchema.parse(json);
       // Add metadata to indicate real data was used
       const responseWithMetadata = {
         ...report,
@@ -830,46 +832,26 @@ export async function POST(req: NextRequest) {
       console.error("❌ Validation errors:", error.issues || error.message);
       console.error("❌ Response data that failed validation:", JSON.stringify(json, null, 2));
       
-      // Return a simplified response that matches the schema
+      // Return a simplified response in original format
       const fallbackResponse = {
         symbol: detectedSymbol,
         timeframe: "1d",
         answer: finalAnswer.answer || combinedAnswer || "Analysis completed but format validation failed.",
-        action: "FLAT" as const,
-        confidence: 0.5,
-        bullets: [
-          "Technical analysis completed",
-          "News analysis completed", 
-          "Market data processed successfully"
-        ],
-        indicators: {
-          rsi14: indicators.rsi14 || 0,
-          macd: indicators.macd?.macd || 0,
-          macd_signal: indicators.macd?.signal || 0,
-          macd_hist: indicators.macd?.histogram || 0,
-          ema20: 0,
-          ema50: 0,
-          ema200: 0,
-          atr14: 0
-        },
-        levels: {
-          support: [],
-          resistance: [],
-          breakout_trigger: currentPrice * 1.05
-        },
         news: {
-          summary: ["News analysis completed"],
-          citations: [],
-          metrics: { docs: 0, sources: 0, pos: 0, neg: 0, neu: 0, net_sentiment: 0 }
+          rationale: "News analysis completed",
+          citations: []
         },
         technical: {
-          summary: ["Technical analysis completed"],
-          chart_notes: "Analysis based on available data"
-        },
-        portfolio: {
-          size_suggestion_pct: 0.1,
-          tp: [String(currentPrice * 1.05)],
-          sl: String(currentPrice * 0.95)
+          rationale: "Technical analysis completed",
+          indicators: {
+            rsi14: indicators.rsi14 || 0,
+            macd: indicators.macd?.macd || 0,
+            macd_signal: indicators.macd?.signal || 0,
+            macd_hist: indicators.macd?.histogram || 0,
+            ema20: indicators.ma_20 || 0,
+            ema50: indicators.ma_50 || 0,
+            ema200: indicators.ma_200 || 0
+          }
         }
       };
       

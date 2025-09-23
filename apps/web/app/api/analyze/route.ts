@@ -14,19 +14,18 @@ import { searchAndRerankNewsStrict } from "@/lib/news.search";
 const ReportSchema = { parse: (data: any) => data };
 const barsQualityOk = (bars: any) => true;
 const computeIndicators = (bars: any, dbData?: any[]) => {
-  // Use RSI and MACD from database if available (preferred)
+  // Use RSI from database if available, calculate MACD from price data
   if (dbData && dbData.length > 0) {
     const latestData = dbData[0]; // Most recent record
     
+    // Calculate MACD from available price data
+    const macd = calculateMACD(bars.close);
+    
     return {
       rsi14: latestData.rsi || null,
-      macd: {
-        macd: latestData.macd_line || null,
-        signal: latestData.macd_signal || null,
-        histogram: latestData.macd_histogram || null
-      },
+      macd: macd,
       calculated: true,
-      source: "database",
+      source: "database_rsi_calculated_macd",
       periods: {
         rsi: 14,
         macd_fast: 12,
@@ -93,12 +92,19 @@ function calculateRSI(prices: number[], period: number): number {
 }
 
 function calculateMACD(prices: number[]): { macd: number, signal: number, histogram: number } {
-  if (prices.length < 26) {
+  // More flexible MACD calculation - use available data
+  const minPeriod = Math.min(prices.length - 1, 26);
+  
+  if (minPeriod < 2) {
     return { macd: null, signal: null, histogram: null };
   }
   
-  const ema12 = calculateEMA(prices, 12);
-  const ema26 = calculateEMA(prices, 26);
+  // Use shorter periods if we don't have enough data
+  const fastPeriod = Math.min(12, Math.floor(minPeriod / 2));
+  const slowPeriod = Math.min(26, minPeriod);
+  
+  const ema12 = calculateEMA(prices, fastPeriod);
+  const ema26 = calculateEMA(prices, slowPeriod);
   
   if (!ema12 || !ema26) {
     return { macd: null, signal: null, histogram: null };
@@ -311,7 +317,7 @@ export async function POST(req: NextRequest) {
       });
       
         const query = `
-          SELECT date, open, high, low, close, volume, ma_5, ma_20, ma_50, ma_200, rsi, macd_line, macd_signal, macd_histogram
+          SELECT date, open, high, low, close, volume, ma_5, ma_20, ma_50, ma_200, rsi
           FROM silver_ohlcv 
           WHERE symbol = $1 
           ORDER BY date DESC 

@@ -156,14 +156,16 @@ async function getRealNewsData(query: string): Promise<any[]> {
       
       console.log(`✅ Collections list:`, collections);
       
-      // Check if our collection exists
-      const collectionExists = collections.data?.some((col: any) => col.collection_name === MILVUS_CONFIG.collection);
+      // Check if our collection exists (collections.data is an array of strings)
+      const collectionExists = collections.data?.includes(MILVUS_CONFIG.collection);
       
       if (!collectionExists) {
         console.warn(`⚠️ Collection '${MILVUS_CONFIG.collection}' not found in available collections`);
-        console.log(`📋 Available collections:`, collections.data?.map((col: any) => col.collection_name));
+        console.log(`📋 Available collections:`, collections.data);
         return [];
       }
+      
+      console.log(`✅ Collection '${MILVUS_CONFIG.collection}' found!`);
       
       // Get collection info using describe endpoint
       const collectionInfo = await milvusRequest('/v2/vectordb/collections/describe', 'POST', {

@@ -19,28 +19,40 @@ console.log("🔍 Milvus Config Debug:", {
 
 // REST API helper functions
 async function milvusRequest(endpoint: string, method: string = 'GET', body?: any) {
+  // Milvus serverless uses different API format
   const url = `${MILVUS_CONFIG.uri}/v1${endpoint}`;
   const headers: any = {
     'Content-Type': 'application/json',
+    'Accept': 'application/json'
   };
   
-  // Add basic auth if credentials are provided
+  // Add authentication for Milvus serverless (Bearer token)
   if (MILVUS_CONFIG.user && MILVUS_CONFIG.password) {
-    const auth = Buffer.from(`${MILVUS_CONFIG.user}:${MILVUS_CONFIG.password}`).toString('base64');
-    headers['Authorization'] = `Basic ${auth}`;
+    headers['Authorization'] = `Bearer ${MILVUS_CONFIG.password}`;
   }
   
-  const response = await fetch(url, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  console.log(`🔍 Making Milvus request to: ${url}`);
+  console.log(`🔍 Headers:`, { ...headers, Authorization: headers.Authorization ? 'Bearer [HIDDEN]' : 'None' });
   
-  if (!response.ok) {
-    throw new Error(`Milvus API error: ${response.status} ${response.statusText}`);
+  try {
+    const response = await fetch(url, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`❌ Milvus API error: ${response.status} ${response.statusText}`);
+      console.error(`❌ Error details:`, errorText);
+      throw new Error(`Milvus API error: ${response.status} ${response.statusText}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error(`❌ Milvus request failed:`, error);
+    throw error;
   }
-  
-  return response.json();
 }
 
 const EMBED = "text-embedding-3-small";
@@ -140,13 +152,24 @@ async function getRealNewsData(query: string): Promise<any[]> {
     // Try to search Milvus collection
     try {
       // First, check if collection exists and get stats
-      const stats = await milvusRequest('/vector/collections/stats', 'POST', {
+      const stats = await milvusRequest('/vector/collections/describe', 'POST', {
         collectionName: MILVUS_CONFIG.collection
       });
       
-      console.log(`✅ Collection stats:`, stats);
+      console.log(`✅ Collection info:`, stats);
       
-      // For now, return empty results since we need to implement vector search
+      // Try a simple search to test connection
+      const searchResults = await milvusRequest('/vector/search', 'POST', {
+        collectionName: MILVUS_CONFIG.collection,
+        vector: new Array(1536).fill(0), // Dummy embedding for testing
+        limit: 5,
+        outputFields: ["*"]
+      });
+      
+      console.log(`✅ Search test successful:`, searchResults);
+      console.log(`📊 Found ${searchResults.data?.length || 0} results in collection`);
+      
+      // For now, return empty results since we need to implement proper vector search
       // This requires generating embeddings for the query first
       console.log("⚠️ Vector search not yet implemented - need OpenAI embeddings");
       console.log("⚠️ Returning empty results until vector search is implemented");

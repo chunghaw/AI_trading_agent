@@ -26,14 +26,14 @@ async function milvusRequest(endpoint: string, method: string = 'GET', body?: an
     'Accept': 'application/json'
   };
   
-  // Add authentication for Milvus serverless (username:password token)
+  // Add authentication for Milvus serverless (Basic auth)
   if (MILVUS_CONFIG.user && MILVUS_CONFIG.password) {
-    const token = `${MILVUS_CONFIG.user}:${MILVUS_CONFIG.password}`;
-    headers['Authorization'] = `Bearer ${token}`;
+    const credentials = Buffer.from(`${MILVUS_CONFIG.user}:${MILVUS_CONFIG.password}`).toString('base64');
+    headers['Authorization'] = `Basic ${credentials}`;
   }
   
   console.log(`🔍 Making Milvus request to: ${url}`);
-  console.log(`🔍 Headers:`, { ...headers, Authorization: headers.Authorization ? 'Bearer [HIDDEN]' : 'None' });
+  console.log(`🔍 Headers:`, { ...headers, Authorization: headers.Authorization ? 'Basic [HIDDEN]' : 'None' });
   
   try {
     const response = await fetch(url, {
@@ -152,23 +152,24 @@ async function getRealNewsData(query: string): Promise<any[]> {
     
     // Try to search Milvus collection
     try {
-      // First, check if collection exists and get stats
-      const stats = await milvusRequest('/vector/collections/describe', 'POST', {
-        collectionName: MILVUS_CONFIG.collection
-      });
+      // First, list all collections to test connection
+      const collections = await milvusRequest('/collections', 'GET');
       
-      console.log(`✅ Collection info:`, stats);
+      console.log(`✅ Collections list:`, collections);
       
-      // Try a simple search to test connection
-      const searchResults = await milvusRequest('/vector/search', 'POST', {
-        collectionName: MILVUS_CONFIG.collection,
-        vector: new Array(1536).fill(0), // Dummy embedding for testing
-        limit: 5,
-        outputFields: ["*"]
-      });
+      // Check if our collection exists
+      const collectionExists = collections.data?.some((col: any) => col.collection_name === MILVUS_CONFIG.collection);
       
-      console.log(`✅ Search test successful:`, searchResults);
-      console.log(`📊 Found ${searchResults.data?.length || 0} results in collection`);
+      if (!collectionExists) {
+        console.warn(`⚠️ Collection '${MILVUS_CONFIG.collection}' not found in available collections`);
+        console.log(`📋 Available collections:`, collections.data?.map((col: any) => col.collection_name));
+        return [];
+      }
+      
+      // Get collection stats
+      const stats = await milvusRequest(`/collections/${MILVUS_CONFIG.collection}/stats`, 'GET');
+      
+      console.log(`✅ Collection stats:`, stats);
       
       // For now, return empty results since we need to implement proper vector search
       // This requires generating embeddings for the query first

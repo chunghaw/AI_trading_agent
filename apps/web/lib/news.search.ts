@@ -174,11 +174,43 @@ async function getRealNewsData(query: string): Promise<any[]> {
       
       console.log(`✅ Collection info:`, collectionInfo);
       
-      // For now, return empty results since we need to implement proper vector search
-      // This requires generating embeddings for the query first
-      console.log("⚠️ Vector search not yet implemented - need OpenAI embeddings");
-      console.log("⚠️ Returning empty results until vector search is implemented");
-      return [];
+      // Try to get some news data using query endpoint
+      console.log(`🔍 Querying news data for symbol: ${query}`);
+      
+      // For now, get recent news data (we'll implement vector search later)
+      const newsData = await milvusRequest('/v2/vectordb/query', 'POST', {
+        collectionName: MILVUS_CONFIG.collection,
+        limit: 20,
+        outputFields: ["*"],
+        filter: `ticker == "${query}"` // Filter by ticker symbol
+      });
+      
+      console.log(`📊 News query result:`, newsData);
+      
+      if (newsData.code === 0 && newsData.data && newsData.data.length > 0) {
+        console.log(`✅ Found ${newsData.data.length} news articles for ${query}`);
+        
+        // Transform Milvus results to expected format
+        const transformedResults = newsData.data.map((article: any, index: number) => ({
+          id: article.id || `news_${index}`,
+          title: article.title || '',
+          text: article.text || '',
+          url: article.url || '',
+          source: article.source || '',
+          ticker: article.ticker || query,
+          published_utc: article.published_utc || '',
+          sentiment: article.sentiment || 'neutral',
+          keywords: article.keywords || '',
+          score: 0.8 - (index * 0.05), // Simple scoring based on order
+          relevance: 0.8 - (index * 0.05)
+        }));
+        
+        console.log(`✅ Returning ${transformedResults.length} transformed news articles`);
+        return transformedResults;
+      } else {
+        console.log(`⚠️ No news articles found for ${query}`);
+        return [];
+      }
       
     } catch (milvusError) {
       console.error("❌ Milvus API error:", milvusError);

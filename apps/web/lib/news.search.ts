@@ -174,41 +174,73 @@ async function getRealNewsData(query: string): Promise<any[]> {
       
       console.log(`✅ Collection info:`, collectionInfo);
       
-      // Try to get some news data using query endpoint
-      console.log(`🔍 Querying news data for symbol: ${query}`);
+      // Extract ticker symbol from query (e.g., "NVDA" from "What's the technical outlook for NVDA?")
+      const tickerMatch = query.match(/\b([A-Z]{2,5})\b/);
+      const tickerSymbol = tickerMatch ? tickerMatch[1] : query;
+      console.log(`🔍 Extracted ticker symbol: ${tickerSymbol}`);
       
-      // For now, get recent news data (we'll implement vector search later)
-      const newsData = await milvusRequest('/v2/vectordb/query', 'POST', {
-        collectionName: MILVUS_CONFIG.collection,
-        limit: 20,
-        outputFields: ["*"],
-        filter: `ticker == "${query}"` // Filter by ticker symbol
-      });
+      // Use Python SDK to query Milvus (REST API is read-only)
+      console.log(`🐍 Calling Python Milvus search for: ${tickerSymbol}`);
       
-      console.log(`📊 News query result:`, newsData);
-      
-      if (newsData.code === 0 && newsData.data && newsData.data.length > 0) {
-        console.log(`✅ Found ${newsData.data.length} news articles for ${query}`);
+      try {
+        const { spawn } = await import('child_process');
         
-        // Transform Milvus results to expected format
-        const transformedResults = newsData.data.map((article: any, index: number) => ({
-          id: article.id || `news_${index}`,
-          title: article.title || '',
-          text: article.text || '',
-          url: article.url || '',
-          source: article.source || '',
-          ticker: article.ticker || query,
-          published_utc: article.published_utc || '',
-          sentiment: article.sentiment || 'neutral',
-          keywords: article.keywords || '',
-          score: 0.8 - (index * 0.05), // Simple scoring based on order
-          relevance: 0.8 - (index * 0.05)
-        }));
+        const pythonProcess = spawn('python3', [
+          'milvus_python_search.py',
+          tickerSymbol
+        ], {
+          cwd: process.cwd(),
+          env: {
+            ...process.env,
+            MILVUS_URI: MILVUS_CONFIG.uri,
+            MILVUS_USER: MILVUS_CONFIG.user,
+            MILVUS_PASSWORD: MILVUS_CONFIG.password,
+            MILVUS_COLLECTION_NEWS: MILVUS_CONFIG.collection
+          }
+        });
         
-        console.log(`✅ Returning ${transformedResults.length} transformed news articles`);
-        return transformedResults;
-      } else {
-        console.log(`⚠️ No news articles found for ${query}`);
+        let output = '';
+        let errorOutput = '';
+        
+        pythonProcess.stdout.on('data', (data) => {
+          output += data.toString();
+        });
+        
+        pythonProcess.stderr.on('data', (data) => {
+          errorOutput += data.toString();
+        });
+        
+        return new Promise((resolve) => {
+          pythonProcess.on('close', (code) => {
+            if (code === 0) {
+              try {
+                // Parse the JSON output from Python
+                const lines = output.split('\n');
+                const jsonLine = lines.find(line => line.startsWith('[') || line.startsWith('{'));
+                
+                if (jsonLine) {
+                  const results = JSON.parse(jsonLine);
+                  console.log(`✅ Python search returned ${results.length} results`);
+                  resolve(results);
+                } else {
+                  console.log(`⚠️ No JSON output from Python script`);
+                  resolve([]);
+                }
+              } catch (parseError) {
+                console.error(`❌ Error parsing Python output:`, parseError);
+                console.log(`📄 Python output:`, output);
+                resolve([]);
+              }
+            } else {
+              console.error(`❌ Python script failed with code ${code}`);
+              console.error(`📄 Python error:`, errorOutput);
+              resolve([]);
+            }
+          });
+        });
+        
+      } catch (pythonError) {
+        console.error(`❌ Error running Python script:`, pythonError);
         return [];
       }
       

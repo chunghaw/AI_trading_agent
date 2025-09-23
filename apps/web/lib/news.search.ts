@@ -26,14 +26,13 @@ async function milvusRequest(endpoint: string, method: string = 'GET', body?: an
     'Accept': 'application/json'
   };
   
-  // Add authentication for Milvus serverless (Basic auth)
+  // Add authentication for Milvus serverless (Bearer token with username:password)
   if (MILVUS_CONFIG.user && MILVUS_CONFIG.password) {
-    const credentials = Buffer.from(`${MILVUS_CONFIG.user}:${MILVUS_CONFIG.password}`).toString('base64');
-    headers['Authorization'] = `Basic ${credentials}`;
+    headers['Authorization'] = `Bearer ${MILVUS_CONFIG.user}:${MILVUS_CONFIG.password}`;
   }
   
   console.log(`🔍 Making Milvus request to: ${url}`);
-  console.log(`🔍 Headers:`, { ...headers, Authorization: headers.Authorization ? 'Basic [HIDDEN]' : 'None' });
+  console.log(`🔍 Headers:`, { ...headers, Authorization: headers.Authorization ? 'Bearer [HIDDEN]' : 'None' });
   
   try {
     const response = await fetch(url, {

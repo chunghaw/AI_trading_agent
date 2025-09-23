@@ -26,9 +26,10 @@ async function milvusRequest(endpoint: string, method: string = 'GET', body?: an
     'Accept': 'application/json'
   };
   
-  // Add authentication for Milvus serverless (Bearer token)
+  // Add authentication for Milvus serverless (username:password token)
   if (MILVUS_CONFIG.user && MILVUS_CONFIG.password) {
-    headers['Authorization'] = `Bearer ${MILVUS_CONFIG.password}`;
+    const token = `${MILVUS_CONFIG.user}:${MILVUS_CONFIG.password}`;
+    headers['Authorization'] = `Bearer ${token}`;
   }
   
   console.log(`🔍 Making Milvus request to: ${url}`);

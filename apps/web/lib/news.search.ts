@@ -8,6 +8,15 @@ const MILVUS_CONFIG = {
   collection: process.env.MILVUS_COLLECTION_NEWS || "polygon_news_data"
 };
 
+// Debug Milvus configuration
+console.log("🔍 Milvus Config Debug:", {
+  uri: MILVUS_CONFIG.uri,
+  user: MILVUS_CONFIG.user,
+  hasPassword: !!MILVUS_CONFIG.password,
+  passwordLength: MILVUS_CONFIG.password?.length || 0,
+  collection: MILVUS_CONFIG.collection
+});
+
 // REST API helper functions
 async function milvusRequest(endpoint: string, method: string = 'GET', body?: any) {
   const url = `${MILVUS_CONFIG.uri}/v1${endpoint}`;
@@ -116,22 +125,37 @@ async function getRealNewsData(query: string): Promise<any[]> {
       return [];
     }
     
+    if (!MILVUS_CONFIG.password) {
+      console.warn("⚠️ MILVUS_PASSWORD not set, skipping news search");
+      return [];
+    }
+    
     if (!MILVUS_CONFIG.collection) {
       console.warn("⚠️ Milvus collection not specified, using default");
       MILVUS_CONFIG.collection = "polygon_news_data";
     }
     
-    // TODO: Implement proper Milvus vector search
-    // For now, return empty array since Milvus authentication is failing
-    // This would require:
-    // 1. Fix MILVUS_PASSWORD environment variable
-    // 2. Generate embeddings for the query using OpenAI
-    // 3. Search Milvus using vector similarity
-    // 4. Return matching news articles
+    console.log("✅ Milvus configuration looks good, attempting search...");
     
-    console.log("⚠️ Milvus authentication failed - MILVUS_PASSWORD not set");
-    console.log("⚠️ Returning empty results until Milvus connection is fixed");
-    return [];
+    // Try to search Milvus collection
+    try {
+      // First, check if collection exists and get stats
+      const stats = await milvusRequest('/vector/collections/stats', 'POST', {
+        collectionName: MILVUS_CONFIG.collection
+      });
+      
+      console.log(`✅ Collection stats:`, stats);
+      
+      // For now, return empty results since we need to implement vector search
+      // This requires generating embeddings for the query first
+      console.log("⚠️ Vector search not yet implemented - need OpenAI embeddings");
+      console.log("⚠️ Returning empty results until vector search is implemented");
+      return [];
+      
+    } catch (milvusError) {
+      console.error("❌ Milvus API error:", milvusError);
+      return [];
+    }
     
   } catch (error) {
     console.error("❌ Error in getRealNewsData:", error);

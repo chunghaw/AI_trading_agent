@@ -152,8 +152,8 @@ async function getRealNewsData(query: string): Promise<any[]> {
     
     // Try to search Milvus collection
     try {
-      // First, list all collections to test connection
-      const collections = await milvusRequest('/collections', 'GET');
+      // First, list all collections using the correct Milvus serverless endpoint
+      const collections = await milvusRequest('/v2/vectordb/collections/list', 'POST', {});
       
       console.log(`✅ Collections list:`, collections);
       
@@ -166,10 +166,12 @@ async function getRealNewsData(query: string): Promise<any[]> {
         return [];
       }
       
-      // Get collection stats
-      const stats = await milvusRequest(`/collections/${MILVUS_CONFIG.collection}/stats`, 'GET');
+      // Get collection info using describe endpoint
+      const collectionInfo = await milvusRequest('/v2/vectordb/collections/describe', 'POST', {
+        collectionName: MILVUS_CONFIG.collection
+      });
       
-      console.log(`✅ Collection stats:`, stats);
+      console.log(`✅ Collection info:`, collectionInfo);
       
       // For now, return empty results since we need to implement proper vector search
       // This requires generating embeddings for the query first

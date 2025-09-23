@@ -22,7 +22,7 @@ const computeIndicators = (bars: any, dbData?: any[]) => {
     const macd = calculateMACD(bars.close);
     
     return {
-      rsi14: latestData.rsi || null,
+      rsi14: latestData.rsi ? parseFloat(latestData.rsi) : null,
       macd: macd,
       calculated: true,
       source: "database_rsi_calculated_macd",

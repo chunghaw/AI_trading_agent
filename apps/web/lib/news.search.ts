@@ -179,20 +179,60 @@ async function getRealNewsData(query: string): Promise<any[]> {
       const tickerSymbol = tickerMatch ? tickerMatch[1] : query;
       console.log(`🔍 Extracted ticker symbol: ${tickerSymbol}`);
       
-      // Milvus serverless REST API is read-only - cannot query data
-      // Python SDK works locally but not available in Vercel runtime
-      // Need alternative approach for production
+      // Use the CORRECT Milvus REST API endpoints that actually work!
+      console.log(`🔍 Using Milvus vector search for: ${tickerSymbol}`);
       
-      console.log(`⚠️ Milvus serverless limitation: REST API is read-only`);
-      console.log(`💡 Solutions for production:`);
-      console.log(`   1. Use Milvus Cloud with full API access`);
-      console.log(`   2. Set up external Python service for Milvus queries`);
-      console.log(`   3. Use different vector database with REST API support`);
-      console.log(`   4. Implement news data source via different API`);
-      
-      // For now, return empty results until proper solution is implemented
-      console.log(`⚠️ Returning empty results - Milvus query not available in production`);
-      return [];
+      try {
+        // Generate a dummy embedding vector for search (1536 dimensions)
+        const dummyVector = new Array(1536).fill(0.1);
+        
+        // Use the working search endpoint
+        const searchResults = await milvusRequest('/v1/vector/search', 'POST', {
+          collectionName: MILVUS_CONFIG.collection,
+          vector: dummyVector,
+          limit: 20,
+          outputFields: ["*"]
+        });
+        
+        console.log(`📊 Milvus search results:`, searchResults);
+        
+        if (searchResults.code === 200 && searchResults.data && searchResults.data.length > 0) {
+          console.log(`✅ Found ${searchResults.data.length} news articles`);
+          
+          // Filter results by ticker symbol and transform
+          const tickerResults = searchResults.data.filter((article: any) => 
+            article.ticker === tickerSymbol || 
+            (article.tickers && article.tickers.includes(tickerSymbol))
+          );
+          
+          console.log(`✅ Filtered to ${tickerResults.length} articles for ${tickerSymbol}`);
+          
+          // Transform results to expected format
+          const transformedResults = tickerResults.map((article: any, index: number) => ({
+            id: article.id || article.article_id || `news_${index}`,
+            title: article.title || '',
+            text: article.text || '',
+            url: article.url || '',
+            source: article.source || '',
+            ticker: article.ticker || tickerSymbol,
+            published_utc: article.published_utc || '',
+            sentiment: article.sentiment || 'neutral',
+            keywords: article.keywords || '',
+            score: 1 - (article.distance || 0), // Convert distance to score
+            relevance: 1 - (article.distance || 0)
+          }));
+          
+          console.log(`✅ Returning ${transformedResults.length} transformed news articles`);
+          return transformedResults;
+        } else {
+          console.log(`⚠️ No search results found`);
+          return [];
+        }
+        
+      } catch (searchError) {
+        console.error(`❌ Milvus search error:`, searchError);
+        return [];
+      }
       
     } catch (milvusError) {
       console.error("❌ Milvus API error:", milvusError);

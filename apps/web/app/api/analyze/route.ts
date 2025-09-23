@@ -13,11 +13,36 @@ import { searchAndRerankNewsStrict } from "@/lib/news.search";
 // Temporary functions
 const ReportSchema = { parse: (data: any) => data };
 const barsQualityOk = (bars: any) => true;
-const computeIndicators = (bars: any) => {
+const computeIndicators = (bars: any, dbData?: any[]) => {
+  // Use RSI and MACD from database if available (preferred)
+  if (dbData && dbData.length > 0) {
+    const latestData = dbData[0]; // Most recent record
+    
+    return {
+      rsi14: latestData.rsi || null,
+      macd: {
+        macd: latestData.macd_line || null,
+        signal: latestData.macd_signal || null,
+        histogram: latestData.macd_histogram || null
+      },
+      calculated: true,
+      source: "database",
+      periods: {
+        rsi: 14,
+        macd_fast: 12,
+        macd_slow: 26,
+        macd_signal: 9
+      }
+    };
+  }
+  
+  // Fallback to calculation if database data not available
   if (!bars || !bars.close || bars.close.length < 2) {
     return { 
       rsi14: null, 
       macd: { macd: null, signal: null, histogram: null },
+      calculated: false,
+      source: "calculation_failed",
       error: "Insufficient data for indicator calculation"
     };
   }
@@ -34,6 +59,7 @@ const computeIndicators = (bars: any) => {
     rsi14, 
     macd,
     calculated: true,
+    source: "calculated",
     periods: {
       rsi: 14,
       macd_fast: 12,
@@ -117,16 +143,24 @@ Please respond with a JSON object containing:
 - citations: Array of source URLs
 
 JSON response:`;
-const buildTechnicalQAPrompt = (query: string, indicators: any) => `Please analyze the following technical indicators and provide a JSON response.
+const buildTechnicalQAPrompt = (query: string, indicators: any, priceData: any) => `Please provide a comprehensive technical analysis based on available data. Be helpful and insightful even with limited indicators.
 
 Query: ${query}
 
 Technical indicators: ${JSON.stringify(indicators)}
 
+Price data: ${JSON.stringify(priceData)}
+
 Please respond with a JSON object containing:
-- answer_sentence: A brief technical analysis
-- key_points: Array of technical insights
-- trend: Overall trend direction
+- answer_sentence: A detailed technical analysis (be helpful, not restrictive)
+- key_points: Array of actionable technical insights
+- trend: Overall trend direction (bullish/bearish/neutral)
+
+Guidelines:
+- Use available data to provide meaningful analysis
+- If RSI/MACD unavailable, focus on price action, moving averages, and volume
+- Provide actionable insights based on what data IS available
+- Don't say "inconclusive" - be helpful with available information
 
 JSON response:`;
 const buildFinalAnswerPrompt = (data: any) => `Please synthesize the following analysis and provide a JSON response.
@@ -277,7 +311,7 @@ export async function POST(req: NextRequest) {
       });
       
         const query = `
-          SELECT date, open, high, low, close, volume, ma_5, ma_20, ma_50, ma_200, rsi
+          SELECT date, open, high, low, close, volume, ma_5, ma_20, ma_50, ma_200, rsi, macd_line, macd_signal, macd_histogram
           FROM silver_ohlcv 
           WHERE symbol = $1 
           ORDER BY date DESC 
@@ -380,14 +414,14 @@ export async function POST(req: NextRequest) {
 
     // Step 3: Compute indicators and levels
     console.log(`📊 STEP 3: Computing technical indicators for ${detectedSymbol}`);
-    const indicators = computeIndicators(bars);
+    const indicators = computeIndicators(bars, symbolData);
     const levels = levelCandidates(bars);
     const currentPrice = bars.close[bars.close.length - 1];
     const previousPrice = bars.close[bars.close.length - 2];
     const priceChange = currentPrice - previousPrice;
     const priceChangePercent = (priceChange / previousPrice) * 100;
     
-    console.log(`✅ STEP 3 SUCCESS: Indicators calculated - RSI: ${indicators.rsi14}, MACD: ${indicators.macd?.macd}, Price: $${currentPrice}`);
+    console.log(`✅ STEP 3 SUCCESS: Indicators calculated - RSI: ${indicators.rsi14}, MACD: ${indicators.macd?.macd}, Price: $${currentPrice}, Source: ${indicators.source}`);
     
     console.log(`📊 Real data loaded for ${detectedSymbol}:`);
     console.log(`  - Bars: ${bars.close.length} records`);
@@ -553,7 +587,13 @@ export async function POST(req: NextRequest) {
       
       let technicalAnalysis;
       try {
-        const technicalPrompt = buildTechnicalQAPrompt(prompt, indicators);
+        const technicalPrompt = buildTechnicalQAPrompt(prompt, indicators, {
+        currentPrice,
+        priceChange,
+        priceChangePercent,
+        volume: bars.volume[bars.volume.length - 1],
+        bars: bars.close.length
+      });
         
         const technicalCompletion = await openai.chat.completions.create({
           model: "gpt-4o-mini",

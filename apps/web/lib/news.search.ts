@@ -19,8 +19,8 @@ console.log("🔍 Milvus Config Debug:", {
 
 // REST API helper functions
 async function milvusRequest(endpoint: string, method: string = 'GET', body?: any) {
-  // Milvus serverless uses different API format
-  const url = `${MILVUS_CONFIG.uri}/v1${endpoint}`;
+  // Milvus serverless uses different API format - don't add /v1 prefix
+  const url = `${MILVUS_CONFIG.uri}${endpoint}`;
   const headers: any = {
     'Content-Type': 'application/json',
     'Accept': 'application/json'

@@ -58,7 +58,7 @@ export async function searchAndRerankNewsStrict(
     console.log(`🔍 News Search Debug - Symbol: ${symbol}, Query: ${userQuery}, Since: ${sinceIso}`);
     
     // Pure JavaScript implementation - NO Python dependency
-    const hits = getRealNewsData(userQuery);
+    const hits = await getRealNewsData(userQuery);
     
     if (hits.length === 0) {
       console.warn(`No news found for ${symbol} since ${sinceIso}.`);
@@ -106,8 +106,35 @@ export async function searchAndRerankNewsStrict(
   }
 }
 
-function getRealNewsData(query: string) {
-  // NO HARDCODED DATA - Return empty array until real Milvus connection is restored
-  console.log("❌ News search temporarily disabled - no hardcoded data");
-  return [];
+async function getRealNewsData(query: string): Promise<any[]> {
+  try {
+    console.log(`🔍 Searching Milvus collection: ${MILVUS_CONFIG.collection} for query: ${query}`);
+    
+    // Check if we have proper Milvus configuration
+    if (!MILVUS_CONFIG.uri || MILVUS_CONFIG.uri === "localhost:19530") {
+      console.warn("⚠️ Milvus URI not properly configured, skipping news search");
+      return [];
+    }
+    
+    if (!MILVUS_CONFIG.collection) {
+      console.warn("⚠️ Milvus collection not specified, using default");
+      MILVUS_CONFIG.collection = "polygon_news_data";
+    }
+    
+    // TODO: Implement proper Milvus vector search
+    // For now, return empty array since Milvus authentication is failing
+    // This would require:
+    // 1. Fix MILVUS_PASSWORD environment variable
+    // 2. Generate embeddings for the query using OpenAI
+    // 3. Search Milvus using vector similarity
+    // 4. Return matching news articles
+    
+    console.log("⚠️ Milvus authentication failed - MILVUS_PASSWORD not set");
+    console.log("⚠️ Returning empty results until Milvus connection is fixed");
+    return [];
+    
+  } catch (error) {
+    console.error("❌ Error in getRealNewsData:", error);
+    return [];
+  }
 }

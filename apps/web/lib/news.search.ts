@@ -179,70 +179,20 @@ async function getRealNewsData(query: string): Promise<any[]> {
       const tickerSymbol = tickerMatch ? tickerMatch[1] : query;
       console.log(`🔍 Extracted ticker symbol: ${tickerSymbol}`);
       
-      // Use Python SDK to query Milvus (REST API is read-only)
-      console.log(`🐍 Calling Python Milvus search for: ${tickerSymbol}`);
+      // Milvus serverless REST API is read-only - cannot query data
+      // Python SDK works locally but not available in Vercel runtime
+      // Need alternative approach for production
       
-      try {
-        const { spawn } = await import('child_process');
-        
-        const pythonProcess = spawn('python3', [
-          'milvus_python_search.py',
-          tickerSymbol
-        ], {
-          cwd: process.cwd(),
-          env: {
-            ...process.env,
-            MILVUS_URI: MILVUS_CONFIG.uri,
-            MILVUS_USER: MILVUS_CONFIG.user,
-            MILVUS_PASSWORD: MILVUS_CONFIG.password,
-            MILVUS_COLLECTION_NEWS: MILVUS_CONFIG.collection
-          }
-        });
-        
-        let output = '';
-        let errorOutput = '';
-        
-        pythonProcess.stdout.on('data', (data) => {
-          output += data.toString();
-        });
-        
-        pythonProcess.stderr.on('data', (data) => {
-          errorOutput += data.toString();
-        });
-        
-        return new Promise((resolve) => {
-          pythonProcess.on('close', (code) => {
-            if (code === 0) {
-              try {
-                // Parse the JSON output from Python
-                const lines = output.split('\n');
-                const jsonLine = lines.find(line => line.startsWith('[') || line.startsWith('{'));
-                
-                if (jsonLine) {
-                  const results = JSON.parse(jsonLine);
-                  console.log(`✅ Python search returned ${results.length} results`);
-                  resolve(results);
-                } else {
-                  console.log(`⚠️ No JSON output from Python script`);
-                  resolve([]);
-                }
-              } catch (parseError) {
-                console.error(`❌ Error parsing Python output:`, parseError);
-                console.log(`📄 Python output:`, output);
-                resolve([]);
-              }
-            } else {
-              console.error(`❌ Python script failed with code ${code}`);
-              console.error(`📄 Python error:`, errorOutput);
-              resolve([]);
-            }
-          });
-        });
-        
-      } catch (pythonError) {
-        console.error(`❌ Error running Python script:`, pythonError);
-        return [];
-      }
+      console.log(`⚠️ Milvus serverless limitation: REST API is read-only`);
+      console.log(`💡 Solutions for production:`);
+      console.log(`   1. Use Milvus Cloud with full API access`);
+      console.log(`   2. Set up external Python service for Milvus queries`);
+      console.log(`   3. Use different vector database with REST API support`);
+      console.log(`   4. Implement news data source via different API`);
+      
+      // For now, return empty results until proper solution is implemented
+      console.log(`⚠️ Returning empty results - Milvus query not available in production`);
+      return [];
       
     } catch (milvusError) {
       console.error("❌ Milvus API error:", milvusError);

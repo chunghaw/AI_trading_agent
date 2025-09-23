@@ -306,6 +306,8 @@ export async function POST(req: NextRequest) {
     // Step 1: Load OHLCV data from embedded sample data
     console.log(`📊 STEP 1: Loading OHLCV data for ${detectedSymbol}`);
     let bars: any = null;
+    let symbolData: any[] = []; // Declare symbolData in broader scope
+    
     try {
       // Fetch real OHLCV data from Postgres database
       console.log(`🔍 Fetching real OHLCV data from Postgres for ${detectedSymbol}`);
@@ -325,7 +327,7 @@ export async function POST(req: NextRequest) {
         `;
       
       const result = await pool.query(query, [detectedSymbol]);
-      const symbolData = result.rows;
+      symbolData = result.rows; // Assign to the broader scope variable
       await pool.end();
       
       console.log(`📊 Symbol data found: ${symbolData.length} records from Postgres`);

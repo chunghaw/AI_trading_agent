@@ -6,9 +6,9 @@ const cn = (...classes: any[]) => classes.filter(Boolean).join(' ');
 
 interface LevelsBlockProps {
   levels: {
-    support: number[];
-    resistance: number[];
-    breakout_trigger?: number;
+    support: (number | string)[];
+    resistance: (number | string)[];
+    breakout_trigger?: number | string;
   };
   className?: string;
 }
@@ -23,7 +23,7 @@ export function LevelsBlock({ levels, className }: LevelsBlockProps) {
             {levels.support.length > 0 ? (
               levels.support.map((level, index) => (
                 <div key={index} className="text-sm text-emerald-400 font-mono">
-                  ${level.toFixed(2)}
+                  ${Number(level).toFixed(2)}
                 </div>
               ))
             ) : (
@@ -38,7 +38,7 @@ export function LevelsBlock({ levels, className }: LevelsBlockProps) {
             {levels.resistance.length > 0 ? (
               levels.resistance.map((level, index) => (
                 <div key={index} className="text-sm text-rose-400 font-mono">
-                  ${level.toFixed(2)}
+                  ${Number(level).toFixed(2)}
                 </div>
               ))
             ) : (
@@ -52,7 +52,7 @@ export function LevelsBlock({ levels, className }: LevelsBlockProps) {
         <div>
           <h4 className="text-sm font-medium text-zinc-400 mb-1">Breakout Trigger</h4>
           <div className="text-sm text-emerald-400 font-mono">
-            ${levels.breakout_trigger.toFixed(2)}
+            ${Number(levels.breakout_trigger).toFixed(2)}
           </div>
         </div>
       )}

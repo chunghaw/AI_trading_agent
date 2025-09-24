@@ -244,49 +244,20 @@ export default function AgentsPage() {
         </div>
       </div>
 
-      {/* Analysis Results - SIMPLIFIED DEBUG MODE */}
+      {/* Analysis Results */}
       {response && (
         <div className="mt-8">
-          <Card className="border rounded-2xl backdrop-blur-sm border-white/10 bg-[#3a3a3a] shadow-lg p-6">
-            <h2 className="text-2xl font-bold text-white mb-4">Analysis Results (Debug Mode)</h2>
-            
-            {/* Simple display without complex components */}
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-lg font-semibold text-blue-400 mb-2">Symbol: {response.symbol}</h3>
-                <p className="text-white">{response.answer}</p>
-              </div>
-              
-              <div>
-                <h3 className="text-lg font-semibold text-green-400 mb-2">Action: {response.action}</h3>
-                <p className="text-white">Confidence: {response.confidence}</p>
-              </div>
-              
-              {response.news && (
-                <div>
-                  <h3 className="text-lg font-semibold text-purple-400 mb-2">News Analysis</h3>
-                  <p className="text-white">{response.news.summary?.join(', ') || 'No news summary'}</p>
-                </div>
-              )}
-              
-              {response.technical && (
-                <div>
-                  <h3 className="text-lg font-semibold text-orange-400 mb-2">Technical Analysis</h3>
-                  <p className="text-white">{response.technical.summary?.join(', ') || 'No technical summary'}</p>
-                </div>
-              )}
-            </div>
-            
-            {/* Raw JSON for debugging */}
-            <details className="mt-6">
-              <summary className="cursor-pointer text-sm text-gray-400 hover:text-gray-300">
-                🔍 Show Raw JSON Response
-              </summary>
-              <pre className="text-xs text-gray-300 bg-black/50 p-4 rounded-lg overflow-auto max-h-96 mt-2 whitespace-pre-wrap">
-                {JSON.stringify(response, null, 2)}
-              </pre>
-            </details>
-          </Card>
+          <ReportCard report={response} isMockData={isMockData} />
+          
+          {/* DEBUG: Show raw JSON as fallback */}
+          <details className="mt-4">
+            <summary className="cursor-pointer text-sm text-gray-400 hover:text-gray-300">
+              🔍 Debug: Show Raw Response
+            </summary>
+            <pre className="text-xs text-gray-300 bg-black/50 p-4 rounded-lg overflow-auto max-h-96 mt-2 whitespace-pre-wrap">
+              {JSON.stringify(response, null, 2)}
+            </pre>
+          </details>
         </div>
       )}
 

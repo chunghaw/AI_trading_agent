@@ -203,10 +203,15 @@ export default function AgentsPage() {
         </div>
       </div>
 
-      {/* Analysis Results */}
+      {/* Analysis Results - DEBUG MODE */}
       {response && (
         <div className="mt-8">
-          <ReportCard report={response} isMockData={isMockData} />
+          <Card className="border rounded-2xl backdrop-blur-sm border-white/10 bg-[#3a3a3a] shadow-lg p-6">
+            <h2 className="text-2xl font-bold text-white mb-4">Raw Analysis Output (Debug Mode)</h2>
+            <pre className="text-sm text-gray-300 bg-black/50 p-4 rounded-lg overflow-auto max-h-96 whitespace-pre-wrap">
+              {JSON.stringify(response, null, 2)}
+            </pre>
+          </Card>
         </div>
       )}
 

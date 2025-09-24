@@ -45,6 +45,10 @@ export function ReportCard({ report, className, isMockData = false, dataSource =
   const newsCitations = report.news?.citations ?? [];
   const newsMetrics = report.news?.metrics;
   const techSummary = report.technical?.summary ?? [];
+  
+  // Handle both old and new schema formats
+  const newsRationale = report.news?.rationale;
+  const techRationale = report.technical?.rationale;
 
   const tpList = useMemo(() => {
     const tp = report.portfolio?.tp;
@@ -72,18 +76,18 @@ export function ReportCard({ report, className, isMockData = false, dataSource =
     if (report.answer) lines.push(`\n${report.answer}`);
     if (newsSummary.length) {
       lines.push('\nNews Key Points:');
-      newsSummary.forEach(s => lines.push(`• ${s}`));
+      newsSummary.forEach((s: string) => lines.push(`• ${s}`));
     }
     if (techSummary.length) {
       lines.push('\nTechnical Key Points:');
-      techSummary.forEach(s => lines.push(`• ${s}`));
+      techSummary.forEach((s: string) => lines.push(`• ${s}`));
     }
     if (report.finalAnswer) {
       lines.push('\nFinal Answer:');
       lines.push(report.finalAnswer);
       if (report.finalInsights && report.finalInsights.length > 0) {
         lines.push('\nKey Insights:');
-        report.finalInsights.forEach(s => lines.push(`• ${s}`));
+        report.finalInsights.forEach((s: string) => lines.push(`• ${s}`));
       }
     }
     try {
@@ -160,29 +164,37 @@ export function ReportCard({ report, className, isMockData = false, dataSource =
           </section>
         )}
 
-        {/* Technical Key Points */}
-        {techSummary.length > 0 && (
-          <section aria-label="Technical Key Points">
-            <h3 className="text-[17px] font-medium tracking-tight text-zinc-100 mb-3">Technical Key Points</h3>
+        {/* Technical Analysis */}
+        {(techSummary.length > 0 || techRationale) && (
+          <section aria-label="Technical Analysis">
+            <h3 className="text-[17px] font-medium tracking-tight text-zinc-100 mb-3">Technical Analysis</h3>
             <div className="space-y-3">
               <IndicatorsRow indicators={report.indicators} />
-              <ul className="space-y-2">
-                {techSummary.map((point, i) => (
-                  <li key={i} className="flex items-start gap-2">
-                    <span className="text-emerald-400 mt-1">•</span>
-                    <span className="text-[15px] leading-snug text-zinc-300">{point}</span>
-                  </li>
-                ))}
-              </ul>
+              
+              {/* Display rationale if available (new format), otherwise show summary (old format) */}
+              {techRationale ? (
+                <div>
+                  <p className="text-[15px] leading-snug text-zinc-300">{techRationale}</p>
+                </div>
+              ) : (
+                <ul className="space-y-2">
+                  {techSummary.map((point: string, i: number) => (
+                    <li key={i} className="flex items-start gap-2">
+                      <span className="text-emerald-400 mt-1">•</span>
+                      <span className="text-[15px] leading-snug text-zinc-300">{point}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
               <LevelsBlock levels={report.levels} />
             </div>
           </section>
         )}
 
-        {/* News Key Points */}
-        {newsSummary.length > 0 && (
-          <section aria-label="News Key Points">
-            <h3 className="text-[17px] font-medium tracking-tight text-zinc-100 mb-3">News Key Points</h3>
+        {/* News Analysis */}
+        {(newsSummary.length > 0 || newsRationale) && (
+          <section aria-label="News Analysis">
+            <h3 className="text-[17px] font-medium tracking-tight text-zinc-100 mb-3">News Analysis</h3>
             
             {/* Metrics row (if available) */}
             {newsMetrics && (
@@ -208,14 +220,21 @@ export function ReportCard({ report, className, isMockData = false, dataSource =
               </div>
             )}
 
-            <ul className="space-y-2 mb-3">
-              {newsSummary.map((point, i) => (
-                <li key={i} className="flex items-start gap-2">
-                  <span className="text-blue-400 mt-1">•</span>
-                  <span className="text-[15px] leading-snug text-zinc-300">{point}</span>
-                </li>
-              ))}
-            </ul>
+            {/* Display rationale if available (new format), otherwise show summary (old format) */}
+            {newsRationale ? (
+              <div className="mb-3">
+                <p className="text-[15px] leading-snug text-zinc-300">{newsRationale}</p>
+              </div>
+            ) : (
+              <ul className="space-y-2 mb-3">
+                {newsSummary.map((point: string, i: number) => (
+                  <li key={i} className="flex items-start gap-2">
+                    <span className="text-blue-400 mt-1">•</span>
+                    <span className="text-[15px] leading-snug text-zinc-300">{point}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
 
             {/* Citations */}
             {newsCitations.length > 0 && (
@@ -274,7 +293,7 @@ export function ReportCard({ report, className, isMockData = false, dataSource =
                 <div className="space-y-2">
                   <h4 className="text-sm font-medium text-zinc-400">Key Insights</h4>
                   <ul className="space-y-1">
-                    {report.finalInsights.map((insight, i) => (
+                    {report.finalInsights.map((insight: string, i: number) => (
                       <li key={i} className="flex items-start gap-2">
                         <span className="text-emerald-400 mt-1">•</span>
                         <span className="text-[14px] text-zinc-300">{insight}</span>

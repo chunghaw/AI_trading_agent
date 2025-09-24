@@ -998,6 +998,12 @@ export async function POST(req: NextRequest) {
         ema50: indicators.ma_50 || 0,
         ema200: indicators.ma_200 || 0,
         atr14: indicators.atr || 0,
+        fibonacci_support: indicators.fibonacci?.support || [],
+        fibonacci_resistance: indicators.fibonacci?.resistance || [],
+        vwap: indicators.vwap || 0,
+        atr: indicators.atr || 0,
+        volume_trend: indicators.volumeAnalysis?.trend || "insufficient_data",
+        volume_price_relationship: indicators.volumeAnalysis?.volumePriceRelationship || "insufficient_data"
       },
       levels: {
         support: indicators.fibonacci?.support?.map(String) || [],
@@ -1093,6 +1099,12 @@ export async function POST(req: NextRequest) {
           ema50: indicators.ma_50 || 0,
           ema200: indicators.ma_200 || 0,
           atr14: indicators.atr || 0,
+          fibonacci_support: indicators.fibonacci?.support || [],
+          fibonacci_resistance: indicators.fibonacci?.resistance || [],
+          vwap: indicators.vwap || 0,
+          atr: indicators.atr || 0,
+          volume_trend: indicators.volumeAnalysis?.trend || "insufficient_data",
+          volume_price_relationship: indicators.volumeAnalysis?.volumePriceRelationship || "insufficient_data"
         },
         levels: {
           support: indicators.fibonacci?.support?.map(String) || [],

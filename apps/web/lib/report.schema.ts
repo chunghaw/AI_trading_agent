@@ -16,6 +16,12 @@ export const ReportSchema = z.object({
     ema50: z.number(),
     ema200: z.number(),
     atr14: z.number(),
+    fibonacci_support: z.array(z.number()).default([]),
+    fibonacci_resistance: z.array(z.number()).default([]),
+    vwap: z.number().default(0),
+    atr: z.number().default(0),
+    volume_trend: z.string().default("insufficient_data"),
+    volume_price_relationship: z.string().default("insufficient_data")
   }),
   levels: z.object({
     support: z.array(z.string()).or(z.array(z.number())).default([]),
@@ -49,11 +55,6 @@ export const ReportSchema = z.object({
       suggested_stop: z.string().optional(),
       position_hint: z.string().optional()
     }).optional()
-  }),
-  portfolio: z.object({
-    size_suggestion_pct: z.number().min(0).max(1).default(0.1),
-    tp: z.array(z.string()).optional(),
-    sl: z.string().optional()
   })
 });
 

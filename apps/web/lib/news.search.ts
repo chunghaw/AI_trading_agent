@@ -179,36 +179,25 @@ async function getRealNewsData(query: string): Promise<any[]> {
       const tickerSymbol = tickerMatch ? tickerMatch[1] : query;
       console.log(`🔍 Extracted ticker symbol: ${tickerSymbol}`);
       
-      // Use the CORRECT Milvus REST API endpoints that actually work!
-      console.log(`🔍 Using Milvus vector search for: ${tickerSymbol}`);
+      // Use QUERY endpoint with ticker filter for better results
+      console.log(`🔍 Using Milvus query with ticker filter for: ${tickerSymbol}`);
       
       try {
-        // Generate a dummy embedding vector for search (1536 dimensions)
-        const dummyVector = new Array(1536).fill(0.1);
-        
-        // Use the working search endpoint
-        const searchResults = await milvusRequest('/v1/vector/search', 'POST', {
+        // Use query endpoint with ticker filter (more reliable than vector search)
+        const queryResults = await milvusRequest('/v1/vector/query', 'POST', {
           collectionName: MILVUS_CONFIG.collection,
-          vector: dummyVector,
-          limit: 20,
+          filter: `ticker == "${tickerSymbol}"`,
+          limit: 50,
           outputFields: ["*"]
         });
         
-        console.log(`📊 Milvus search results:`, searchResults);
+        console.log(`📊 Milvus query results:`, queryResults);
         
-        if (searchResults.code === 200 && searchResults.data && searchResults.data.length > 0) {
-          console.log(`✅ Found ${searchResults.data.length} news articles`);
-          
-          // Filter results by ticker symbol and transform
-          const tickerResults = searchResults.data.filter((article: any) => 
-            article.ticker === tickerSymbol || 
-            (article.tickers && article.tickers.includes(tickerSymbol))
-          );
-          
-          console.log(`✅ Filtered to ${tickerResults.length} articles for ${tickerSymbol}`);
+        if (queryResults.code === 200 && queryResults.data && queryResults.data.length > 0) {
+          console.log(`✅ Found ${queryResults.data.length} news articles for ${tickerSymbol}`);
           
           // Transform results to expected format
-          const transformedResults = tickerResults.map((article: any, index: number) => ({
+          const transformedResults = queryResults.data.map((article: any, index: number) => ({
             id: article.id || article.article_id || `news_${index}`,
             title: article.title || '',
             text: article.text || '',
@@ -218,19 +207,58 @@ async function getRealNewsData(query: string): Promise<any[]> {
             published_utc: article.published_utc || '',
             sentiment: article.sentiment || 'neutral',
             keywords: article.keywords || '',
-            score: 1 - (article.distance || 0), // Convert distance to score
-            relevance: 1 - (article.distance || 0)
+            score: 1.0, // Query results don't have distance scores
+            relevance: 1.0
           }));
           
           console.log(`✅ Returning ${transformedResults.length} transformed news articles`);
           return transformedResults;
         } else {
-          console.log(`⚠️ No search results found`);
+          console.log(`⚠️ No query results found for ${tickerSymbol}`);
           return [];
         }
         
-      } catch (searchError) {
-        console.error(`❌ Milvus search error:`, searchError);
+      } catch (queryError) {
+        console.error(`❌ Milvus query error:`, queryError);
+        
+        // Fallback to vector search if query fails
+        console.log(`🔄 Falling back to vector search...`);
+        try {
+          const dummyVector = new Array(1536).fill(0.1);
+          
+          const searchResults = await milvusRequest('/v1/vector/search', 'POST', {
+            collectionName: MILVUS_CONFIG.collection,
+            vector: dummyVector,
+            limit: 20,
+            outputFields: ["*"]
+          });
+          
+          if (searchResults.code === 200 && searchResults.data && searchResults.data.length > 0) {
+            const tickerResults = searchResults.data.filter((article: any) => 
+              article.ticker === tickerSymbol || 
+              (article.tickers && article.tickers.includes(tickerSymbol))
+            );
+            
+            console.log(`✅ Fallback found ${tickerResults.length} articles for ${tickerSymbol}`);
+            
+            return tickerResults.map((article: any, index: number) => ({
+              id: article.id || article.article_id || `news_${index}`,
+              title: article.title || '',
+              text: article.text || '',
+              url: article.url || '',
+              source: article.source || '',
+              ticker: article.ticker || tickerSymbol,
+              published_utc: article.published_utc || '',
+              sentiment: article.sentiment || 'neutral',
+              keywords: article.keywords || '',
+              score: 1 - (article.distance || 0),
+              relevance: 1 - (article.distance || 0)
+            }));
+          }
+        } catch (fallbackError) {
+          console.error(`❌ Fallback vector search also failed:`, fallbackError);
+        }
+        
         return [];
       }
       

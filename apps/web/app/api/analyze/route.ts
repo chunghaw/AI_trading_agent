@@ -20,7 +20,13 @@ const SimpleReportSchema = z.object({
       macd_hist: z.number(),
       ema20: z.number(),
       ema50: z.number(),
-      ema200: z.number()
+      ema200: z.number(),
+      fibonacci_support: z.array(z.number()),
+      fibonacci_resistance: z.array(z.number()),
+      vwap: z.number(),
+      atr: z.number(),
+      volume_trend: z.string(),
+      volume_price_relationship: z.string()
     })
   })
 });
@@ -39,12 +45,37 @@ const computeIndicators = (bars: any, dbData?: any[]) => {
     // Calculate MACD from available price data
     const macd = calculateMACD(bars.close);
     
+    // Calculate additional indicators if we have OHLCV data
+    const fibonacciLevels = calculateFibonacciLevels(bars.close);
+    const vwap = calculateVWAP(dbData.map(row => ({
+      high: parseFloat(row.high),
+      low: parseFloat(row.low),
+      close: parseFloat(row.close),
+      volume: parseFloat(row.volume)
+    })));
+    const atr = calculateATR(dbData.map(row => ({
+      high: parseFloat(row.high),
+      low: parseFloat(row.low),
+      close: parseFloat(row.close),
+      volume: parseFloat(row.volume)
+    })));
+    const volumeAnalysis = analyzeVolumeTrend(dbData.map(row => ({
+      high: parseFloat(row.high),
+      low: parseFloat(row.low),
+      close: parseFloat(row.close),
+      volume: parseFloat(row.volume)
+    })));
+    
     return {
       rsi14: latestData.rsi ? parseFloat(latestData.rsi) : null,
       macd: macd,
       ma_20: latestData.ma_20 ? parseFloat(latestData.ma_20) : null,
       ma_50: latestData.ma_50 ? parseFloat(latestData.ma_50) : null,
       ma_200: latestData.ma_200 ? parseFloat(latestData.ma_200) : null,
+      fibonacci: fibonacciLevels,
+      vwap: vwap,
+      atr: atr,
+      volumeAnalysis: volumeAnalysis,
       calculated: true,
       source: "database_all_indicators",
       periods: {
@@ -118,7 +149,7 @@ function calculateRSI(prices: number[], period: number): number {
   return Math.round(rsi * 100) / 100;
 }
 
-function calculateMACD(prices: number[]): { macd: number, signal: number, histogram: number } {
+function calculateMACD(prices: number[]): { macd: number | null, signal: number | null, histogram: number | null } {
   // More flexible MACD calculation - use available data
   const minPeriod = Math.min(prices.length - 1, 26);
   
@@ -150,7 +181,7 @@ function calculateMACD(prices: number[]): { macd: number, signal: number, histog
   };
 }
 
-function calculateEMA(prices: number[], period: number): number {
+function calculateEMA(prices: number[], period: number): number | null {
   if (prices.length < period) return null;
   
   const multiplier = 2 / (period + 1);
@@ -162,40 +193,196 @@ function calculateEMA(prices: number[], period: number): number {
   
   return Math.round(ema * 100) / 100;
 }
+
+function calculateFibonacciLevels(prices: number[]): { support: number[], resistance: number[] } {
+  if (prices.length < 2) return { support: [], resistance: [] };
+  
+  const high = Math.max(...prices);
+  const low = Math.min(...prices);
+  const range = high - low;
+  
+  // Fibonacci retracement levels
+  const fibLevels = [0.236, 0.382, 0.5, 0.618, 0.786];
+  
+  const support: number[] = [];
+  const resistance: number[] = [];
+  
+  fibLevels.forEach(level => {
+    const supportLevel = high - (range * level);
+    const resistanceLevel = low + (range * level);
+    
+    if (supportLevel > low && supportLevel < high) {
+      support.push(Math.round(supportLevel * 100) / 100);
+    }
+    if (resistanceLevel > low && resistanceLevel < high) {
+      resistance.push(Math.round(resistanceLevel * 100) / 100);
+    }
+  });
+  
+  return { support, resistance };
+}
+
+function calculateVWAP(ohlcData: any[]): number | null {
+  if (!ohlcData || ohlcData.length === 0) return null;
+  
+  let totalVolumePrice = 0;
+  let totalVolume = 0;
+  
+  ohlcData.forEach(bar => {
+    const typicalPrice = (bar.high + bar.low + bar.close) / 3;
+    totalVolumePrice += typicalPrice * bar.volume;
+    totalVolume += bar.volume;
+  });
+  
+  if (totalVolume === 0) return null;
+  
+  return Math.round((totalVolumePrice / totalVolume) * 100) / 100;
+}
+
+function calculateATR(ohlcData: any[], period: number = 14): number | null {
+  if (!ohlcData || ohlcData.length < period + 1) return null;
+  
+  const trueRanges = [];
+  
+  for (let i = 1; i < ohlcData.length; i++) {
+    const current = ohlcData[i];
+    const previous = ohlcData[i - 1];
+    
+    const tr1 = current.high - current.low;
+    const tr2 = Math.abs(current.high - previous.close);
+    const tr3 = Math.abs(current.low - previous.close);
+    
+    trueRanges.push(Math.max(tr1, tr2, tr3));
+  }
+  
+  // Calculate ATR as simple moving average of true ranges
+  if (trueRanges.length < period) return null;
+  
+  const atrPeriods = trueRanges.slice(-period);
+  const atr = atrPeriods.reduce((sum, tr) => sum + tr, 0) / period;
+  
+  return Math.round(atr * 100) / 100;
+}
+
+function analyzeVolumeTrend(ohlcData: any[]): { trend: string, volumePriceRelationship: string } {
+  if (!ohlcData || ohlcData.length < 2) return { trend: "insufficient_data", volumePriceRelationship: "insufficient_data" };
+  
+  // Calculate recent vs earlier volume
+  const recentBars = ohlcData.slice(-3);
+  const earlierBars = ohlcData.slice(0, -3);
+  
+  if (earlierBars.length === 0) return { trend: "insufficient_data", volumePriceRelationship: "insufficient_data" };
+  
+  const recentAvgVolume = recentBars.reduce((sum, bar) => sum + bar.volume, 0) / recentBars.length;
+  const earlierAvgVolume = earlierBars.reduce((sum, bar) => sum + bar.volume, 0) / earlierBars.length;
+  
+  const volumeTrend = recentAvgVolume > earlierAvgVolume ? "increasing" : "decreasing";
+  
+  // Analyze price vs volume relationship
+  const recentPriceChange = recentBars[recentBars.length - 1].close - recentBars[0].close;
+  const volumePriceRelationship = (recentPriceChange > 0 && volumeTrend === "increasing") ? "bullish" :
+                                 (recentPriceChange < 0 && volumeTrend === "increasing") ? "bearish" :
+                                 "neutral";
+  
+  return { trend: volumeTrend, volumePriceRelationship };
+}
+
 const levelCandidates = (bars: any) => [];
 
-const buildNewsQAPrompt = (query: string, news: any[]) => `Please analyze the following news data and provide a JSON response. 
+const buildNewsQAPrompt = (ticker: string, asOf: string, news: any[]) => `You are a markets analyst. Analyze the ARTICLES strictly. Do not use any information outside the provided articles.
 
-Query: ${query}
+TICKER: ${ticker}
+AS_OF: ${asOf}
+ARTICLES: ${JSON.stringify(news)}
 
-News data: ${JSON.stringify(news)}
+Tasks:
+1. Classify sentiment: bullish/neutral/bearish based on article tone toward ${ticker}
+2. Assess impact_level: high/medium/low based on relevance to ${ticker}
+   - high: company-specific material events (earnings, M&A, products, regulatory)
+   - medium: important partnerships, sector/macro drivers
+   - low: minor mentions, recycled coverage
+3. Extract 3-5 key_drivers: short, non-overlapping bullets; prefer numeric facts with units/timeframes
+4. Provide trading_implications: 2-4 concise sentences on expected direction, catalysts/risks
+5. List source URLs actually used
 
-Please respond with a JSON object containing:
-- answer_sentence: A brief analysis
-- key_points: Array of key insights
-- citations: Array of source URLs
+Rules:
+- Use only provided articles
+- No invented numbers or URLs
+- If nothing relevant to ${ticker}: no_data = true
+- Output valid JSON only
 
-JSON response:`;
-const buildTechnicalQAPrompt = (query: string, indicators: any, priceData: any) => `Please provide a comprehensive technical analysis based on available data. Be helpful and insightful even with limited indicators.
+Output:
+{
+  "ticker": "${ticker}",
+  "as_of": "${asOf}",
+  "sentiment": "bullish|neutral|bearish",
+  "impact_level": "high|medium|low",
+  "key_drivers": ["string", "string", "string"],
+  "trading_implications": "string",
+  "sources": ["url", "url", "url"],
+  "no_data": false
+}`;
 
-Query: ${query}
+const buildTechnicalQAPrompt = (ticker: string, asOf: string, indicators: any, priceData: any) => `You are a technical analyst. Analyze the TECHNICAL INDICATORS and PRICE DATA strictly. Do not use any information outside the provided data.
 
-Technical indicators: ${JSON.stringify(indicators)}
+TICKER: ${ticker}
+AS_OF: ${asOf}
+PRICE_DATA: ${JSON.stringify(priceData)}
+TECHNICAL_INDICATORS: ${JSON.stringify(indicators)}
 
-Price data: ${JSON.stringify(priceData)}
+Tasks:
+1. Classify overall_bias: bullish/neutral/bearish based on indicator alignment and price action
+2. Analyze key_indicators:
+   - RSI (14): overbought (>70), oversold (<30), neutral (30-70)
+   - MACD: bullish (line > signal), bearish (line < signal), histogram direction
+   - Moving Averages: price position relative to EMAs (20, 50, 200)
+   - Fibonacci: support/resistance levels and current price position
+   - VWAP: price above/below volume-weighted average
+   - ATR: volatility level (high/medium/low)
+3. Assess volume_trend: increasing/decreasing and relationship to price movement
+4. Identify key_support_resistance: most relevant levels from Fibonacci and moving averages
+5. Provide technical_implications: 3-5 concise sentences on expected price direction, key levels, and momentum
 
-Please respond with a JSON object containing:
-- answer_sentence: A detailed technical analysis (be helpful, not restrictive)
-- key_points: Array of actionable technical insights
-- trend: Overall trend direction (bullish/bearish/neutral)
+Rules:
+- Use only provided technical data
+- No invented numbers or external market knowledge
+- If insufficient data: no_data = true
+- Focus on actionable technical signals
+- Output valid JSON only
 
-Guidelines:
-- Use available data to provide meaningful analysis
-- If RSI/MACD unavailable, focus on price action, moving averages, and volume
-- Provide actionable insights based on what data IS available
-- Don't say "inconclusive" - be helpful with available information
+Output:
+{
+  "ticker": "${ticker}",
+  "as_of": "${asOf}",
+  "overall_bias": "bullish|neutral|bearish",
+  "key_indicators": {
+    "rsi14": ${indicators.rsi14 || null},
+    "macd": {
+      "line": ${indicators.macd?.macd || null},
+      "signal": ${indicators.macd?.signal || null},
+      "histogram": ${indicators.macd?.histogram || null}
+    },
+    "moving_averages": {
+      "ema20": ${indicators.ma_20 || null},
+      "ema50": ${indicators.ma_50 || null},
+      "ema200": ${indicators.ma_200 || null}
+    },
+    "fibonacci": {
+      "support": ${JSON.stringify(indicators.fibonacci?.support || [])},
+      "resistance": ${JSON.stringify(indicators.fibonacci?.resistance || [])}
+    },
+    "vwap": ${indicators.vwap || null},
+    "atr": ${indicators.atr || null}
+  },
+  "volume_analysis": {
+    "trend": "${indicators.volumeAnalysis?.trend || 'insufficient_data'}",
+    "price_relationship": "${indicators.volumeAnalysis?.volumePriceRelationship || 'insufficient_data'}"
+  },
+  "key_support_resistance": ["level1", "level2", "level3"],
+  "technical_implications": "string",
+  "no_data": false
+}`;
 
-JSON response:`;
 const buildFinalAnswerPrompt = (data: any) => `Please synthesize the following analysis and provide a JSON response.
 
 User Question: ${data.userQuestion}
@@ -297,7 +484,7 @@ const detectSymbolFromQuestion = async (question: string, openai: any): Promise<
     console.log(`🤖 AI DETECTION: No confident symbol detected`);
     return null;
     
-  } catch (error) {
+  } catch (error: any) {
     console.error("❌ AI SYMBOL DETECTION ERROR:", error);
     return null;
   }
@@ -385,7 +572,7 @@ export async function POST(req: NextRequest) {
           symbol: detectedSymbol
         }, { status: 422 });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("❌ STEP 1 ERROR: Failed to fetch OHLCV data from Postgres:", error);
       return NextResponse.json({ 
         error: `Database connection failed. Cannot fetch OHLCV data for ${detectedSymbol}. Please ensure database is properly configured.`,
@@ -486,13 +673,13 @@ export async function POST(req: NextRequest) {
     
     let newsPromptRaw;
     try {
-      newsPromptRaw = buildNewsQAPrompt(prompt, newsDocs);
+      newsPromptRaw = buildNewsQAPrompt(detectedSymbol, new Date().toISOString(), newsDocs);
       console.log("🔍 buildNewsQAPrompt returned:", newsPromptRaw);
       console.log("🔍 Is newsPromptRaw a string?", typeof newsPromptRaw);
       console.log("🔍 Is newsPromptRaw empty?", !newsPromptRaw);
       console.log("🔍 newsPromptRaw length:", newsPromptRaw?.length);
       console.log("🔍 newsPromptRaw first 100 chars:", newsPromptRaw?.substring(0, 100));
-    } catch (error) {
+    } catch (error: any) {
       console.error("❌ Error calling buildNewsQAPrompt:", error);
       newsPromptRaw = "Please analyze the following news data and provide a JSON response. Query: " + prompt + " News data: " + JSON.stringify(newsDocs) + " Please respond with a JSON object containing: - answer_sentence: A brief analysis - key_points: Array of key insights - citations: Array of source URLs JSON response:";
     }
@@ -622,45 +809,45 @@ export async function POST(req: NextRequest) {
       
       let technicalAnalysis;
       try {
-        const technicalPrompt = buildTechnicalQAPrompt(prompt, indicators, {
+        const technicalPrompt = buildTechnicalQAPrompt(detectedSymbol, new Date().toISOString(), indicators, {
         currentPrice,
         priceChange,
         priceChangePercent,
         volume: bars.volume[bars.volume.length - 1],
         bars: bars.close.length
       });
-        
-        const technicalCompletion = await openai.chat.completions.create({
-          model: "gpt-4o-mini",
-          messages: [{ role: "user", content: technicalPrompt }],
-          temperature: 0.1,
-          max_tokens: 1000, // Increased from 500 to prevent truncation
-          response_format: { type: "json_object" }
-        });
-        
-        try {
-          technicalAnalysis = JSON.parse(technicalCompletion.choices[0].message.content || "{}");
-        } catch (parseError) {
-          console.error("❌ Technical analysis JSON parse error:", parseError);
-          console.error("📊 Raw technical response:", technicalCompletion.choices[0].message.content);
-          
-          // Create a fallback technical analysis
-          technicalAnalysis = {
-            role: "technical",
+    
+    const technicalCompletion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: technicalPrompt }],
+      temperature: 0.1,
+      max_tokens: 1000, // Increased from 500 to prevent truncation
+      response_format: { type: "json_object" }
+    });
+    
+    try {
+      technicalAnalysis = JSON.parse(technicalCompletion.choices[0].message.content || "{}");
+    } catch (parseError) {
+      console.error("❌ Technical analysis JSON parse error:", parseError);
+      console.error("📊 Raw technical response:", technicalCompletion.choices[0].message.content);
+      
+      // Create a fallback technical analysis
+      technicalAnalysis = {
+        role: "technical",
             answer_sentence: `Technical Analyst: Current indicators for ${detectedSymbol} suggest reviewing the technical levels above.`,
-            key_points: ["Analysis based on current indicators", "Review technical levels and indicators above"],
-            levels: levels,
-            confidence: 0.5
-          };
-        }
-        
-        // Check for technical errors
-        if (technicalAnalysis.error) {
-          console.log(`❌ Technical QA error: ${technicalAnalysis.error}`);
-          return NextResponse.json({ 
-            error: `Technical analysis failed: ${technicalAnalysis.error}`,
-            code: "TECHNICAL_ANALYSIS_ERROR"
-          }, { status: 422 });
+        key_points: ["Analysis based on current indicators", "Review technical levels and indicators above"],
+        levels: levels,
+        confidence: 0.5
+      };
+    }
+    
+    // Check for technical errors
+    if (technicalAnalysis.error) {
+      console.log(`❌ Technical QA error: ${technicalAnalysis.error}`);
+      return NextResponse.json({ 
+        error: `Technical analysis failed: ${technicalAnalysis.error}`,
+        code: "TECHNICAL_ANALYSIS_ERROR"
+      }, { status: 422 });
         }
         
       } catch (technicalError) {
@@ -675,7 +862,7 @@ export async function POST(req: NextRequest) {
           confidence: 0.3,
           error: "Technical analysis API temporarily unavailable"
         };
-      }
+    }
     
     // Log technical analysis response
     console.log(`📊 Technical answer_sentence: ${technicalAnalysis.answer_sentence}`);
@@ -685,45 +872,45 @@ export async function POST(req: NextRequest) {
     
     let finalAnswer;
     try {
-      const finalAnswerPrompt = buildFinalAnswerPrompt({
-        symbol: detectedSymbol,
-        userQuestion: prompt,
-        newsAnalysis: newsAnalysisResult,
-        technicalAnalysis,
-        price: {
-          current: currentPrice,
-          change: priceChange,
-          changePercent: priceChangePercent
-        },
-        indicators,
-        levels
-      });
+    const finalAnswerPrompt = buildFinalAnswerPrompt({
+      symbol: detectedSymbol,
+      userQuestion: prompt,
+      newsAnalysis: newsAnalysisResult,
+      technicalAnalysis,
+      price: {
+        current: currentPrice,
+        change: priceChange,
+        changePercent: priceChangePercent
+      },
+      indicators,
+      levels
+    });
       
       console.log(`🔍 Final answer prompt length: ${finalAnswerPrompt.length}`);
       console.log(`🔍 Final answer prompt preview: ${finalAnswerPrompt.substring(0, 200)}...`);
-      
-      const finalCompletion = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [{ role: "user", content: finalAnswerPrompt }],
-        temperature: 0.1,
-        max_tokens: 300,
-        response_format: { type: "json_object" }
-      });
-      
+    
+    const finalCompletion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: finalAnswerPrompt }],
+      temperature: 0.1,
+      max_tokens: 300,
+      response_format: { type: "json_object" }
+    });
+    
       console.log(`🔍 Final completion response:`, finalCompletion.choices[0].message.content);
       
-      try {
-        finalAnswer = JSON.parse(finalCompletion.choices[0].message.content || "{}");
+    try {
+      finalAnswer = JSON.parse(finalCompletion.choices[0].message.content || "{}");
         console.log(`✅ Final answer parsed successfully:`, finalAnswer);
-      } catch (parseError) {
-        console.error("❌ Final answer JSON parse error:", parseError);
-        console.error("🎯 Raw final answer response:", finalCompletion.choices[0].message.content);
-        
-        // Create a fallback final answer
-        finalAnswer = {
-          answer: `Based on the analysis, ${detectedSymbol} shows mixed signals. The technical indicators suggest caution while news sentiment is positive. Consider your risk tolerance and investment timeline.`,
-          confidence: 0.5,
-          key_insights: ["Mixed technical and news signals", "Consider risk tolerance", "Monitor key support/resistance levels"]
+    } catch (parseError) {
+      console.error("❌ Final answer JSON parse error:", parseError);
+      console.error("🎯 Raw final answer response:", finalCompletion.choices[0].message.content);
+      
+      // Create a fallback final answer
+      finalAnswer = {
+        answer: `Based on the analysis, ${detectedSymbol} shows mixed signals. The technical indicators suggest caution while news sentiment is positive. Consider your risk tolerance and investment timeline.`,
+        confidence: 0.5,
+        key_insights: ["Mixed technical and news signals", "Consider risk tolerance", "Monitor key support/resistance levels"]
         };
       }
     } catch (finalError) {
@@ -792,7 +979,13 @@ export async function POST(req: NextRequest) {
           macd_hist: indicators.macd?.histogram || 0,
           ema20: indicators.ma_20 || 0,
           ema50: indicators.ma_50 || 0,
-          ema200: indicators.ma_200 || 0
+          ema200: indicators.ma_200 || 0,
+          fibonacci_support: indicators.fibonacci?.support || [],
+          fibonacci_resistance: indicators.fibonacci?.resistance || [],
+          vwap: indicators.vwap || 0,
+          atr: indicators.atr || 0,
+          volume_trend: indicators.volumeAnalysis?.trend || "insufficient_data",
+          volume_price_relationship: indicators.volumeAnalysis?.volumePriceRelationship || "insufficient_data"
         }
       }
     };
@@ -850,7 +1043,13 @@ export async function POST(req: NextRequest) {
             macd_hist: indicators.macd?.histogram || 0,
             ema20: indicators.ma_20 || 0,
             ema50: indicators.ma_50 || 0,
-            ema200: indicators.ma_200 || 0
+            ema200: indicators.ma_200 || 0,
+            fibonacci_support: indicators.fibonacci?.support || [],
+            fibonacci_resistance: indicators.fibonacci?.resistance || [],
+            vwap: indicators.vwap || 0,
+            atr: indicators.atr || 0,
+            volume_trend: indicators.volumeAnalysis?.trend || "insufficient_data",
+            volume_price_relationship: indicators.volumeAnalysis?.volumePriceRelationship || "insufficient_data"
           }
         }
       };

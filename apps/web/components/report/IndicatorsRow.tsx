@@ -13,29 +13,53 @@ interface IndicatorsRowProps {
     ema20: number;
     ema50: number;
     ema200: number;
-    atr14: number;
+    fibonacci_support: number[];
+    fibonacci_resistance: number[];
+    vwap: number;
+    atr: number;
+    volume_trend: string;
+    volume_price_relationship: string;
   };
   className?: string;
 }
 
 export function IndicatorsRow({ indicators, className }: IndicatorsRowProps) {
-  const getIndicatorColor = (key: string, value: number) => {
+  const getIndicatorColor = (key: string, value: number | string) => {
     if (key === 'rsi14') {
-      if (value > 70) return 'text-rose-400';
-      if (value < 30) return 'text-emerald-400';
+      const numValue = Number(value);
+      if (numValue > 70) return 'text-rose-400';
+      if (numValue < 30) return 'text-emerald-400';
       return 'text-zinc-300';
     }
     if (key === 'macd_hist') {
-      return value > 0 ? 'text-emerald-400' : 'text-rose-400';
+      return Number(value) > 0 ? 'text-emerald-400' : 'text-rose-400';
+    }
+    if (key === 'volume_trend') {
+      if (value === 'increasing') return 'text-emerald-400';
+      if (value === 'decreasing') return 'text-rose-400';
+      return 'text-zinc-300';
+    }
+    if (key === 'volume_price_relationship') {
+      if (value === 'bullish') return 'text-emerald-400';
+      if (value === 'bearish') return 'text-rose-400';
+      return 'text-zinc-300';
     }
     return 'text-zinc-300';
   };
 
-  const formatValue = (key: string, value: number) => {
-    if (key === 'rsi14') return `${value.toFixed(1)}`;
-    if (key.startsWith('ema')) return `${value.toFixed(0)}`;
-    if (key === 'atr14') return `${value.toFixed(2)}`;
-    return value.toFixed(3);
+  const formatValue = (key: string, value: number | string | number[]) => {
+    if (key === 'rsi14') return `${Number(value).toFixed(1)}`;
+    if (key.startsWith('ema')) return `${Number(value).toFixed(0)}`;
+    if (key === 'atr') return `${Number(value).toFixed(2)}`;
+    if (key === 'vwap') return `${Number(value).toFixed(2)}`;
+    if (key === 'fibonacci_support' || key === 'fibonacci_resistance') {
+      const arr = Array.isArray(value) ? value : [];
+      return arr.length > 0 ? `${arr[0].toFixed(0)}` : '—';
+    }
+    if (key === 'volume_trend' || key === 'volume_price_relationship') {
+      return String(value).replace('_', ' ').toUpperCase();
+    }
+    return Number(value).toFixed(3);
   };
 
   const indicatorLabels: Record<string, string> = {
@@ -46,11 +70,16 @@ export function IndicatorsRow({ indicators, className }: IndicatorsRowProps) {
     ema20: 'EMA20',
     ema50: 'EMA50',
     ema200: 'EMA200',
-    atr14: 'ATR'
+    fibonacci_support: 'FIB SUP',
+    fibonacci_resistance: 'FIB RES',
+    vwap: 'VWAP',
+    atr: 'ATR',
+    volume_trend: 'VOL TREND',
+    volume_price_relationship: 'VOL-PRICE'
   };
 
   return (
-    <div className={cn("grid grid-cols-4 md:grid-cols-8 gap-2", className)}>
+    <div className={cn("grid grid-cols-3 md:grid-cols-6 lg:grid-cols-8 gap-2", className)}>
       {Object.entries(indicators).map(([key, value]) => (
         <div 
           key={key}
@@ -61,7 +90,7 @@ export function IndicatorsRow({ indicators, className }: IndicatorsRowProps) {
           </div>
           <div className={cn(
             "text-sm font-semibold",
-            getIndicatorColor(key, value)
+            getIndicatorColor(key, Array.isArray(value) ? value[0] || 0 : value)
           )}>
             {formatValue(key, value)}
           </div>

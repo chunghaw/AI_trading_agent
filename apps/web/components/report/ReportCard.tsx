@@ -40,15 +40,39 @@ type Report = any;
 export function ReportCard({ report, className, isMockData = false, dataSource = 'none' }: ReportCardProps) {
   const [copiedJson, setCopiedJson] = useState(false);
   const [copiedSummary, setCopiedSummary] = useState(false);
-
-  const newsSummary = report.news?.summary ?? [];
-  const newsCitations = report.news?.citations ?? [];
-  const newsMetrics = report.news?.metrics;
-  const techSummary = report.technical?.summary ?? [];
   
-  // Handle both old and new schema formats
-  const newsRationale = report.news?.rationale;
-  const techRationale = report.technical?.rationale;
+  // DEBUG: Log the report data
+  console.log("🔍 ReportCard received report:", report);
+  console.log("🔍 ReportCard report type:", typeof report);
+  console.log("🔍 ReportCard report keys:", report ? Object.keys(report) : "null");
+
+  // DEBUG: Safe data extraction with error handling
+  let newsSummary = [];
+  let newsCitations = [];
+  let newsMetrics = null;
+  let techSummary = [];
+  let newsRationale = null;
+  let techRationale = null;
+  
+  try {
+    newsSummary = report?.news?.summary ?? [];
+    newsCitations = report?.news?.citations ?? [];
+    newsMetrics = report?.news?.metrics;
+    techSummary = report?.technical?.summary ?? [];
+    newsRationale = report?.news?.rationale;
+    techRationale = report?.technical?.rationale;
+    
+    console.log("🔍 Extracted data:", {
+      newsSummary: newsSummary.length,
+      newsCitations: newsCitations.length,
+      techSummary: techSummary.length,
+      hasNewsRationale: !!newsRationale,
+      hasTechRationale: !!techRationale
+    });
+  } catch (error) {
+    console.error("❌ Error extracting report data:", error);
+    console.error("❌ Report structure:", report);
+  }
 
   const tpList = useMemo(() => {
     const tp = report.portfolio?.tp;
@@ -220,7 +244,25 @@ export function ReportCard({ report, className, isMockData = false, dataSource =
           <section aria-label="Technical Analysis">
             <h3 className="text-[17px] font-medium tracking-tight text-zinc-100 mb-3">Technical Analysis</h3>
             <div className="space-y-3">
-              <IndicatorsRow indicators={report.indicators} />
+              {report.indicators ? (
+                <IndicatorsRow indicators={{
+                  rsi14: report.indicators.rsi14 || 0,
+                  macd: report.indicators.macd || 0,
+                  macd_signal: report.indicators.macd_signal || 0,
+                  macd_hist: report.indicators.macd_hist || 0,
+                  ema20: report.indicators.ema20 || 0,
+                  ema50: report.indicators.ema50 || 0,
+                  ema200: report.indicators.ema200 || 0,
+                  fibonacci_support: report.indicators.fibonacci_support || [],
+                  fibonacci_resistance: report.indicators.fibonacci_resistance || [],
+                  vwap: report.indicators.vwap || 0,
+                  atr: report.indicators.atr || 0,
+                  volume_trend: report.indicators.volume_trend || "insufficient_data",
+                  volume_price_relationship: report.indicators.volume_price_relationship || "insufficient_data"
+                }} />
+              ) : (
+                <div className="text-red-400">❌ No indicators data available</div>
+              )}
               
               {/* Display rationale if available (new format), otherwise show summary (old format) */}
               {techRationale ? (

@@ -92,8 +92,23 @@ export default function AgentsPage() {
       }
 
       const data = await res.json();
-      const validatedData = ReportSchema.parse(data);
-      setResponse(validatedData);
+      console.log("🔍 Raw API Response:", data);
+      
+      try {
+        const validatedData = ReportSchema.parse(data);
+        console.log("✅ Schema validation passed:", validatedData);
+        setResponse(validatedData);
+      } catch (schemaError) {
+        console.error("❌ Schema validation failed:", schemaError);
+        console.error("❌ Raw data that failed validation:", data);
+        
+        // Try to set response anyway for debugging
+        setResponse(data);
+        
+        // Show specific error
+        alert(`Schema validation failed: ${schemaError.message}. Check console for details.`);
+        return;
+      }
       
       // Set mock data to false since we're not using mock data anymore
       setIsMockData(false);

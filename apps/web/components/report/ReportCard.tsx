@@ -40,11 +40,31 @@ type Report = any;
 export function ReportCard({ report, className, isMockData = false, dataSource = 'none' }: ReportCardProps) {
   const [copiedJson, setCopiedJson] = useState(false);
   const [copiedSummary, setCopiedSummary] = useState(false);
+  const [renderError, setRenderError] = useState<string | null>(null);
   
   // DEBUG: Log the report data
   console.log("🔍 ReportCard received report:", report);
   console.log("🔍 ReportCard report type:", typeof report);
   console.log("🔍 ReportCard report keys:", report ? Object.keys(report) : "null");
+  
+  // Error boundary for rendering
+  if (renderError) {
+    return (
+      <div className="p-6 bg-red-900/20 border border-red-500 rounded-lg">
+        <h3 className="text-red-400 font-bold mb-2">ReportCard Render Error</h3>
+        <p className="text-red-300 text-sm mb-4">{renderError}</p>
+        <pre className="text-xs text-red-200 bg-black/50 p-3 rounded overflow-auto">
+          {JSON.stringify(report, null, 2)}
+        </pre>
+        <button 
+          onClick={() => setRenderError(null)}
+          className="mt-3 px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   // DEBUG: Safe data extraction with error handling
   let newsSummary = [];
@@ -125,7 +145,9 @@ export function ReportCard({ report, className, isMockData = false, dataSource =
 
   const handlePrint = () => window.print();
 
-  return (
+  // Wrap the entire render in error handling
+  try {
+    return (
     <div className={cn('max-w-[880px] mx-auto px-4 md:px-6', className)}>
       <div className="panel p-5 md:p-6 space-y-6">
 
@@ -342,4 +364,9 @@ export function ReportCard({ report, className, isMockData = false, dataSource =
       </div>
     </div>
   );
+  } catch (error: any) {
+    console.error("❌ ReportCard render error:", error);
+    setRenderError(error.message || "Unknown render error");
+    return null;
+  }
 }

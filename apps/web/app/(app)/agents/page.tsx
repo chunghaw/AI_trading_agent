@@ -98,7 +98,7 @@ export default function AgentsPage() {
         const validatedData = ReportSchema.parse(data);
         console.log("✅ Schema validation passed:", validatedData);
         setResponse(validatedData);
-      } catch (schemaError) {
+      } catch (schemaError: any) {
         console.error("❌ Schema validation failed:", schemaError);
         console.error("❌ Raw data that failed validation:", data);
         
@@ -125,20 +125,23 @@ export default function AgentsPage() {
         });
       }
     } catch (error: any) {
-      console.error("Error:", error);
+      console.error("❌ Full error object:", error);
+      console.error("❌ Error message:", error.message);
+      console.error("❌ Error stack:", error.stack);
+      console.error("❌ Error name:", error.name);
       
       // Handle specific error types
-      console.log("Full error:", error);
-      console.log("Error message:", error.message);
-      
       if (error.message?.includes("SYMBOL_NOT_SUPPORTED")) {
         alert(`Symbol not supported. Only NVDA is currently supported with real data.`);
       } else if (error.message?.includes("not available yet")) {
         alert(`Real-time data for this symbol is not available yet. We're working on adding more symbols soon!`);
       } else if (error.message?.includes("DATA_NOT_AVAILABLE")) {
         alert(`Real-time data for this symbol is not available yet. We're working on adding more symbols soon!`);
+      } else if (error.message?.includes("Schema validation failed")) {
+        // Don't show alert again, we already showed it above
+        console.log("Schema validation error handled above");
       } else {
-        alert("Failed to get analysis. Please try again.");
+        alert(`Failed to get analysis: ${error.message}. Check console for details.`);
       }
     } finally {
       setIsLoading(false);
@@ -245,6 +248,16 @@ export default function AgentsPage() {
       {response && (
         <div className="mt-8">
           <ReportCard report={response} isMockData={isMockData} />
+          
+          {/* DEBUG: Show raw JSON as fallback */}
+          <details className="mt-4">
+            <summary className="cursor-pointer text-sm text-gray-400 hover:text-gray-300">
+              🔍 Debug: Show Raw Response
+            </summary>
+            <pre className="text-xs text-gray-300 bg-black/50 p-4 rounded-lg overflow-auto max-h-96 mt-2 whitespace-pre-wrap">
+              {JSON.stringify(response, null, 2)}
+            </pre>
+          </details>
         </div>
       )}
 

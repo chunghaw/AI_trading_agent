@@ -7,27 +7,60 @@ const SimpleReportSchema = z.object({
   symbol: z.string(),
   timeframe: z.string(),
   answer: z.string(),
+  action: z.enum(["BUY","SELL","FLAT"]).default("FLAT"),
+  confidence: z.number().min(0).max(1).default(0.5),
+  bullets: z.array(z.string()).default([]),
+  indicators: z.object({
+    rsi14: z.number(),
+    macd: z.number(),
+    macd_signal: z.number(),
+    macd_hist: z.number(),
+    ema20: z.number(),
+    ema50: z.number(),
+    ema200: z.number(),
+    atr14: z.number().default(0),
+  }),
+  levels: z.object({
+    support: z.array(z.string()).or(z.array(z.number())).default([]),
+    resistance: z.array(z.string()).or(z.array(z.number())).default([]),
+    breakout_trigger: z.string().or(z.number()).default("")
+  }),
   news: z.object({
-    rationale: z.string(),
-    citations: z.array(z.string())
+    summary: z.array(z.string()).default([]),
+    citations: z.array(z.string()).default([]),
+    metrics: z.object({
+      docs: z.number().default(0),
+      sources: z.number().default(0),
+      pos: z.number().default(0),
+      neg: z.number().default(0),
+      neu: z.number().default(0),
+      net_sentiment: z.number().default(0)
+    }).optional(),
+    catalysts: z.array(z.string()).default([]),
+    risks: z.array(z.string()).default([]),
+    confidence_reasons: z.array(z.string()).default([]),
+    // Add new format fields
+    rationale: z.string().optional()
   }),
   technical: z.object({
-    rationale: z.string(),
-    indicators: z.object({
-      rsi14: z.number(),
-      macd: z.number(),
-      macd_signal: z.number(),
-      macd_hist: z.number(),
-      ema20: z.number(),
-      ema50: z.number(),
-      ema200: z.number(),
-      fibonacci_support: z.array(z.number()),
-      fibonacci_resistance: z.array(z.number()),
-      vwap: z.number(),
-      atr: z.number(),
-      volume_trend: z.string(),
-      volume_price_relationship: z.string()
-    })
+    summary: z.array(z.string()).default([]),
+    chart_notes: z.string().default("Analysis based on current indicators"),
+    scenarios: z.object({
+      bull_case: z.string().optional(),
+      bear_case: z.string().optional()
+    }).optional(),
+    risk_box: z.object({
+      atr_pct: z.string().optional(),
+      suggested_stop: z.string().optional(),
+      position_hint: z.string().optional()
+    }).optional(),
+    // Add new format fields
+    rationale: z.string().optional()
+  }),
+  portfolio: z.object({
+    size_suggestion_pct: z.number().min(0).max(1).default(0.1),
+    tp: z.array(z.string()).optional(),
+    sl: z.string().optional()
   })
 });
 // import { barsQualityOk } from "../../../lib/ohlcv";
@@ -948,38 +981,63 @@ export async function POST(req: NextRequest) {
     console.log("🔍 Combined Answer for parsing:");
     console.log(combinedAnswer);
     
-    // Build final response
-    // Build the response in original clean format
+    // Build final response with all required fields
     const json = {
       symbol: detectedSymbol,
       timeframe,
-      price: {
-        current: currentPrice,
-        change: priceChange,
-        changePercent: priceChangePercent
-      },
       answer: finalAnswer.answer || combinedAnswer, // Main answer
+      action: finalAnswer?.confidence > 0.7 ? "BUY" : finalAnswer?.confidence < 0.3 ? "SELL" : "FLAT",
+      confidence: finalAnswer?.confidence || 0.5,
+      bullets: finalAnswer?.key_insights || ["Analysis completed", "Review technical indicators", "Monitor news developments"],
+      indicators: {
+        rsi14: indicators.rsi14 || 0,
+        macd: indicators.macd?.macd || 0,
+        macd_signal: indicators.macd?.signal || 0,
+        macd_hist: indicators.macd?.histogram || 0,
+        ema20: indicators.ma_20 || 0,
+        ema50: indicators.ma_50 || 0,
+        ema200: indicators.ma_200 || 0,
+        atr14: indicators.atr || 0,
+      },
+      levels: {
+        support: indicators.fibonacci?.support?.map(String) || [],
+        resistance: indicators.fibonacci?.resistance?.map(String) || [],
+        breakout_trigger: ""
+      },
       news: {
-        rationale: newsAnalysisResult?.answer_sentence || newsAnalysisResult?.trading_implications || "News analysis completed",
-        citations: newsAnalysisResult?.citations || newsAnalysisResult?.sources || []
+        summary: newsAnalysisResult?.key_drivers || ["News analysis completed"],
+        citations: newsAnalysisResult?.citations || newsAnalysisResult?.sources || [],
+        metrics: {
+          docs: newsDocs.length,
+          sources: new Set(newsDocs.map(d => d.source)).size,
+          pos: 0,
+          neg: 0,
+          neu: 0,
+          net_sentiment: 0
+        },
+        catalysts: newsAnalysisResult?.key_drivers?.slice(0, 2) || [],
+        risks: ["Market volatility", "Sector rotation risk"],
+        confidence_reasons: ["News analysis available", "Technical indicators calculated"],
+        rationale: newsAnalysisResult?.answer_sentence || newsAnalysisResult?.trading_implications || "News analysis completed"
       },
       technical: {
-        rationale: technicalAnalysis?.answer_sentence || technicalAnalysis?.technical_implications || "Technical analysis completed",
-        indicators: {
-          rsi14: indicators.rsi14 || 0,
-          macd: indicators.macd?.macd || 0,
-          macd_signal: indicators.macd?.signal || 0,
-          macd_hist: indicators.macd?.histogram || 0,
-          ema20: indicators.ma_20 || 0,
-          ema50: indicators.ma_50 || 0,
-          ema200: indicators.ma_200 || 0,
-          fibonacci_support: indicators.fibonacci?.support || [],
-          fibonacci_resistance: indicators.fibonacci?.resistance || [],
-          vwap: indicators.vwap || 0,
-          atr: indicators.atr || 0,
-          volume_trend: indicators.volumeAnalysis?.trend || "insufficient_data",
-          volume_price_relationship: indicators.volumeAnalysis?.volumePriceRelationship || "insufficient_data"
-        }
+        summary: ["Technical analysis completed", "Indicators calculated", "Price levels identified"],
+        chart_notes: "Analysis based on current indicators and price action",
+        scenarios: {
+          bull_case: "Break above resistance levels with volume",
+          bear_case: "Break below support levels"
+        },
+        risk_box: {
+          atr_pct: indicators.atr ? `${((indicators.atr / currentPrice) * 100).toFixed(1)}%` : "N/A",
+          suggested_stop: indicators.fibonacci?.support?.[0]?.toString() || "N/A",
+          position_hint: "Monitor key levels"
+        },
+        rationale: technicalAnalysis?.answer_sentence || technicalAnalysis?.technical_implications || "Technical analysis completed"
+      },
+      portfolio: {
+        size_suggestion_pct: 0.1,
+        tp: indicators.fibonacci?.resistance?.slice(0, 2).map(String) || [],
+        sl: indicators.fibonacci?.support?.[0]?.toString() || ""
       }
     };
     // Step 5: Validate with ReportSchema
@@ -1018,32 +1076,42 @@ export async function POST(req: NextRequest) {
       console.error("❌ Validation errors:", error.issues || error.message);
       console.error("❌ Response data that failed validation:", JSON.stringify(json, null, 2));
       
-      // Return a simplified response in original format
+      // Return a simplified response with all required fields
       const fallbackResponse = {
         symbol: detectedSymbol,
         timeframe: "1d",
         answer: finalAnswer?.answer || combinedAnswer || "Analysis completed but format validation failed.",
+        action: "FLAT" as const,
+        confidence: 0.5,
+        bullets: ["Analysis completed", "Technical indicators calculated", "News analysis available"],
+        indicators: {
+          rsi14: indicators.rsi14 || 0,
+          macd: indicators.macd?.macd || 0,
+          macd_signal: indicators.macd?.signal || 0,
+          macd_hist: indicators.macd?.histogram || 0,
+          ema20: indicators.ma_20 || 0,
+          ema50: indicators.ma_50 || 0,
+          ema200: indicators.ma_200 || 0,
+          atr14: indicators.atr || 0,
+        },
+        levels: {
+          support: indicators.fibonacci?.support?.map(String) || [],
+          resistance: indicators.fibonacci?.resistance?.map(String) || [],
+          breakout_trigger: ""
+        },
         news: {
-          rationale: newsAnalysisResult?.trading_implications || "News analysis completed",
-          citations: newsAnalysisResult?.sources || []
+          summary: ["News analysis completed"],
+          citations: newsAnalysisResult?.sources || [],
+          rationale: newsAnalysisResult?.trading_implications || "News analysis completed"
         },
         technical: {
-          rationale: technicalAnalysis?.technical_implications || "Technical analysis completed",
-          indicators: {
-            rsi14: indicators.rsi14 || 0,
-            macd: indicators.macd?.macd || 0,
-            macd_signal: indicators.macd?.signal || 0,
-            macd_hist: indicators.macd?.histogram || 0,
-            ema20: indicators.ma_20 || 0,
-            ema50: indicators.ma_50 || 0,
-            ema200: indicators.ma_200 || 0,
-            fibonacci_support: indicators.fibonacci?.support || [],
-            fibonacci_resistance: indicators.fibonacci?.resistance || [],
-            vwap: indicators.vwap || 0,
-            atr: indicators.atr || 0,
-            volume_trend: indicators.volumeAnalysis?.trend || "insufficient_data",
-            volume_price_relationship: indicators.volumeAnalysis?.volumePriceRelationship || "insufficient_data"
-          }
+          summary: ["Technical analysis completed"],
+          rationale: technicalAnalysis?.technical_implications || "Technical analysis completed"
+        },
+        portfolio: {
+          size_suggestion_pct: 0.1,
+          tp: [],
+          sl: ""
         }
       };
       

@@ -126,7 +126,7 @@ const computeIndicators = (bars: any, dbData?: any[]) => {
   };
 };
 
-function calculateRSI(prices: number[], period: number): number {
+function calculateRSI(prices: number[], period: number): number | null {
   if (prices.length < period + 1) return null;
   
   let gains = 0;
@@ -608,24 +608,22 @@ export async function POST(req: NextRequest) {
     console.log(`📰 STEP 2: Searching for news for ${detectedSymbol} since ${sinceIso}`);
     let newsAnalysis = { rationale: [], citations: [] };
     let newsHits = [];
+    let newsDocs: any[] = [];
     try {
       console.log(`🔍 Searching for news for ${detectedSymbol} since ${sinceIso}`);
       newsHits = await searchAndRerankNewsStrict(detectedSymbol, prompt, sinceIso);
       console.log(`📰 Found ${newsHits.length} news articles for ${detectedSymbol}`);
       
       if (newsHits.length > 0) {
-        // Format news data for analysis
-        newsAnalysis = {
-          rationale: newsHits.slice(0, 5).map(h => ({
-            title: h.title || "News article",
-            text: h.text || "",
-            url: h.url || "",
-            published_utc: h.published_utc || "",
-            score: h.score || 0
-          })),
-          citations: newsHits.slice(0, 5).map(h => h.url).filter(Boolean)
-        };
-        console.log(`✅ News analysis prepared with ${newsAnalysis.rationale.length} articles`);
+        // Store news data for analysis
+        newsDocs = newsHits.slice(0, 5).map(h => ({
+          title: h.title || "News article",
+          text: h.text || "",
+          url: h.url || "",
+          published_utc: h.published_utc || "",
+          score: h.score || 0
+        }));
+        console.log(`✅ News analysis prepared with ${newsDocs.length} articles`);
       } else {
         console.log(`⚠️ No news found for ${detectedSymbol} in the specified time window`);
       }
@@ -658,14 +656,7 @@ export async function POST(req: NextRequest) {
     // Stage A1: News QA (RAG-only)
     console.log(`📰 STAGE A1: Calling News QA for ${detectedSymbol}`);
     
-    // Format news data properly for the prompt
-    const newsDocs = newsAnalysis.rationale.map((article: any) => ({
-      title: article.title,
-      url: article.url,
-      source: article.url ? new URL(article.url).hostname.replace(/^www\./, '') : 'unknown',
-      published_utc: article.published_utc,
-      text: article.text || article.title
-    }));
+    // Format news data properly for the prompt (newsDocs already populated above)
     
     // Debug: Check function call
     console.log("🔍 Calling buildNewsQAPrompt with:", { prompt, newsDocsLength: newsDocs.length });
@@ -1013,11 +1004,11 @@ export async function POST(req: NextRequest) {
       console.log(`🎉 === ANALYSIS COMPLETED SUCCESSFULLY ===`);
       console.log(`🔍 Final response structure:`, {
         symbol: responseWithMetadata.symbol,
-        hasFinalAnswer: !!responseWithMetadata.finalAnswer,
-        finalAnswerLength: responseWithMetadata.finalAnswer?.length || 0,
-        finalAnswerPreview: responseWithMetadata.finalAnswer?.substring(0, 100) || 'N/A',
-        bulletsCount: responseWithMetadata.bullets?.length || 0,
-        newsCount: responseWithMetadata.news?.summary?.length || 0
+        hasAnswer: !!responseWithMetadata.answer,
+        answerLength: responseWithMetadata.answer?.length || 0,
+        answerPreview: responseWithMetadata.answer?.substring(0, 100) || 'N/A',
+        newsRationaleLength: responseWithMetadata.news?.rationale?.length || 0,
+        technicalRationaleLength: responseWithMetadata.technical?.rationale?.length || 0
       });
       return NextResponse.json(responseWithMetadata);
     } catch (error: any) {

@@ -940,7 +940,9 @@ export async function POST(req: NextRequest) {
     const snapshot = JSON.parse(snapshotJson);
     
     // Combine analyst responses for display with newlines
-    const combinedAnswer = `${newsAnalysisResult.answer_sentence}\n\n${technicalAnalysis.answer_sentence}`;
+    const newsAnswer = newsAnalysisResult?.answer_sentence || newsAnalysisResult?.trading_implications || "News analysis completed";
+    const techAnswer = technicalAnalysis?.answer_sentence || technicalAnalysis?.technical_implications || "Technical analysis completed";
+    const combinedAnswer = `${newsAnswer}\n\n${techAnswer}`;
     
     // Debug: Log the combined answer to see what's being passed
     console.log("🔍 Combined Answer for parsing:");
@@ -958,11 +960,11 @@ export async function POST(req: NextRequest) {
       },
       answer: finalAnswer.answer || combinedAnswer, // Main answer
       news: {
-        rationale: newsAnalysisResult.answer_sentence || "News analysis completed",
-        citations: newsAnalysisResult.citations || []
+        rationale: newsAnalysisResult?.answer_sentence || newsAnalysisResult?.trading_implications || "News analysis completed",
+        citations: newsAnalysisResult?.citations || newsAnalysisResult?.sources || []
       },
       technical: {
-        rationale: technicalAnalysis.answer_sentence || "Technical analysis completed",
+        rationale: technicalAnalysis?.answer_sentence || technicalAnalysis?.technical_implications || "Technical analysis completed",
         indicators: {
           rsi14: indicators.rsi14 || 0,
           macd: indicators.macd?.macd || 0,
@@ -1020,13 +1022,13 @@ export async function POST(req: NextRequest) {
       const fallbackResponse = {
         symbol: detectedSymbol,
         timeframe: "1d",
-        answer: finalAnswer.answer || combinedAnswer || "Analysis completed but format validation failed.",
+        answer: finalAnswer?.answer || combinedAnswer || "Analysis completed but format validation failed.",
         news: {
-          rationale: "News analysis completed",
-          citations: []
+          rationale: newsAnalysisResult?.trading_implications || "News analysis completed",
+          citations: newsAnalysisResult?.sources || []
         },
         technical: {
-          rationale: "Technical analysis completed",
+          rationale: technicalAnalysis?.technical_implications || "Technical analysis completed",
           indicators: {
             rsi14: indicators.rsi14 || 0,
             macd: indicators.macd?.macd || 0,

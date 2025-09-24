@@ -24,6 +24,7 @@ export default function AgentsPage() {
   const [response, setResponse] = React.useState<Report | null>(null);
   const [isMockData, setIsMockData] = React.useState(false);
   const [showModelDropdown, setShowModelDropdown] = React.useState(false);
+  const [progressMessage, setProgressMessage] = React.useState("");
 
 
   // Auto-detect symbol when prompt changes
@@ -50,8 +51,27 @@ export default function AgentsPage() {
     setResponse(null);
     setIsMockData(false);
     setIsLoading(true);
+    setProgressMessage("🤖 Detecting stock symbol from your question...");
 
     try {
+      // Simulate progress updates
+      const progressSteps = [
+        "📊 Loading OHLCV data from database...",
+        "📰 Searching for relevant news articles...",
+        "🔍 Analyzing technical indicators...",
+        "🧠 Processing news sentiment analysis...",
+        "📈 Computing technical analysis...",
+        "🎯 Generating final investment recommendation..."
+      ];
+
+      let currentStep = 0;
+      const progressInterval = setInterval(() => {
+        if (currentStep < progressSteps.length) {
+          setProgressMessage(progressSteps[currentStep]);
+          currentStep++;
+        }
+      }, 2000);
+
       const res = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -62,6 +82,9 @@ export default function AgentsPage() {
           k: 12
         }),
       });
+
+      clearInterval(progressInterval);
+      setProgressMessage("✅ Analysis complete! Processing results...");
 
       if (!res.ok) {
         const errorData = await res.json();
@@ -203,22 +226,21 @@ export default function AgentsPage() {
         </div>
       </div>
 
-      {/* Analysis Results - DEBUG MODE */}
+      {/* Analysis Results */}
       {response && (
         <div className="mt-8">
-          <Card className="border rounded-2xl backdrop-blur-sm border-white/10 bg-[#3a3a3a] shadow-lg p-6">
-            <h2 className="text-2xl font-bold text-white mb-4">Raw Analysis Output (Debug Mode)</h2>
-            <pre className="text-sm text-gray-300 bg-black/50 p-4 rounded-lg overflow-auto max-h-96 whitespace-pre-wrap">
-              {JSON.stringify(response, null, 2)}
-            </pre>
-          </Card>
+          <ReportCard report={response} isMockData={isMockData} />
         </div>
       )}
 
       {/* Loading State */}
       {isLoading && (
-        <div className="flex items-center justify-center py-12">
-          <div className="text-[var(--text)]">Analyzing market data...</div>
+        <div className="flex flex-col items-center justify-center py-12 space-y-4">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--accent)]"></div>
+          <div className="text-[var(--text)] text-center">
+            <div className="text-lg font-medium mb-2">AI Trading Analysis in Progress</div>
+            <div className="text-sm text-[var(--muted)]">{progressMessage}</div>
+          </div>
         </div>
       )}
     </div>

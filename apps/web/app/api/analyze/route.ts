@@ -57,11 +57,6 @@ const SimpleReportSchema = z.object({
     // Add new format fields
     rationale: z.string().optional()
   }),
-  portfolio: z.object({
-    size_suggestion_pct: z.number().min(0).max(1).default(0.1),
-    tp: z.array(z.string()).optional(),
-    sl: z.string().optional()
-  })
 });
 // import { barsQualityOk } from "../../../lib/ohlcv";
 // import { computeIndicators } from "../../../lib/indicators";
@@ -1040,11 +1035,6 @@ export async function POST(req: NextRequest) {
         },
         rationale: technicalAnalysis?.answer_sentence || technicalAnalysis?.technical_implications || "Technical analysis completed"
       },
-      portfolio: {
-        size_suggestion_pct: 0.1,
-        tp: indicators.fibonacci?.resistance?.slice(0, 2).map(String) || [],
-        sl: indicators.fibonacci?.support?.[0]?.toString() || ""
-      }
     };
     // Step 5: Validate with ReportSchema
     try {
@@ -1120,11 +1110,6 @@ export async function POST(req: NextRequest) {
           summary: ["Technical analysis completed"],
           rationale: technicalAnalysis?.technical_implications || "Technical analysis completed"
         },
-        portfolio: {
-          size_suggestion_pct: 0.1,
-          tp: [],
-          sl: ""
-        }
       };
       
       return NextResponse.json({ 

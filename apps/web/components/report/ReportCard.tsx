@@ -157,40 +157,6 @@ export function ReportCard({ report, className, isMockData = false, dataSource =
           </div>
         )}
 
-        {/* Analyst Responses */}
-        {report.answer && (
-          <section aria-label="Analyst Responses">
-            <AnalystResponses answer={report.answer} />
-          </section>
-        )}
-
-        {/* Technical Analysis */}
-        {(techSummary.length > 0 || techRationale) && (
-          <section aria-label="Technical Analysis">
-            <h3 className="text-[17px] font-medium tracking-tight text-zinc-100 mb-3">Technical Analysis</h3>
-            <div className="space-y-3">
-              <IndicatorsRow indicators={report.indicators} />
-              
-              {/* Display rationale if available (new format), otherwise show summary (old format) */}
-              {techRationale ? (
-                <div>
-                  <p className="text-[15px] leading-snug text-zinc-300">{techRationale}</p>
-                </div>
-              ) : (
-                <ul className="space-y-2">
-                  {techSummary.map((point: string, i: number) => (
-                    <li key={i} className="flex items-start gap-2">
-                      <span className="text-emerald-400 mt-1">•</span>
-                      <span className="text-[15px] leading-snug text-zinc-300">{point}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <LevelsBlock levels={report.levels} />
-            </div>
-          </section>
-        )}
-
         {/* News Analysis */}
         {(newsSummary.length > 0 || newsRationale) && (
           <section aria-label="News Analysis">
@@ -249,36 +215,32 @@ export function ReportCard({ report, className, isMockData = false, dataSource =
           </section>
         )}
 
-        {/* Portfolio & Risk */}
-        <section aria-label="Portfolio & Risk">
-          <h3 className="text-[17px] font-medium tracking-tight text-zinc-100 mb-3">Portfolio & Risk</h3>
-          <div className="space-y-2 text-[15px] text-zinc-300">
-            <p>
-              Suggested position size:{' '}
-              <span className="text-emerald-400 font-medium">
-                {fmtPct(report.portfolio?.size_suggestion_pct, 0)}
-              </span>
-            </p>
-
-            {tpList.length > 0 && (
-              <p>
-                Take profit:{' '}
-                <span className="text-emerald-400 font-mono">
-                  {tpList.map((v, i) => fmtMoney(v)).join(' / ')}
-                </span>
-              </p>
-            )}
-
-            {report.portfolio?.sl !== undefined && (
-              <p>
-                Stop loss:{' '}
-                <span className="text-rose-400 font-mono">
-                  {fmtMoney(report.portfolio?.sl)}
-                </span>
-              </p>
-            )}
-          </div>
-        </section>
+        {/* Technical Analysis */}
+        {(techSummary.length > 0 || techRationale) && (
+          <section aria-label="Technical Analysis">
+            <h3 className="text-[17px] font-medium tracking-tight text-zinc-100 mb-3">Technical Analysis</h3>
+            <div className="space-y-3">
+              <IndicatorsRow indicators={report.indicators} />
+              
+              {/* Display rationale if available (new format), otherwise show summary (old format) */}
+              {techRationale ? (
+                <div>
+                  <p className="text-[15px] leading-snug text-zinc-300">{techRationale}</p>
+                </div>
+              ) : (
+                <ul className="space-y-2">
+                  {techSummary.map((point: string, i: number) => (
+                    <li key={i} className="flex items-start gap-2">
+                      <span className="text-emerald-400 mt-1">•</span>
+                      <span className="text-[15px] leading-snug text-zinc-300">{point}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <LevelsBlock levels={report.levels} />
+            </div>
+          </section>
+        )}
 
         {/* Final Answer */}
         {report.answer && (

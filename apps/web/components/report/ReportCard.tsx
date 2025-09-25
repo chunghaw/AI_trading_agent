@@ -207,30 +207,6 @@ export function ReportCard({ report, className, isMockData = false, dataSource =
         {(newsSummary.length > 0 || newsRationale) && (
           <section aria-label="News Analysis">
             <h3 className="text-[17px] font-medium tracking-tight text-zinc-100 mb-3">News Analysis</h3>
-            
-            {/* Metrics row (if available) */}
-            {newsMetrics && (
-              <div className="flex flex-wrap gap-2 mb-3">
-                <span className="text-xs px-2 py-1 rounded bg-zinc-900/60 border border-zinc-800 text-zinc-300">
-                  Docs: <span className="font-mono">{newsMetrics.docs}</span>
-                </span>
-                <span className="text-xs px-2 py-1 rounded bg-zinc-900/60 border border-zinc-800 text-zinc-300">
-                  Sources: <span className="font-mono">{newsMetrics.sources}</span>
-                </span>
-                <span className="text-xs px-2 py-1 rounded bg-emerald-900/20 border border-emerald-700/30 text-emerald-300">
-                  + {newsMetrics.pos}
-                </span>
-                <span className="text-xs px-2 py-1 rounded bg-amber-900/20 border border-amber-700/30 text-amber-300">
-                  · {newsMetrics.neu}
-                </span>
-                <span className="text-xs px-2 py-1 rounded bg-rose-900/20 border border-rose-700/30 text-rose-300">
-                  – {newsMetrics.neg}
-                </span>
-                <span className="text-xs px-2 py-1 rounded bg-zinc-900/60 border border-zinc-800 text-zinc-300">
-                  Net: <span className="font-mono">{(newsMetrics.net_sentiment ?? 0).toFixed(2)}</span>
-                </span>
-              </div>
-            )}
 
             {/* Display rationale if available (new format), otherwise show summary (old format) */}
             {newsRationale ? (
@@ -286,20 +262,28 @@ export function ReportCard({ report, className, isMockData = false, dataSource =
                 <div className="text-red-400">❌ No indicators data available</div>
               )}
               
-              {/* Display rationale if available (new format), otherwise show summary (old format) */}
+              {/* Display AI technical analysis */}
               {techRationale ? (
-                <div>
+                <div className="mt-4">
+                  <h4 className="text-sm font-medium text-zinc-400 mb-2">AI Technical Analysis</h4>
                   <p className="text-[15px] leading-snug text-zinc-300">{techRationale}</p>
                 </div>
+              ) : techSummary.length > 0 ? (
+                <div className="mt-4">
+                  <h4 className="text-sm font-medium text-zinc-400 mb-2">Technical Summary</h4>
+                  <ul className="space-y-2">
+                    {techSummary.map((point: string, i: number) => (
+                      <li key={i} className="flex items-start gap-2">
+                        <span className="text-emerald-400 mt-1">•</span>
+                        <span className="text-[15px] leading-snug text-zinc-300">{point}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               ) : (
-                <ul className="space-y-2">
-                  {techSummary.map((point: string, i: number) => (
-                    <li key={i} className="flex items-start gap-2">
-                      <span className="text-emerald-400 mt-1">•</span>
-                      <span className="text-[15px] leading-snug text-zinc-300">{point}</span>
-                    </li>
-                  ))}
-                </ul>
+                <div className="mt-4">
+                  <p className="text-[15px] leading-snug text-zinc-300">Technical analysis completed based on available indicators.</p>
+                </div>
               )}
               <LevelsBlock levels={report.levels} />
             </div>

@@ -645,11 +645,11 @@ export async function POST(req: NextRequest) {
       if (newsHits.length > 0) {
         // Store news data for analysis
         newsDocs = newsHits.slice(0, 5).map(h => ({
-          title: h.title || "News article",
-          text: h.text || "",
-          url: h.url || "",
-          published_utc: h.published_utc || "",
-          score: h.score || 0
+            title: h.title || "News article",
+            text: h.text || "",
+            url: h.url || "",
+            published_utc: h.published_utc || "",
+            score: h.score || 0
         }));
         console.log(`✅ News analysis prepared with ${newsDocs.length} articles`);
       } else {
@@ -967,10 +967,17 @@ export async function POST(req: NextRequest) {
     
     const snapshot = JSON.parse(snapshotJson);
     
+    // Debug: Log the actual AI responses
+    console.log("🔍 News Analysis Result:", newsAnalysisResult);
+    console.log("🔍 Technical Analysis Result:", technicalAnalysis);
+    
     // Combine analyst responses for display with newlines
     const newsAnswer = newsAnalysisResult?.answer_sentence || newsAnalysisResult?.trading_implications || "News analysis completed";
     const techAnswer = technicalAnalysis?.answer_sentence || technicalAnalysis?.technical_implications || "Technical analysis completed";
     const combinedAnswer = `${newsAnswer}\n\n${techAnswer}`;
+    
+    console.log("🔍 Final News Answer:", newsAnswer);
+    console.log("🔍 Final Tech Answer:", techAnswer);
     
     // Debug: Log the combined answer to see what's being passed
     console.log("🔍 Combined Answer for parsing:");

@@ -187,7 +187,7 @@ async function getRealNewsData(query: string): Promise<any[]> {
         const queryResults = await milvusRequest('/v1/vector/query', 'POST', {
           collectionName: MILVUS_CONFIG.collection,
           filter: `ticker == "${tickerSymbol}"`,
-          limit: 50,
+          limit: 1000,
           outputFields: ["*"]
         });
         
@@ -226,12 +226,12 @@ async function getRealNewsData(query: string): Promise<any[]> {
         try {
           const dummyVector = new Array(1536).fill(0.1);
           
-          const searchResults = await milvusRequest('/v1/vector/search', 'POST', {
-            collectionName: MILVUS_CONFIG.collection,
-            vector: dummyVector,
-            limit: 20,
-            outputFields: ["*"]
-          });
+             const searchResults = await milvusRequest('/v1/vector/search', 'POST', {
+               collectionName: MILVUS_CONFIG.collection,
+               vector: dummyVector,
+               limit: 1000,
+               outputFields: ["*"]
+             });
           
           if (searchResults.code === 200 && searchResults.data && searchResults.data.length > 0) {
             const tickerResults = searchResults.data.filter((article: any) => 

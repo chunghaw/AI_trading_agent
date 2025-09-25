@@ -70,6 +70,17 @@ const computeIndicators = (bars: any, dbData?: any[]) => {
   if (dbData && dbData.length > 0) {
     const latestData = dbData[0]; // Most recent record
     
+    // Find the most recent record with valid RSI (not 0 or null)
+    const validRsiData = dbData.find(row => row.rsi && row.rsi !== 0 && row.rsi !== '0' && row.rsi !== '0.0000');
+    const rsiData = validRsiData || latestData;
+    
+    console.log("🔍 RSI Debug:", {
+      latestDataRsi: latestData.rsi,
+      validRsiDataFound: !!validRsiData,
+      validRsiValue: validRsiData?.rsi,
+      finalRsiValue: rsiData.rsi
+    });
+    
     // Calculate MACD from available price data
     const macd = calculateMACD(bars.close);
     
@@ -95,7 +106,7 @@ const computeIndicators = (bars: any, dbData?: any[]) => {
     })));
     
     return {
-      rsi14: latestData.rsi ? parseFloat(latestData.rsi) : null,
+      rsi14: rsiData.rsi ? parseFloat(rsiData.rsi) : null,
       macd: macd,
       ma_20: latestData.ma_20 ? parseFloat(latestData.ma_20) : null,
       ma_50: latestData.ma_50 ? parseFloat(latestData.ma_50) : null,

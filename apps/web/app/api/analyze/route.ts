@@ -107,17 +107,13 @@ const computeIndicators = (bars: any, dbData?: any[]) => {
     
     return {
       rsi14: rsiData.rsi ? parseFloat(rsiData.rsi) : null,
-      macd: {
-        macd: latestData.macd_line ? parseFloat(latestData.macd_line) : (macd?.macd || null),
-        signal: latestData.macd_signal ? parseFloat(latestData.macd_signal) : (macd?.signal || null),
-        histogram: latestData.macd_histogram ? parseFloat(latestData.macd_histogram) : (macd?.histogram || null)
-      },
+      macd: macd, // Use calculated MACD from price data
       ma_20: latestData.ma_20 ? parseFloat(latestData.ma_20) : null,
       ma_50: latestData.ma_50 ? parseFloat(latestData.ma_50) : null,
       ma_200: latestData.ma_200 ? parseFloat(latestData.ma_200) : null,
-      ema_20: latestData.ema_20 ? parseFloat(latestData.ema_20) : null,
-      ema_50: latestData.ema_50 ? parseFloat(latestData.ema_50) : null,
-      ema_200: latestData.ema_200 ? parseFloat(latestData.ema_200) : null,
+      ema_20: latestData.ma_20 ? parseFloat(latestData.ma_20) : null, // Use MA20 as EMA20 approximation
+      ema_50: latestData.ma_50 ? parseFloat(latestData.ma_50) : null, // Use MA50 as EMA50 approximation
+      ema_200: latestData.ma_200 ? parseFloat(latestData.ma_200) : null, // Use MA200 as EMA200 approximation
       fibonacci: fibonacciLevels,
       vwap: vwap,
       atr: atr,
@@ -579,11 +575,9 @@ export async function POST(req: NextRequest) {
       });
       
         const query = `
-          SELECT date, open, high, low, close, total_volume as volume,
-                 rsi_14 as rsi, ma_5, ma_20, ma_50, ma_200,
-                 macd_line, macd_signal, macd_histogram,
-                 ema_20, ema_50, ema_200, atr_14, vwap
-          FROM gold_ohlcv_daily_metrics 
+          SELECT date, open, high, low, close, volume,
+                 rsi, ma_5, ma_20, ma_50, ma_200
+          FROM silver_ohlcv 
           WHERE symbol = $1 
           ORDER BY date DESC 
           LIMIT 260

@@ -107,10 +107,17 @@ const computeIndicators = (bars: any, dbData?: any[]) => {
     
     return {
       rsi14: rsiData.rsi ? parseFloat(rsiData.rsi) : null,
-      macd: macd,
+      macd: {
+        macd: latestData.macd_line ? parseFloat(latestData.macd_line) : (macd?.macd || null),
+        signal: latestData.macd_signal ? parseFloat(latestData.macd_signal) : (macd?.signal || null),
+        histogram: latestData.macd_histogram ? parseFloat(latestData.macd_histogram) : (macd?.histogram || null)
+      },
       ma_20: latestData.ma_20 ? parseFloat(latestData.ma_20) : null,
       ma_50: latestData.ma_50 ? parseFloat(latestData.ma_50) : null,
       ma_200: latestData.ma_200 ? parseFloat(latestData.ma_200) : null,
+      ema_20: latestData.ema_20 ? parseFloat(latestData.ema_20) : null,
+      ema_50: latestData.ema_50 ? parseFloat(latestData.ema_50) : null,
+      ema_200: latestData.ema_200 ? parseFloat(latestData.ema_200) : null,
       fibonacci: fibonacciLevels,
       vwap: vwap,
       atr: atr,
@@ -572,8 +579,11 @@ export async function POST(req: NextRequest) {
       });
       
         const query = `
-          SELECT date, open, high, low, close, volume, ma_5, ma_20, ma_50, ma_200, rsi
-          FROM silver_ohlcv 
+          SELECT date, open, high, low, close, total_volume as volume,
+                 rsi_14 as rsi, ma_5, ma_20, ma_50, ma_200,
+                 macd_line, macd_signal, macd_histogram,
+                 ema_20, ema_50, ema_200, atr_14, vwap
+          FROM gold_ohlcv_daily_metrics 
           WHERE symbol = $1 
           ORDER BY date DESC 
           LIMIT 260
@@ -1007,9 +1017,9 @@ export async function POST(req: NextRequest) {
         macd: indicators.macd?.macd || 0,
         macd_signal: indicators.macd?.signal || 0,
         macd_hist: indicators.macd?.histogram || 0,
-        ema20: indicators.ma_20 || 0,
-        ema50: indicators.ma_50 || 0,
-        ema200: indicators.ma_200 || 0,
+        ema20: indicators.ema_20 || indicators.ma_20 || 0,
+        ema50: indicators.ema_50 || indicators.ma_50 || 0,
+        ema200: indicators.ema_200 || indicators.ma_200 || 0,
         atr14: indicators.atr || 0,
         fibonacci_support: indicators.fibonacci?.support || [],
         fibonacci_resistance: indicators.fibonacci?.resistance || [],
@@ -1103,9 +1113,9 @@ export async function POST(req: NextRequest) {
           macd: indicators.macd?.macd || 0,
           macd_signal: indicators.macd?.signal || 0,
           macd_hist: indicators.macd?.histogram || 0,
-          ema20: indicators.ma_20 || 0,
-          ema50: indicators.ma_50 || 0,
-          ema200: indicators.ma_200 || 0,
+          ema20: indicators.ema_20 || indicators.ma_20 || 0,
+          ema50: indicators.ema_50 || indicators.ma_50 || 0,
+          ema200: indicators.ema_200 || indicators.ma_200 || 0,
           atr14: indicators.atr || 0,
           fibonacci_support: indicators.fibonacci?.support || [],
           fibonacci_resistance: indicators.fibonacci?.resistance || [],

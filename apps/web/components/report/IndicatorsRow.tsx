@@ -6,19 +6,19 @@ const cn = (...classes: any[]) => classes.filter(Boolean).join(' ');
 
 interface IndicatorsRowProps {
   indicators: {
-    rsi14: number;
-    macd: number;
-    macd_signal: number;
-    macd_hist: number;
-    ema20: number;
-    ema50: number;
-    ema200: number;
-    fibonacci_support: number[];
-    fibonacci_resistance: number[];
-    vwap: number;
-    atr: number;
-    volume_trend: string;
-    volume_price_relationship: string;
+    rsi14: number | null;
+    macd: number | null;
+    macd_signal: number | null;
+    macd_hist: number | null;
+    ema20: number | null;
+    ema50: number | null;
+    ema200: number | null;
+    fibonacci_support: number[] | null;
+    fibonacci_resistance: number[] | null;
+    vwap: number | null;
+    atr: number | null;
+    volume_trend: string | null;
+    volume_price_relationship: string | null;
   };
   className?: string;
 }
@@ -47,7 +47,9 @@ export function IndicatorsRow({ indicators, className }: IndicatorsRowProps) {
     return 'text-zinc-300';
   };
 
-  const formatValue = (key: string, value: number | string | number[]) => {
+  const formatValue = (key: string, value: number | string | number[] | null) => {
+    if (value === null || value === undefined) return '—';
+    
     if (key === 'rsi14') return `${Number(value).toFixed(1)}`;
     if (key.startsWith('ema')) return `${Number(value).toFixed(0)}`;
     if (key === 'atr') return `${Number(value).toFixed(2)}`;
@@ -78,9 +80,17 @@ export function IndicatorsRow({ indicators, className }: IndicatorsRowProps) {
     volume_price_relationship: 'VOL-PRICE'
   };
 
+  // Filter out indicators with null values
+  const validIndicators = Object.entries(indicators).filter(([key, value]) => {
+    if (value === null || value === undefined) return false;
+    if (Array.isArray(value)) return value.length > 0;
+    if (typeof value === 'string') return value !== 'insufficient_data';
+    return true;
+  });
+
   return (
     <div className={cn("grid grid-cols-3 md:grid-cols-6 lg:grid-cols-8 gap-2", className)}>
-      {Object.entries(indicators).map(([key, value]) => (
+      {validIndicators.map(([key, value]) => (
         <div 
           key={key}
           className="bg-zinc-900/60 border border-zinc-800 rounded-lg px-2.5 py-1.5"
@@ -90,7 +100,7 @@ export function IndicatorsRow({ indicators, className }: IndicatorsRowProps) {
           </div>
           <div className={cn(
             "text-sm font-semibold",
-            getIndicatorColor(key, Array.isArray(value) ? value[0] || 0 : value)
+            getIndicatorColor(key, Array.isArray(value) ? value[0] || 0 : (value as number | string))
           )}>
             {formatValue(key, value)}
           </div>

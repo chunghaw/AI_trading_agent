@@ -70,9 +70,12 @@ const computeIndicators = (bars: any, dbData?: any[]) => {
   if (dbData && dbData.length > 0) {
     const latestData = dbData[0]; // Most recent record
     
-    // Find the most recent record with valid RSI (not 0 or null)
-    const validRsiData = dbData.find(row => row.rsi && row.rsi !== 0 && row.rsi !== '0' && row.rsi !== '0.0000');
-    const rsiData = validRsiData || latestData;
+    // Find the most recent record with valid RSI (between 5-95 for realistic values)
+    const validRsiData = dbData.find(row => {
+      const rsi = parseFloat(row.rsi);
+      return rsi && rsi >= 5 && rsi <= 95; // More strict range for realistic RSI
+    });
+    const rsiData = validRsiData || null;
     
     console.log("🔍 RSI Debug:", {
       latestDataRsi: latestData.rsi,
@@ -105,15 +108,40 @@ const computeIndicators = (bars: any, dbData?: any[]) => {
       volume: parseFloat(row.volume)
     })));
     
+    // Use database RSI if valid, otherwise calculate from price data
+    let finalRsi = null;
+    if (rsiData && rsiData.rsi) {
+      const dbRsi = parseFloat(rsiData.rsi);
+      if (dbRsi >= 5 && dbRsi <= 95) {
+        finalRsi = dbRsi;
+      }
+    }
+    
+    // Fallback to calculated RSI if database RSI is invalid
+    if (finalRsi === null && bars.close.length >= 14) {
+      finalRsi = calculateRSI(bars.close, 14);
+    }
+    
+    // Validate and calculate moving averages
+    const currentPrice = parseFloat(latestData.close);
+    const validMA20 = latestData.ma_20 ? parseFloat(latestData.ma_20) : null;
+    const validMA50 = latestData.ma_50 ? parseFloat(latestData.ma_50) : null;
+    const validMA200 = latestData.ma_200 ? parseFloat(latestData.ma_200) : null;
+    
+    // Only include MAs if they're within reasonable range of current price (not all the same value)
+    const ma20Valid = validMA20 && Math.abs(validMA20 - currentPrice) / currentPrice < 0.5; // Within 50% of current price
+    const ma50Valid = validMA50 && Math.abs(validMA50 - currentPrice) / currentPrice < 0.5;
+    const ma200Valid = validMA200 && Math.abs(validMA200 - currentPrice) / currentPrice < 0.5;
+    
     return {
-      rsi14: rsiData.rsi ? parseFloat(rsiData.rsi) : null,
+      rsi14: finalRsi,
       macd: macd, // Use calculated MACD from price data
-      ma_20: latestData.ma_20 ? parseFloat(latestData.ma_20) : null,
-      ma_50: latestData.ma_50 ? parseFloat(latestData.ma_50) : null,
-      ma_200: latestData.ma_200 ? parseFloat(latestData.ma_200) : null,
-      ema_20: latestData.ma_20 ? parseFloat(latestData.ma_20) : null, // Use MA20 as EMA20 approximation
-      ema_50: latestData.ma_50 ? parseFloat(latestData.ma_50) : null, // Use MA50 as EMA50 approximation
-      ema_200: latestData.ma_200 ? parseFloat(latestData.ma_200) : null, // Use MA200 as EMA200 approximation
+      ma_20: ma20Valid ? validMA20 : null,
+      ma_50: ma50Valid ? validMA50 : null,
+      ma_200: ma200Valid ? validMA200 : null,
+      ema_20: ma20Valid ? validMA20 : (bars.close.length >= 20 ? calculateEMA(bars.close, 20) : null),
+      ema_50: ma50Valid ? validMA50 : (bars.close.length >= 50 ? calculateEMA(bars.close, 50) : null),
+      ema_200: ma200Valid ? validMA200 : (bars.close.length >= 200 ? calculateEMA(bars.close, 200) : null),
       fibonacci: fibonacciLevels,
       vwap: vwap,
       atr: atr,
@@ -130,33 +158,45 @@ const computeIndicators = (bars: any, dbData?: any[]) => {
   }
   
   // Fallback to calculation if database data not available
-  if (!bars || !bars.close || bars.close.length < 2) {
+  if (!bars || !bars.close || bars.close.length < 14) {
     return { 
       rsi14: null, 
       macd: { macd: null, signal: null, histogram: null },
       ma_20: null,
       ma_50: null,
       ma_200: null,
+      ema_20: null,
+      ema_50: null,
+      ema_200: null,
+      fibonacci: null,
+      vwap: null,
+      atr: null,
+      volumeAnalysis: null,
       calculated: false,
       source: "calculation_failed",
-      error: "Insufficient data for indicator calculation"
+      error: "Insufficient data for indicator calculation (need at least 14 days)"
     };
   }
 
   const closes = bars.close;
   
-  // Calculate RSI (14-period)
-  const rsi14 = calculateRSI(closes, 14);
-  
-  // Calculate MACD (12, 26, 9)
-  const macd = calculateMACD(closes);
+  // Only calculate indicators if we have sufficient data
+  const rsi14 = closes.length >= 14 ? calculateRSI(closes, 14) : null;
+  const macd = closes.length >= 26 ? calculateMACD(closes) : { macd: null, signal: null, histogram: null };
   
   return { 
     rsi14, 
     macd,
-    ma_20: null, // Would need more data to calculate
-    ma_50: null, // Would need more data to calculate  
-    ma_200: null, // Would need more data to calculate
+    ma_20: closes.length >= 20 ? calculateMA(closes, 20) : null,
+    ma_50: closes.length >= 50 ? calculateMA(closes, 50) : null,
+    ma_200: closes.length >= 200 ? calculateMA(closes, 200) : null,
+    ema_20: closes.length >= 20 ? calculateEMA(closes, 20) : null,
+    ema_50: closes.length >= 50 ? calculateEMA(closes, 50) : null,
+    ema_200: closes.length >= 200 ? calculateEMA(closes, 200) : null,
+    fibonacci: closes.length >= 20 ? calculateFibonacciLevels(closes) : null,
+    vwap: (bars.high && bars.low && bars.close && bars.volume) ? calculateVWAP(bars) : null,
+    atr: (bars.high && bars.low && bars.close && bars.close.length >= 14) ? calculateATR(bars) : null,
+    volumeAnalysis: (bars.volume && bars.close && bars.close.length >= 5) ? analyzeVolumeTrend(bars) : null,
     calculated: true,
     source: "calculated_limited",
     periods: {
@@ -234,6 +274,15 @@ function calculateEMA(prices: number[], period: number): number | null {
   }
   
   return Math.round(ema * 100) / 100;
+}
+
+function calculateMA(prices: number[], period: number): number | null {
+  if (prices.length < period) return null;
+  
+  const recentPrices = prices.slice(-period);
+  const sum = recentPrices.reduce((acc, price) => acc + price, 0);
+  
+  return Math.round((sum / period) * 100) / 100;
 }
 
 function calculateFibonacciLevels(prices: number[]): { support: number[], resistance: number[] } {

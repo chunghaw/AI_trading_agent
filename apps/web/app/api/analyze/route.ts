@@ -331,98 +331,81 @@ function analyzeVolumeTrend(ohlcData: any[]): { trend: string, volumePriceRelati
 
 const levelCandidates = (bars: any) => [];
 
-const buildNewsQAPrompt = (ticker: string, asOf: string, news: any[]) => `You are a markets analyst. Analyze the ARTICLES strictly. Do not use any information outside the provided articles.
+const buildNewsQAPrompt = (ticker: string, asOf: string, news: any[]) => `You are a senior markets analyst. Analyze the news articles and provide detailed market insights.
 
 TICKER: ${ticker}
 AS_OF: ${asOf}
 ARTICLES: ${JSON.stringify(news)}
 
-Tasks:
-1. Classify sentiment: bullish/neutral/bearish based on article tone toward ${ticker}
-2. Assess impact_level: high/medium/low based on relevance to ${ticker}
-   - high: company-specific material events (earnings, M&A, products, regulatory)
-   - medium: important partnerships, sector/macro drivers
-   - low: minor mentions, recycled coverage
-3. Extract 3-5 key_drivers: short, non-overlapping bullets; prefer numeric facts with units/timeframes
-4. Provide trading_implications: 2-4 concise sentences on expected direction, catalysts/risks
-5. List source URLs actually used
+Provide comprehensive analysis:
 
-Rules:
-- Use only provided articles
-- No invented numbers or URLs
-- If nothing relevant to ${ticker}: no_data = true
-- Output valid JSON only
+1. Sentiment Analysis:
+   - Classify overall sentiment: bullish/neutral/bearish
+   - Explain the reasoning based on article content and tone
+   - Identify any conflicting signals or mixed sentiment
 
-Output:
+2. Key Market Drivers:
+   - Extract 3-5 most important market-moving factors
+   - Include specific details, numbers, and timeframes where available
+   - Focus on material events that could impact ${ticker}'s stock price
+
+3. Trading Implications:
+   - Provide 3-4 detailed sentences on expected market direction
+   - Identify key catalysts and risks
+   - Explain how news factors could influence price action
+   - Mention any specific price targets or levels referenced
+
+4. Source Analysis:
+   - List all source URLs used in analysis
+   - Note credibility of sources
+
+Respond with JSON containing:
 {
-  "ticker": "${ticker}",
-  "as_of": "${asOf}",
-  "sentiment": "bullish|neutral|bearish",
-  "impact_level": "high|medium|low",
-  "key_drivers": ["string", "string", "string"],
-  "trading_implications": "string",
-  "sources": ["url", "url", "url"],
-  "no_data": false
+  "news_analysis": "Comprehensive 4-5 sentence analysis of market sentiment and key drivers with specific details from articles",
+  "sentiment": "bullish/neutral/bearish",
+  "key_drivers": ["specific_driver1", "specific_driver2", "specific_driver3"],
+  "trading_implications": "Detailed 3-4 sentence outlook on expected market direction and catalysts",
+  "sources": ["url1", "url2", "url3"],
+  "market_impact": "high/medium/low"
 }`;
 
-const buildTechnicalQAPrompt = (ticker: string, asOf: string, indicators: any, priceData: any) => `You are a technical analyst. Analyze the TECHNICAL INDICATORS and PRICE DATA strictly. Do not use any information outside the provided data.
+const buildTechnicalQAPrompt = (ticker: string, asOf: string, indicators: any, priceData: any) => `You are an expert technical analyst. Provide detailed technical analysis with specific interpretations.
 
 TICKER: ${ticker}
 AS_OF: ${asOf}
 PRICE_DATA: ${JSON.stringify(priceData)}
 TECHNICAL_INDICATORS: ${JSON.stringify(indicators)}
 
-Tasks:
-1. Classify overall_bias: bullish/neutral/bearish based on indicator alignment and price action
-2. Analyze key_indicators:
-   - RSI (14): overbought (>70), oversold (<30), neutral (30-70)
-   - MACD: bullish (line > signal), bearish (line < signal), histogram direction
-   - Moving Averages: price position relative to EMAs (20, 50, 200)
-   - Fibonacci: support/resistance levels and current price position
-   - VWAP: price above/below volume-weighted average
-   - ATR: volatility level (high/medium/low)
-3. Assess volume_trend: increasing/decreasing and relationship to price movement
-4. Identify key_support_resistance: most relevant levels from Fibonacci and moving averages
-5. Provide technical_implications: 3-5 concise sentences on expected price direction, key levels, and momentum
+Provide detailed analysis for each indicator:
 
-Rules:
-- Use only provided technical data
-- No invented numbers or external market knowledge
-- If insufficient data: no_data = true
-- Focus on actionable technical signals
-- Output valid JSON only
+1. RSI Analysis: 
+   - Current RSI: ${indicators.rsi14}
+   - Interpretation: Overbought (>70), oversold (<30), or neutral (30-70)
+   - Market implication: What this RSI level suggests about momentum
 
-Output:
+2. MACD Analysis:
+   - MACD Line: ${indicators.macd?.macd}
+   - Signal Line: ${indicators.macd?.signal}
+   - Histogram: ${indicators.macd?.histogram}
+   - Interpretation: Bullish/bearish crossover and momentum strength
+
+3. Moving Averages:
+   - EMA20: ${indicators.ma_20}
+   - EMA50: ${indicators.ma_50}
+   - EMA200: ${indicators.ma_200}
+   - Price position and trend analysis
+
+4. Volume Analysis:
+   - Trend: ${indicators.volumeAnalysis?.trend}
+   - Volume-price relationship: ${indicators.volumeAnalysis?.volumePriceRelationship}
+
+Respond with JSON containing:
 {
-  "ticker": "${ticker}",
-  "as_of": "${asOf}",
-  "overall_bias": "bullish|neutral|bearish",
-  "key_indicators": {
-    "rsi14": ${indicators.rsi14 || null},
-    "macd": {
-      "line": ${indicators.macd?.macd || null},
-      "signal": ${indicators.macd?.signal || null},
-      "histogram": ${indicators.macd?.histogram || null}
-    },
-    "moving_averages": {
-      "ema20": ${indicators.ma_20 || null},
-      "ema50": ${indicators.ma_50 || null},
-      "ema200": ${indicators.ma_200 || null}
-    },
-    "fibonacci": {
-      "support": ${JSON.stringify(indicators.fibonacci?.support || [])},
-      "resistance": ${JSON.stringify(indicators.fibonacci?.resistance || [])}
-    },
-    "vwap": ${indicators.vwap || null},
-    "atr": ${indicators.atr || null}
-  },
-  "volume_analysis": {
-    "trend": "${indicators.volumeAnalysis?.trend || 'insufficient_data'}",
-    "price_relationship": "${indicators.volumeAnalysis?.volumePriceRelationship || 'insufficient_data'}"
-  },
-  "key_support_resistance": ["level1", "level2", "level3"],
-  "technical_implications": "string",
-  "no_data": false
+  "technical_analysis": "Comprehensive 4-5 sentence analysis with specific indicator interpretations and market implications",
+  "overall_bias": "bullish/neutral/bearish",
+  "key_levels": ["support_level", "resistance_level"],
+  "momentum_assessment": "strong/weak/mixed",
+  "trading_outlook": "2-3 sentences on expected price direction with specific reasoning"
 }`;
 
 const buildFinalAnswerPrompt = (data: any) => `Please synthesize the following analysis and provide a JSON response.
@@ -987,8 +970,8 @@ export async function POST(req: NextRequest) {
     console.log("🔍 Technical Analysis Result:", technicalAnalysis);
     
     // Combine analyst responses for display with newlines
-    const newsAnswer = newsAnalysisResult?.answer_sentence || newsAnalysisResult?.trading_implications || "News analysis completed";
-    const techAnswer = technicalAnalysis?.answer_sentence || technicalAnalysis?.technical_implications || "Technical analysis completed";
+    const newsAnswer = newsAnalysisResult?.news_analysis || newsAnalysisResult?.trading_implications || "News analysis completed";
+    const techAnswer = technicalAnalysis?.technical_analysis || technicalAnalysis?.trading_outlook || "Technical analysis completed";
     const combinedAnswer = `${newsAnswer}\n\n${techAnswer}`;
     
     console.log("🔍 Final News Answer:", newsAnswer);
@@ -1041,7 +1024,7 @@ export async function POST(req: NextRequest) {
         catalysts: newsAnalysisResult?.key_drivers?.slice(0, 2) || [],
         risks: ["Market volatility", "Sector rotation risk"],
         confidence_reasons: ["News analysis available", "Technical indicators calculated"],
-        rationale: newsAnalysisResult?.answer_sentence || newsAnalysisResult?.trading_implications || "News analysis completed"
+        rationale: newsAnalysisResult?.news_analysis || newsAnalysisResult?.trading_implications || "News analysis completed"
       },
       technical: {
         summary: ["Technical analysis completed", "Indicators calculated", "Price levels identified"],
@@ -1055,7 +1038,7 @@ export async function POST(req: NextRequest) {
           suggested_stop: indicators.fibonacci?.support?.[0]?.toString() || "N/A",
           position_hint: "Monitor key levels"
         },
-        rationale: technicalAnalysis?.answer_sentence || technicalAnalysis?.technical_implications || "Technical analysis completed"
+        rationale: technicalAnalysis?.technical_analysis || technicalAnalysis?.trading_outlook || "Technical analysis completed"
       },
     };
     // Step 5: Validate with ReportSchema
@@ -1130,7 +1113,7 @@ export async function POST(req: NextRequest) {
         },
         technical: {
           summary: ["Technical analysis completed"],
-          rationale: technicalAnalysis?.technical_implications || "Technical analysis completed"
+          rationale: technicalAnalysis?.technical_analysis || technicalAnalysis?.trading_outlook || "Technical analysis completed"
         },
       };
       

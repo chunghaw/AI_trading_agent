@@ -113,22 +113,12 @@ const computeIndicators = (bars: any, dbData?: any[]) => {
     const ema_200 = latestData.ema_200 ? parseFloat(latestData.ema_200) : null;
     
     // Use pre-calculated Fibonacci levels from gold table
-    const fibonacci = {
-      support: [
-        latestData.fibonacci_support_1 ? parseFloat(latestData.fibonacci_support_1) : null,
-        latestData.fibonacci_support_2 ? parseFloat(latestData.fibonacci_support_2) : null,
-        latestData.fibonacci_support_3 ? parseFloat(latestData.fibonacci_support_3) : null
-      ].filter(val => val !== null),
-      resistance: [
-        latestData.fibonacci_resistance_1 ? parseFloat(latestData.fibonacci_resistance_1) : null,
-        latestData.fibonacci_resistance_2 ? parseFloat(latestData.fibonacci_resistance_2) : null,
-        latestData.fibonacci_resistance_3 ? parseFloat(latestData.fibonacci_resistance_3) : null
-      ].filter(val => val !== null)
-    };
+    // No fibonacci levels - user explicitly requested removal
     
     // Use pre-calculated VWAP and ATR from gold table (correct column positions)
-    const atr = latestData.atr_14 ? parseFloat(latestData.atr_14) : null;
+    // Based on query: vwap is at index 23, atr_14 is at index 24
     const vwap = latestData.vwap ? parseFloat(latestData.vwap) : null;
+    const atr = latestData.atr_14 ? parseFloat(latestData.atr_14) : null;
     
     console.log("🔍 VWAP/ATR Debug:", {
       rawVwap: latestData.vwap,
@@ -152,7 +142,6 @@ const computeIndicators = (bars: any, dbData?: any[]) => {
       ema_20: ema_20,
       ema_50: ema_50,
       ema_200: ema_200,
-      fibonacci: fibonacci,
       vwap: vwap,
       atr: atr,
       volumeAnalysis: volumeAnalysis,
@@ -622,7 +611,7 @@ export async function POST(req: NextRequest) {
             company_name, market, stock_type, primary_exchange, currency, total_employees, description,
             rsi_14 as rsi, ma_5, ma_20, ma_50, ma_200,
             ema_20, ema_50, ema_200, macd_line, macd_signal, macd_histogram,
-            atr_14, vwap,
+            vwap, atr_14,
             volume_trend, volume_price_relationship
           FROM gold_ohlcv_daily_metrics 
           WHERE symbol = $1
@@ -1081,17 +1070,9 @@ export async function POST(req: NextRequest) {
         ema50: indicators.ema_50 || indicators.ma_50 || 0,
         ema200: indicators.ema_200 || indicators.ma_200 || 0,
         atr14: indicators.atr || 0,
-        fibonacci_support: [],
-        fibonacci_resistance: [],
         vwap: indicators.vwap || 0,
-        atr: indicators.atr || 0,
         volume_trend: indicators.volumeAnalysis?.trend || "insufficient_data",
         volume_price_relationship: indicators.volumeAnalysis?.volumePriceRelationship || "insufficient_data"
-      },
-      levels: {
-        support: [],
-        resistance: [],
-        breakout_trigger: ""
       },
       news: {
         summary: newsAnalysisResult?.key_drivers || ["News analysis completed"],
@@ -1110,10 +1091,6 @@ export async function POST(req: NextRequest) {
         rationale: newsAnalysisResult?.news_analysis || newsAnalysisResult?.trading_implications || "News analysis completed"
       },
       technical: {
-        summary: [],
-        chart_notes: "",
-        scenarios: {},
-        risk_box: {},
         rationale: technicalAnalysis?.technical_analysis || technicalAnalysis?.trading_outlook || "Technical analysis completed"
       },
     };

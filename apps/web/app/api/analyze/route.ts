@@ -130,6 +130,13 @@ const computeIndicators = (bars: any, dbData?: any[]) => {
     const vwap = latestData.vwap ? parseFloat(latestData.vwap) : null;
     const atr = latestData.atr_14 ? parseFloat(latestData.atr_14) : null;
     
+    console.log("🔍 VWAP/ATR Debug:", {
+      rawVwap: latestData.vwap,
+      rawAtr: latestData.atr_14,
+      parsedVwap: vwap,
+      parsedAtr: atr
+    });
+    
     // Use pre-calculated volume analysis from gold table
     const volumeAnalysis = {
       trend: latestData.volume_trend || null,
@@ -1064,16 +1071,16 @@ export async function POST(req: NextRequest) {
         ema50: indicators.ema_50 || indicators.ma_50 || 0,
         ema200: indicators.ema_200 || indicators.ma_200 || 0,
         atr14: indicators.atr || 0,
-        fibonacci_support: indicators.fibonacci?.support || [],
-        fibonacci_resistance: indicators.fibonacci?.resistance || [],
+        fibonacci_support: [],
+        fibonacci_resistance: [],
         vwap: indicators.vwap || 0,
         atr: indicators.atr || 0,
         volume_trend: indicators.volumeAnalysis?.trend || "insufficient_data",
         volume_price_relationship: indicators.volumeAnalysis?.volumePriceRelationship || "insufficient_data"
       },
       levels: {
-        support: indicators.fibonacci?.support?.map(String) || [],
-        resistance: indicators.fibonacci?.resistance?.map(String) || [],
+        support: [],
+        resistance: [],
         breakout_trigger: ""
       },
       news: {
@@ -1093,17 +1100,10 @@ export async function POST(req: NextRequest) {
         rationale: newsAnalysisResult?.news_analysis || newsAnalysisResult?.trading_implications || "News analysis completed"
       },
       technical: {
-        summary: ["Technical analysis completed", "Indicators calculated", "Price levels identified"],
-        chart_notes: "Analysis based on current indicators and price action",
-        scenarios: {
-          bull_case: "Break above resistance levels with volume",
-          bear_case: "Break below support levels"
-        },
-        risk_box: {
-          atr_pct: indicators.atr ? `${((indicators.atr / currentPrice) * 100).toFixed(1)}%` : "N/A",
-          suggested_stop: indicators.fibonacci?.support?.[0]?.toString() || "N/A",
-          position_hint: "Monitor key levels"
-        },
+        summary: [],
+        chart_notes: "",
+        scenarios: {},
+        risk_box: {},
         rationale: technicalAnalysis?.technical_analysis || technicalAnalysis?.trading_outlook || "Technical analysis completed"
       },
     };

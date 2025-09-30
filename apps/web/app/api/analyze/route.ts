@@ -629,19 +629,17 @@ export async function POST(req: NextRequest) {
       console.log("🔍 DEBUG - First record from gold table:", symbolData[0]);
       
       if (symbolData.length > 0) {
-        // Sort by date (oldest first)
-        symbolData.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        // Gold table has only ONE record per symbol (latest aggregated data)
+        const latestData = symbolData[0];
         
-        // Take the last 260 periods
-        const recentData = symbolData.slice(-260);
-        
+        // Create bars object with single data point for compatibility
         bars = {
-          open: recentData.map((row: any) => parseFloat(row.open)),
-          high: recentData.map((row: any) => parseFloat(row.high)),
-          low: recentData.map((row: any) => parseFloat(row.low)),
-          close: recentData.map((row: any) => parseFloat(row.close)),
-          volume: recentData.map((row: any) => parseFloat(row.volume)),
-          date: recentData.map((row: any) => row.date)
+          open: [parseFloat(latestData.open)],
+          high: [parseFloat(latestData.high)],
+          low: [parseFloat(latestData.low)],
+          close: [parseFloat(latestData.close)],
+          volume: [parseFloat(latestData.volume)],
+          date: [latestData.date]
         };
         
         console.log(`✅ REAL DATA: Loaded ${bars.close.length} ${detectedSymbol} bars, latest close: $${bars.close[bars.close.length - 1]}`);

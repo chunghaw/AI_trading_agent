@@ -126,7 +126,7 @@ const computeIndicators = (bars: any, dbData?: any[]) => {
       ].filter(val => val !== null)
     };
     
-    // Use pre-calculated VWAP and ATR from gold table
+    // Use pre-calculated VWAP and ATR from gold table (correct column positions)
     const vwap = latestData.vwap ? parseFloat(latestData.vwap) : null;
     const atr = latestData.atr_14 ? parseFloat(latestData.atr_14) : null;
     
@@ -137,7 +137,7 @@ const computeIndicators = (bars: any, dbData?: any[]) => {
       parsedAtr: atr
     });
     
-    // Use pre-calculated volume analysis from gold table
+    // Use pre-calculated volume analysis from gold table (correct column positions)
     const volumeAnalysis = {
       trend: latestData.volume_trend || null,
       volumePriceRelationship: latestData.volume_price_relationship || null
@@ -620,10 +620,9 @@ export async function POST(req: NextRequest) {
           SELECT date, open, high, low, close, total_volume as volume,
                  rsi_14 as rsi, ma_5, ma_20, ma_50, ma_200,
                  ema_20, ema_50, ema_200, macd_line, macd_signal, macd_histogram,
-                 vwap, atr_14, fibonacci_support_1, fibonacci_support_2, fibonacci_support_3,
-                 fibonacci_resistance_1, fibonacci_resistance_2, fibonacci_resistance_3,
-                 volume_trend, volume_price_relationship,
-                 company_name, market, stock_type, primary_exchange, currency, total_employees, description
+                 vwap, atr_14,
+                 company_name, market, stock_type, primary_exchange, currency, total_employees, description,
+                 volume_trend, volume_price_relationship
           FROM gold_ohlcv_daily_metrics 
           WHERE symbol = $1
         `;
@@ -1042,8 +1041,18 @@ export async function POST(req: NextRequest) {
     console.log("🔍 Combined Answer for parsing:");
     console.log(combinedAnswer);
     
-    // Get company information from gold table
+    // Get company information from gold table (correct column positions)
     const companyInfo = symbolData && symbolData.length > 0 ? symbolData[0] : null;
+    
+    console.log("🔍 Company Info Debug:", {
+      company_name: companyInfo?.company_name,
+      market: companyInfo?.market,
+      stock_type: companyInfo?.stock_type,
+      primary_exchange: companyInfo?.primary_exchange,
+      currency: companyInfo?.currency,
+      total_employees: companyInfo?.total_employees,
+      description: companyInfo?.description?.substring(0, 100) + "..."
+    });
     
     // Build final response with all required fields
     const json = {

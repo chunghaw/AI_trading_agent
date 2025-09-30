@@ -4,7 +4,7 @@ import { Copy, Check, Printer, Database, AlertTriangle, ExternalLink, Link as Li
 import { ActionBadge } from './ActionBadge';
 import { ConfidenceBar } from './ConfidenceBar';
 import { IndicatorsRow } from './IndicatorsRow';
-import { LevelsBlock } from './LevelsBlock';
+// LevelsBlock removed - user explicitly requested no support/resistance levels
 import { CitationsChips } from './CitationsChips';
 import AnalystResponses from './AnalystResponses';
 // import type { Report } from '../../lib/report.schema';
@@ -289,24 +289,12 @@ export function ReportCard({ report, className, isMockData = false, dataSource =
                   <h4 className="text-sm font-medium text-zinc-400 mb-2">AI Technical Analysis</h4>
                   <p className="text-[15px] leading-snug text-zinc-300">{techRationale}</p>
                 </div>
-              ) : techSummary.length > 0 ? (
-                <div className="mt-4">
-                  <h4 className="text-sm font-medium text-zinc-400 mb-2">Technical Summary</h4>
-                  <ul className="space-y-2">
-                    {techSummary.map((point: string, i: number) => (
-                      <li key={i} className="flex items-start gap-2">
-                        <span className="text-emerald-400 mt-1">•</span>
-                        <span className="text-[15px] leading-snug text-zinc-300">{point}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
               ) : (
                 <div className="mt-4">
-                  <p className="text-[15px] leading-snug text-zinc-300">Technical analysis completed based on available indicators.</p>
+                  <p className="text-[15px] leading-snug text-zinc-300">Technical analysis in progress...</p>
                 </div>
               )}
-              <LevelsBlock levels={report.levels} />
+              {/* LevelsBlock removed - user explicitly requested no support/resistance levels */}
             </div>
           </section>
         )}
@@ -320,19 +308,7 @@ export function ReportCard({ report, className, isMockData = false, dataSource =
                 {report.answer}
               </p>
               
-              {report.bullets && report.bullets.length > 0 && (
-                <div className="space-y-2">
-                  <h4 className="text-sm font-medium text-zinc-400">Key Insights</h4>
-                  <ul className="space-y-1">
-                    {report.bullets.map((insight: string, i: number) => (
-                      <li key={i} className="flex items-start gap-2">
-                        <span className="text-emerald-400 mt-1">•</span>
-                        <span className="text-[14px] text-zinc-300">{insight}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+              {/* Key Insights removed - user requested only AI analysis */}
             </div>
           </section>
         )}

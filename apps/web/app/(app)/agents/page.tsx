@@ -4,9 +4,9 @@ import React from "react";
 import { Card } from "../../../components/ui/card";
 import { Button } from "../../../components/ui/button";
 import { Send } from "lucide-react";
-import { ReportSchema, type Report } from "../../../lib/report.schema";
+import { AgentReportSchema, type AgentReport } from "../../../lib/agent.schema";
 import { cn } from "../../../lib/utils";
-import { ReportCard } from "../../../components/report/ReportCard";
+import { AgentReportCard } from "../../../components/report/AgentReportCard";
 
 
 const analysisTypes = [
@@ -21,7 +21,7 @@ export default function AgentsPage() {
   const [prompt, setPrompt] = React.useState("");
   const [timeframe, setTimeframe] = React.useState("1d");
   const [isLoading, setIsLoading] = React.useState(false);
-  const [response, setResponse] = React.useState<Report | null>(null);
+  const [response, setResponse] = React.useState<AgentReport | null>(null);
   const [isMockData, setIsMockData] = React.useState(false);
   const [showModelDropdown, setShowModelDropdown] = React.useState(false);
   const [progressMessage, setProgressMessage] = React.useState("");
@@ -247,7 +247,7 @@ export default function AgentsPage() {
       {/* Analysis Results */}
       {response && (
         <div className="mt-8">
-          <ReportCard report={response} isMockData={isMockData} />
+          <AgentReportCard report={response} />
           
           {/* DEBUG: Show raw JSON as fallback */}
           <details className="mt-4">

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import dayjs from "dayjs";
 import OpenAI from "openai";
 import { z } from "zod";
+import { AgentReportSchema, mapNewsSentimentToStatus, mapTechnicalSentimentToStatus, mapOverallStatus } from "../../../lib/agent.schema";
+import { getNewsAnalystPrompt, getTechnicalAnalystPrompt, getSynthesisPrompt } from "../../../lib/prompts";
 // Use a simple schema that matches the original format
 const SimpleReportSchema = z.object({
   symbol: z.string(),
@@ -1044,91 +1046,73 @@ export async function POST(req: NextRequest) {
       description: companyInfo?.description?.substring(0, 100) + "..."
     });
     
-    // Build final response with all required fields
-    const json = {
-      symbol: detectedSymbol,
-      timeframe,
-      answer: finalAnswer.answer || combinedAnswer, // Main answer
-      action: finalAnswer?.confidence > 0.7 ? "BUY" : finalAnswer?.confidence < 0.3 ? "SELL" : "FLAT",
-      confidence: finalAnswer?.confidence || 0.5,
-      bullets: finalAnswer?.key_insights || ["Analysis completed", "Review technical indicators", "Monitor news developments"],
-      company: {
+    // Build Agent.md compliant response
+    const agentResponse = {
+      header: {
         name: companyInfo?.company_name || "Unknown Company",
         market: companyInfo?.market || "Unknown Market",
         type: companyInfo?.stock_type || "Unknown Type",
         exchange: companyInfo?.primary_exchange || "Unknown Exchange",
         currency: companyInfo?.currency || "USD",
         employees: companyInfo?.total_employees || null,
-        description: companyInfo?.description || "No description available"
-      },
-      indicators: {
-        rsi14: indicators.rsi14 || 0,
-        macd: indicators.macd?.macd || 0,
-        macd_signal: indicators.macd?.signal || 0,
-        macd_hist: indicators.macd?.histogram || 0,
-        ema20: indicators.ema_20 || indicators.ma_20 || 0,
-        ema50: indicators.ema_50 || indicators.ma_50 || 0,
-        ema200: indicators.ema_200 || indicators.ma_200 || 0,
-        atr14: indicators.atr || 0,
-        vwap: indicators.vwap || 0,
-        volume_trend: indicators.volumeAnalysis?.trend || "insufficient_data",
-        volume_price_relationship: indicators.volumeAnalysis?.volumePriceRelationship || "insufficient_data"
+        description: companyInfo?.description?.substring(0, 200) || "No description available"
       },
       news: {
-        summary: newsAnalysisResult?.key_drivers || ["News analysis completed"],
-        citations: newsAnalysisResult?.citations || newsAnalysisResult?.sources || [],
-        metrics: {
-          docs: newsDocs.length,
-          sources: new Set(newsDocs.map(d => d.source)).size,
-          pos: 0,
-          neg: 0,
-          neu: 0,
-          net_sentiment: 0
-        },
-        catalysts: newsAnalysisResult?.key_drivers?.slice(0, 2) || [],
-        risks: ["Market volatility", "Sector rotation risk"],
-        confidence_reasons: ["News analysis available", "Technical indicators calculated"],
-        rationale: newsAnalysisResult?.news_analysis || newsAnalysisResult?.trading_implications || "News analysis completed"
+        sentiment: newsAnalysisResult?.sentiment || "neutral",
+        key_points: newsAnalysisResult?.key_points || newsAnalysisResult?.key_drivers || [],
+        analysis: newsAnalysisResult?.analysis || newsAnalysisResult?.news_analysis || "No news analysis available",
+        sources: newsAnalysisResult?.sources || newsAnalysisResult?.citations || [],
+        status: mapNewsSentimentToStatus(newsAnalysisResult?.sentiment || "neutral"),
+        no_data: newsDocs.length === 0
       },
       technical: {
-        rationale: technicalAnalysis?.technical_analysis || technicalAnalysis?.trading_outlook || "Technical analysis completed"
+        indicators: {
+          rsi: indicators.rsi14 || 0,
+          macd_line: indicators.macd?.macd || 0,
+          macd_signal: indicators.macd?.signal || 0,
+          macd_hist: indicators.macd?.histogram || 0,
+          ema20: indicators.ema_20 || indicators.ma_20 || 0,
+          ema50: indicators.ema_50 || indicators.ma_50 || 0,
+          ema200: indicators.ema_200 || indicators.ma_200 || 0,
+          vwap: indicators.vwap || 0,
+          atr: indicators.atr || 0,
+          volume_trend: indicators.volumeAnalysis?.trend === "NORMAL" ? "flat" : 
+                       indicators.volumeAnalysis?.trend === "HIGH" ? "rising" : "falling",
+          vol_price_relation: indicators.volumeAnalysis?.volumePriceRelationship === "NEUTRAL" ? "neutral" :
+                             indicators.volumeAnalysis?.volumePriceRelationship === "ACCUMULATION" ? "accumulation" : "distribution"
+        },
+        analysis: technicalAnalysis?.analysis || technicalAnalysis?.technical_analysis || "No technical analysis available",
+        sentiment: technicalAnalysis?.sentiment || "neutral",
+        status: mapTechnicalSentimentToStatus(technicalAnalysis?.sentiment || "neutral")
       },
+      final_answer: {
+        summary: finalAnswer?.summary || finalAnswer?.answer || combinedAnswer,
+        overall_status: mapOverallStatus(
+          mapNewsSentimentToStatus(newsAnalysisResult?.sentiment || "neutral"),
+          mapTechnicalSentimentToStatus(technicalAnalysis?.sentiment || "neutral")
+        )
+      },
+      meta: {
+        ticker: detectedSymbol,
+        as_of: new Date().toISOString(),
+        horizon: "1–3 days"
+      }
     };
-    // Step 5: Validate with ReportSchema
+    // Step 5: Validate with AgentReportSchema
     try {
-      const report = SimpleReportSchema.parse(json);
-      // Add metadata to indicate real data was used
-      const responseWithMetadata = {
-        ...report,
-        _metadata: {
-          dataSources: {
-            ohlcv: detectedSymbol === "NVDA" ? "real" : "mock",
-            news: "real"
-          },
-          warnings: detectedSymbol !== "NVDA" ? [`${detectedSymbol} price data is mock data - real data not available`] : [],
-          ragData: {
-            ohlcvSource: detectedSymbol === "NVDA" ? "sample_exploration.json" : "mock_generator",
-            newsSource: "milvus_polygon_news_data",
-            newsCount: newsAnalysis.citations.length,
-            ohlcvBars: bars.close.length
-          }
-        }
-      };
-      
+      const report = AgentReportSchema.parse(agentResponse);
       console.log(`🎉 === ANALYSIS COMPLETED SUCCESSFULLY ===`);
       console.log(`🔍 Final response structure:`, {
-        symbol: responseWithMetadata.symbol,
-        hasAnswer: !!responseWithMetadata.answer,
-        answerLength: responseWithMetadata.answer?.length || 0,
-        answerPreview: responseWithMetadata.answer?.substring(0, 100) || 'N/A',
-        newsRationaleLength: responseWithMetadata.news?.rationale?.length || 0,
-        technicalRationaleLength: responseWithMetadata.technical?.rationale?.length || 0
+        ticker: report.meta.ticker,
+        newsStatus: report.news.status,
+        technicalStatus: report.technical.status,
+        overallStatus: report.final_answer.overall_status
       });
-      return NextResponse.json(responseWithMetadata);
+      return NextResponse.json(report);
     } catch (error: any) {
       console.error("❌ Schema validation failed:", error);
       console.error("❌ Validation errors:", error.issues || error.message);
-      console.error("❌ Response data that failed validation:", JSON.stringify(json, null, 2));
+      console.error("❌ Response data that failed validation:", JSON.stringify(agentResponse, null, 2));
       
       // Return a simplified response with all required fields
       const fallbackResponse = {

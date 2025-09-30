@@ -95,7 +95,7 @@ export default function AgentsPage() {
       console.log("🔍 Raw API Response:", data);
       
       try {
-        const validatedData = ReportSchema.parse(data);
+        const validatedData = AgentReportSchema.parse(data);
         console.log("✅ Schema validation passed:", validatedData);
         setResponse(validatedData);
       } catch (schemaError: any) {

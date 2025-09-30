@@ -66,88 +66,85 @@ import { searchAndRerankNewsStrict } from "@/lib/news.search";
 // import { detectSymbolFromQuestion } from "../../../lib/simple-symbol-detection";
 const barsQualityOk = (bars: any) => true;
 const computeIndicators = (bars: any, dbData?: any[]) => {
-  // Use RSI from database if available, calculate MACD from price data
+  // Use pre-calculated indicators from gold table
   if (dbData && dbData.length > 0) {
-    const latestData = dbData[0]; // Most recent record
+    const latestData = dbData[0]; // Gold table has only latest record per symbol
     
-    // Find the most recent record with valid RSI (between 5-95 for realistic values)
-    const validRsiData = dbData.find(row => {
-      const rsi = parseFloat(row.rsi);
-      return rsi && rsi >= 5 && rsi <= 95; // More strict range for realistic RSI
+    console.log("🔍 Gold Table Debug:", {
+      symbol: latestData.symbol || 'Unknown',
+      rsi: latestData.rsi,
+      ma20: latestData.ma_20,
+      ma50: latestData.ma_50,
+      ma200: latestData.ma_200,
+      ema20: latestData.ema_20,
+      ema50: latestData.ema_50,
+      ema200: latestData.ema_200,
+      macdLine: latestData.macd_line,
+      macdSignal: latestData.macd_signal,
+      macdHistogram: latestData.macd_histogram,
+      vwap: latestData.vwap,
+      atr: latestData.atr_14
     });
-    const rsiData = validRsiData || null;
     
-    console.log("🔍 RSI Debug:", {
-      latestDataRsi: latestData.rsi,
-      validRsiDataFound: !!validRsiData,
-      validRsiValue: validRsiData?.rsi,
-      finalRsiValue: rsiData.rsi
-    });
+    // Use pre-calculated indicators from gold table
+    const finalRsi = latestData.rsi ? parseFloat(latestData.rsi) : null;
     
-    // Calculate MACD from available price data
-    const macd = calculateMACD(bars.close);
+    // Use pre-calculated MACD from gold table
+    const macd = {
+      macd: latestData.macd_line ? parseFloat(latestData.macd_line) : null,
+      signal: latestData.macd_signal ? parseFloat(latestData.macd_signal) : null,
+      histogram: latestData.macd_histogram ? parseFloat(latestData.macd_histogram) : null
+    };
     
-    // Calculate additional indicators if we have OHLCV data
-    const fibonacciLevels = calculateFibonacciLevels(bars.close);
-    const vwap = calculateVWAP(dbData.map(row => ({
-      high: parseFloat(row.high),
-      low: parseFloat(row.low),
-      close: parseFloat(row.close),
-      volume: parseFloat(row.volume)
-    })));
-    const atr = calculateATR(dbData.map(row => ({
-      high: parseFloat(row.high),
-      low: parseFloat(row.low),
-      close: parseFloat(row.close),
-      volume: parseFloat(row.volume)
-    })));
-    const volumeAnalysis = analyzeVolumeTrend(dbData.map(row => ({
-      high: parseFloat(row.high),
-      low: parseFloat(row.low),
-      close: parseFloat(row.close),
-      volume: parseFloat(row.volume)
-    })));
+    // Use pre-calculated moving averages from gold table
+    const ma_20 = latestData.ma_20 ? parseFloat(latestData.ma_20) : null;
+    const ma_50 = latestData.ma_50 ? parseFloat(latestData.ma_50) : null;
+    const ma_200 = latestData.ma_200 ? parseFloat(latestData.ma_200) : null;
     
-    // Use database RSI if valid, otherwise calculate from price data
-    let finalRsi = null;
-    if (rsiData && rsiData.rsi) {
-      const dbRsi = parseFloat(rsiData.rsi);
-      if (dbRsi >= 5 && dbRsi <= 95) {
-        finalRsi = dbRsi;
-      }
-    }
+    // Use pre-calculated EMAs from gold table
+    const ema_20 = latestData.ema_20 ? parseFloat(latestData.ema_20) : null;
+    const ema_50 = latestData.ema_50 ? parseFloat(latestData.ema_50) : null;
+    const ema_200 = latestData.ema_200 ? parseFloat(latestData.ema_200) : null;
     
-    // Fallback to calculated RSI if database RSI is invalid
-    if (finalRsi === null && bars.close.length >= 14) {
-      finalRsi = calculateRSI(bars.close, 14);
-    }
+    // Use pre-calculated Fibonacci levels from gold table
+    const fibonacci = {
+      support: [
+        latestData.fibonacci_support_1 ? parseFloat(latestData.fibonacci_support_1) : null,
+        latestData.fibonacci_support_2 ? parseFloat(latestData.fibonacci_support_2) : null,
+        latestData.fibonacci_support_3 ? parseFloat(latestData.fibonacci_support_3) : null
+      ].filter(val => val !== null),
+      resistance: [
+        latestData.fibonacci_resistance_1 ? parseFloat(latestData.fibonacci_resistance_1) : null,
+        latestData.fibonacci_resistance_2 ? parseFloat(latestData.fibonacci_resistance_2) : null,
+        latestData.fibonacci_resistance_3 ? parseFloat(latestData.fibonacci_resistance_3) : null
+      ].filter(val => val !== null)
+    };
     
-    // Validate and calculate moving averages
-    const currentPrice = parseFloat(latestData.close);
-    const validMA20 = latestData.ma_20 ? parseFloat(latestData.ma_20) : null;
-    const validMA50 = latestData.ma_50 ? parseFloat(latestData.ma_50) : null;
-    const validMA200 = latestData.ma_200 ? parseFloat(latestData.ma_200) : null;
+    // Use pre-calculated VWAP and ATR from gold table
+    const vwap = latestData.vwap ? parseFloat(latestData.vwap) : null;
+    const atr = latestData.atr_14 ? parseFloat(latestData.atr_14) : null;
     
-    // Only include MAs if they're within reasonable range of current price (not all the same value)
-    const ma20Valid = validMA20 && Math.abs(validMA20 - currentPrice) / currentPrice < 0.5; // Within 50% of current price
-    const ma50Valid = validMA50 && Math.abs(validMA50 - currentPrice) / currentPrice < 0.5;
-    const ma200Valid = validMA200 && Math.abs(validMA200 - currentPrice) / currentPrice < 0.5;
+    // Use pre-calculated volume analysis from gold table
+    const volumeAnalysis = {
+      trend: latestData.volume_trend || null,
+      volumePriceRelationship: latestData.volume_price_relationship || null
+    };
     
     return {
       rsi14: finalRsi,
-      macd: macd, // Use calculated MACD from price data
-      ma_20: ma20Valid ? validMA20 : null,
-      ma_50: ma50Valid ? validMA50 : null,
-      ma_200: ma200Valid ? validMA200 : null,
-      ema_20: ma20Valid ? validMA20 : (bars.close.length >= 20 ? calculateEMA(bars.close, 20) : null),
-      ema_50: ma50Valid ? validMA50 : (bars.close.length >= 50 ? calculateEMA(bars.close, 50) : null),
-      ema_200: ma200Valid ? validMA200 : (bars.close.length >= 200 ? calculateEMA(bars.close, 200) : null),
-      fibonacci: fibonacciLevels,
+      macd: macd,
+      ma_20: ma_20,
+      ma_50: ma_50,
+      ma_200: ma_200,
+      ema_20: ema_20,
+      ema_50: ema_50,
+      ema_200: ema_200,
+      fibonacci: fibonacci,
       vwap: vwap,
       atr: atr,
       volumeAnalysis: volumeAnalysis,
-      calculated: true,
-      source: "database_all_indicators",
+      calculated: false, // Pre-calculated from gold table
+      source: "gold_table_precalculated",
       periods: {
         rsi: 14,
         macd_fast: 12,
@@ -256,7 +253,7 @@ function calculateMACD(prices: number[]): { macd: number | null, signal: number 
   const signal = macd * 0.9; // Simplified signal calculation
   const histogram = macd - signal;
   
-  return {
+  return { 
     macd: Math.round(macd * 1000) / 1000,
     signal: Math.round(signal * 1000) / 1000,
     histogram: Math.round(histogram * 1000) / 1000
@@ -607,12 +604,15 @@ export async function POST(req: NextRequest) {
       });
       
         const query = `
-          SELECT date, open, high, low, close, volume,
-                 rsi, ma_5, ma_20, ma_50, ma_200
-          FROM silver_ohlcv 
-          WHERE symbol = $1 
-          ORDER BY date DESC 
-          LIMIT 260
+          SELECT date, open, high, low, close, total_volume as volume,
+                 rsi_14 as rsi, ma_5, ma_20, ma_50, ma_200,
+                 ema_20, ema_50, ema_200, macd_line, macd_signal, macd_histogram,
+                 vwap, atr_14, fibonacci_support_1, fibonacci_support_2, fibonacci_support_3,
+                 fibonacci_resistance_1, fibonacci_resistance_2, fibonacci_resistance_3,
+                 volume_trend, volume_price_relationship,
+                 company_name, market, stock_type, primary_exchange, currency, total_employees, description
+          FROM gold_ohlcv_daily_metrics 
+          WHERE symbol = $1
         `;
       
       const result = await pool.query(query, [detectedSymbol]);
@@ -1030,6 +1030,9 @@ export async function POST(req: NextRequest) {
     console.log("🔍 Combined Answer for parsing:");
     console.log(combinedAnswer);
     
+    // Get company information from gold table
+    const companyInfo = symbolData && symbolData.length > 0 ? symbolData[0] : null;
+    
     // Build final response with all required fields
     const json = {
       symbol: detectedSymbol,
@@ -1038,6 +1041,15 @@ export async function POST(req: NextRequest) {
       action: finalAnswer?.confidence > 0.7 ? "BUY" : finalAnswer?.confidence < 0.3 ? "SELL" : "FLAT",
       confidence: finalAnswer?.confidence || 0.5,
       bullets: finalAnswer?.key_insights || ["Analysis completed", "Review technical indicators", "Monitor news developments"],
+      company: {
+        name: companyInfo?.company_name || "Unknown Company",
+        market: companyInfo?.market || "Unknown Market",
+        type: companyInfo?.stock_type || "Unknown Type",
+        exchange: companyInfo?.primary_exchange || "Unknown Exchange",
+        currency: companyInfo?.currency || "USD",
+        employees: companyInfo?.total_employees || null,
+        description: companyInfo?.description || "No description available"
+      },
       indicators: {
         rsi14: indicators.rsi14 || 0,
         macd: indicators.macd?.macd || 0,

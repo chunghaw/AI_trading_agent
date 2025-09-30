@@ -7,6 +7,15 @@ export const ReportSchema = z.object({
   action: z.enum(["BUY","SELL","FLAT"]),
   confidence: z.number().min(0).max(1),
   bullets: z.array(z.string()).min(3).max(6),
+  company: z.object({
+    name: z.string().default("Unknown Company"),
+    market: z.string().default("Unknown Market"),
+    type: z.string().default("Unknown Type"),
+    exchange: z.string().default("Unknown Exchange"),
+    currency: z.string().default("USD"),
+    employees: z.number().nullable().default(null),
+    description: z.string().default("No description available")
+  }).optional(),
   indicators: z.object({
     rsi14: z.number(),
     macd: z.number(),

@@ -153,13 +153,34 @@ export function ReportCard({ report, className, isMockData = false, dataSource =
 
         {/* Header with Price Information */}
         <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
-          <div className="flex items-center gap-3">
-            <h2 className="text-2xl font-bold text-zinc-100">{report.symbol}</h2>
-            <span className="text-sm text-zinc-400">{String(report.timeframe || '1d').toUpperCase()}</span>
-            {dataSource === 'databricks' && (
-              <span className="text-xs px-2 py-0.5 rounded-lg bg-sky-900/20 border border-sky-700/30 text-sky-300">
-                Databricks snapshot
-              </span>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-3">
+              <h2 className="text-2xl font-bold text-zinc-100">{report.symbol}</h2>
+              <span className="text-sm text-zinc-400">{String(report.timeframe || '1d').toUpperCase()}</span>
+              {dataSource === 'databricks' && (
+                <span className="text-xs px-2 py-0.5 rounded-lg bg-sky-900/20 border border-sky-700/30 text-sky-300">
+                  Databricks snapshot
+                </span>
+              )}
+            </div>
+            {/* Company Information */}
+            {report.company && (
+              <div className="flex flex-col gap-1 text-xs text-zinc-400">
+                <div className="flex items-center gap-4">
+                  <span className="font-medium text-zinc-300">{report.company.name}</span>
+                  <span>{report.company.market}</span>
+                  <span>{report.company.type}</span>
+                  <span>{report.company.exchange}</span>
+                  {report.company.employees && <span>{report.company.employees.toLocaleString()} employees</span>}
+                </div>
+                {report.company.description && (
+                  <p className="text-zinc-500 max-w-2xl leading-relaxed">
+                    {report.company.description.length > 200 
+                      ? `${report.company.description.substring(0, 200)}...` 
+                      : report.company.description}
+                  </p>
+                )}
+              </div>
             )}
           </div>
           <div className="flex items-center gap-2">

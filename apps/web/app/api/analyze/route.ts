@@ -70,7 +70,8 @@ const computeIndicators = (bars: any, dbData?: any[]) => {
   if (dbData && dbData.length > 0) {
     const latestData = dbData[0]; // Gold table has only latest record per symbol
     
-    console.log("🔍 Gold Table Debug:", {
+    console.log("🔍 Gold Table Debug - Raw Data:", latestData);
+    console.log("🔍 Gold Table Debug - Processed:", {
       symbol: latestData.symbol || 'Unknown',
       rsi: latestData.rsi,
       ma20: latestData.ma_20,
@@ -83,7 +84,12 @@ const computeIndicators = (bars: any, dbData?: any[]) => {
       macdSignal: latestData.macd_signal,
       macdHistogram: latestData.macd_histogram,
       vwap: latestData.vwap,
-      atr: latestData.atr_14
+      atr: latestData.atr_14,
+      company: latestData.company_name,
+      market: latestData.market,
+      type: latestData.stock_type,
+      exchange: latestData.primary_exchange,
+      employees: latestData.total_employees
     });
     
     // Use pre-calculated indicators from gold table
@@ -619,7 +625,8 @@ export async function POST(req: NextRequest) {
       symbolData = result.rows; // Assign to the broader scope variable
       await pool.end();
       
-      console.log(`📊 Symbol data found: ${symbolData.length} records from Postgres`);
+      console.log(`📊 Symbol data found: ${symbolData.length} records from Postgres GOLD TABLE`);
+      console.log("🔍 DEBUG - First record from gold table:", symbolData[0]);
       
       if (symbolData.length > 0) {
         // Sort by date (oldest first)

@@ -127,8 +127,8 @@ const computeIndicators = (bars: any, dbData?: any[]) => {
     };
     
     // Use pre-calculated VWAP and ATR from gold table (correct column positions)
-    const vwap = latestData.vwap ? parseFloat(latestData.vwap) : null;
     const atr = latestData.atr_14 ? parseFloat(latestData.atr_14) : null;
+    const vwap = latestData.vwap ? parseFloat(latestData.vwap) : null;
     
     console.log("🔍 VWAP/ATR Debug:", {
       rawVwap: latestData.vwap,
@@ -617,12 +617,13 @@ export async function POST(req: NextRequest) {
       });
       
         const query = `
-          SELECT date, open, high, low, close, total_volume as volume,
-                 rsi_14 as rsi, ma_5, ma_20, ma_50, ma_200,
-                 ema_20, ema_50, ema_200, macd_line, macd_signal, macd_histogram,
-                 vwap, atr_14,
-                 company_name, market, stock_type, primary_exchange, currency, total_employees, description,
-                 volume_trend, volume_price_relationship
+          SELECT 
+            date, open, high, low, close, total_volume as volume,
+            company_name, market, stock_type, primary_exchange, currency, total_employees, description,
+            rsi_14 as rsi, ma_5, ma_20, ma_50, ma_200,
+            ema_20, ema_50, ema_200, macd_line, macd_signal, macd_histogram,
+            atr_14, vwap,
+            volume_trend, volume_price_relationship
           FROM gold_ohlcv_daily_metrics 
           WHERE symbol = $1
         `;

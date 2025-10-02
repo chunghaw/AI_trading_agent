@@ -9,7 +9,72 @@ No mock/hardcoded data, ever. If DB is unavailable, return a clear error.
 No support/resistance or Fibonacci levels. No “levels to watch”.
 No generic boilerplate. No “docs/sources/+1/−0”, no bull/bear case boxes, no generic “analysis completed” lines.
 News citations must be real URLs from inputs. No invented links.
-Data Contracts
+## Data Pipeline Architecture
+
+### Bronze Layer
+- Raw Polygon API data ingestion
+- Minimal processing, direct API response storage
+- Used for backup and reprocessing
+
+### Silver Layer
+- Cleaned, validated OHLCV time series data
+- Standardized formats and data types
+- Historical data storage (3-year retention)
+- Required fields: date, open, high, low, close, volume, symbol
+
+### Gold Layer
+- Aggregated indicators and company information
+- Latest row per ticker with pre-calculated technical indicators
+- Company metadata from company_info_cache
+- Required fields: rsi, macd_line, macd_signal, macd_hist, ema20, ema50, ema200, vwap, atr, volume_trend, volume_price_relationship
+
+### News Layer
+- Milvus vector database for semantic search
+- Curated article list with embeddings
+- Fields: title, body, url, source, published_at, tickers[], embedding_vector
+
+## DAG Requirements
+
+### OHLCV DAG (polygon_ohlcv_dag.py)
+- **Schedule**: Twice daily at 5am SGT (21:00 UTC) and 5pm SGT (09:00 UTC)
+- **Scope**: Top 1000 US stocks by market cap
+- **Data Retrieval**: Latest 10 days OHLCV data from Polygon API (merge strategy)
+- **Retention**: 3 years (1095 days) of historical data
+- **Processing**: Bronze → Silver → Gold transformation
+- **Error Handling**: Retry logic with exponential backoff, alerting on failures
+
+### News DAG (polygon_news_milvus_managed.py)
+- **Schedule**: Daily at 5am SGT (21:00 UTC)
+- **Scope**: 20 popular tickers: NVDA, GOOGL, MSFT, AMZN, TSLA, META, PLTR, PDD, IONQ, AAPL, NFLX, AMD, INTC, ORCL, CRM, ADBE, PYPL, INTC, QCOM, MU
+- **Data Retrieval**: Latest news articles from Polygon API
+- **Retention**: 30 days of news data
+- **Processing**: News ingestion → OpenAI embeddings → Milvus storage
+- **Error Handling**: Connection retry logic, Milvus cleanup on failures
+
+## Data Quality Requirements
+
+### Technical Indicators Validation
+- **RSI**: Must be 0-100 range
+- **MACD Line**: Realistic range -50 to +50 (typical for most stocks)
+- **MACD Signal**: Realistic range -50 to +50, should be close to MACD line
+- **MACD Histogram**: Realistic range -5 to +5 (difference between line and signal)
+- **EMAs (20/50/200)**: Must be positive values, typically within 50% of current price
+- **VWAP**: Must be positive, typically within 10% of current price
+- **ATR**: Must be positive, typically 1-10% of stock price
+- **Volume**: Must be non-negative integers, typically > 0 for trading days
+- **Volume Trend**: Must be "rising", "falling", or "flat"
+- **Volume-Price Relationship**: Must be "accumulation", "distribution", or "neutral"
+
+### Company Information Validation
+- **Name**: Non-empty string, company legal name
+- **Market**: Must be "stocks" for equity securities
+- **Type**: Must be "CS" (Common Stock) for most equities
+- **Exchange**: Valid exchange codes (XNAS, XNYS, etc.)
+- **Currency**: Valid currency codes (USD, EUR, etc.)
+- **Employees**: Non-negative integer
+- **Description**: Non-empty text, company business description
+
+### Data Contracts
 
 Required sources
 
@@ -27,6 +92,26 @@ If any required table is unavailable or empty for the ticker:
 Return JSON with { error: "<specific_reason>", stage: "company|gold|silver|news" } and HTTP 503/424.
 No fallback or zero/100 placeholders (e.g., RSI cannot be 0 or 100 unless truly so).
 Timestamps should be ISO8601.
+
+## Data Validation & Error Handling
+
+### API Route Validation
+- **Missing Company Info**: Return HTTP 424 with error "Company information unavailable for {ticker}"
+- **Missing Gold Data**: Return HTTP 424 with error "Technical indicators unavailable for {ticker}"
+- **Missing Silver Data**: Return HTTP 424 with error "Historical data unavailable for {ticker}"
+- **Missing News Data**: Continue with technical analysis only, set news.no_data = true
+- **Database Connection Failure**: Return HTTP 503 with error "Database connection failed"
+
+### Data Quality Checks
+- **Indicator Validation**: All technical indicators must pass realistic range validation
+- **Company Info Validation**: All required company fields must be non-empty
+- **News Validation**: All news articles must have valid URLs and non-empty content
+- **Timestamp Validation**: All timestamps must be valid ISO8601 format
+
+### Error Recovery
+- **Retry Logic**: Exponential backoff for transient failures (3 retries max)
+- **Graceful Degradation**: Continue analysis with available data when possible
+- **Logging**: Comprehensive error logging with context for debugging
 Pipeline (Route Responsibilities)
 
 Fetch + Validate

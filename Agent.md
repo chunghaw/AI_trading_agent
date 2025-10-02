@@ -102,7 +102,8 @@ Route should return this single normalized object (front end consumes it directl
 },
 "final_answer": {
 "summary": "3–6 sentence synthesis",
-"overall_status": "Green" | "Amber" | "Red"
+"key_insights": ["string", "..."],
+"overall_status": "bullish" | "neutral" | "bearish"
 },
 "meta": {
 "ticker": "string",

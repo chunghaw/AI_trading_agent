@@ -1,7 +1,7 @@
 import React from 'react';
 
 interface StatusPillProps {
-  status: "Positive" | "Balanced" | "Adverse" | "Constructive" | "Neutral" | "Weak" | "Green" | "Amber" | "Red";
+  status: "Positive" | "Balanced" | "Adverse" | "Constructive" | "Neutral" | "Weak" | "Green" | "Amber" | "Red" | "bullish" | "neutral" | "bearish";
   className?: string;
 }
 
@@ -11,6 +11,7 @@ export function StatusPill({ status, className = "" }: StatusPillProps) {
       case "Positive":
       case "Constructive":
       case "Green":
+      case "bullish":
         return {
           bgColor: "bg-green-900/30",
           borderColor: "border-green-500/50",
@@ -20,6 +21,7 @@ export function StatusPill({ status, className = "" }: StatusPillProps) {
       case "Balanced":
       case "Neutral":
       case "Amber":
+      case "neutral":
         return {
           bgColor: "bg-amber-900/30",
           borderColor: "border-amber-500/50",
@@ -29,6 +31,7 @@ export function StatusPill({ status, className = "" }: StatusPillProps) {
       case "Adverse":
       case "Weak":
       case "Red":
+      case "bearish":
         return {
           bgColor: "bg-red-900/30",
           borderColor: "border-red-500/50",

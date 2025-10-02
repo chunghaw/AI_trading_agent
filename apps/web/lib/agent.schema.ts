@@ -39,7 +39,8 @@ export const AgentReportSchema = z.object({
   }),
   final_answer: z.object({
     summary: z.string(),
-    overall_status: z.enum(["Green", "Amber", "Red"])
+    key_insights: z.array(z.string()),
+    overall_status: z.enum(["bullish", "neutral", "bearish"])
   }),
   meta: z.object({
     ticker: z.string(),
@@ -67,20 +68,20 @@ export const mapTechnicalSentimentToStatus = (sentiment: "bullish" | "neutral" |
   }
 };
 
-export const mapOverallStatus = (newsStatus: "Positive" | "Balanced" | "Adverse", techStatus: "Constructive" | "Neutral" | "Weak"): "Green" | "Amber" | "Red" => {
-  // If both green → "Green"
-  if (newsStatus === "Positive" && techStatus === "Constructive") return "Green";
+export const mapOverallStatus = (newsStatus: "Positive" | "Balanced" | "Adverse", techStatus: "Constructive" | "Neutral" | "Weak"): "bullish" | "neutral" | "bearish" => {
+  // If both positive → "bullish"
+  if (newsStatus === "Positive" && techStatus === "Constructive") return "bullish";
   
-  // If one red → "Red"
-  if (newsStatus === "Adverse" || techStatus === "Weak") return "Red";
+  // If one adverse → "bearish"
+  if (newsStatus === "Adverse" || techStatus === "Weak") return "bearish";
   
-  // If one green and one amber → "Amber"
+  // If one positive and one neutral → "bullish" (slight bias)
   if ((newsStatus === "Positive" && techStatus === "Neutral") || 
-      (newsStatus === "Balanced" && techStatus === "Constructive")) return "Amber";
+      (newsStatus === "Balanced" && techStatus === "Constructive")) return "bullish";
   
-  // If both amber → "Amber"
-  if (newsStatus === "Balanced" && techStatus === "Neutral") return "Amber";
+  // If both neutral → "neutral"
+  if (newsStatus === "Balanced" && techStatus === "Neutral") return "neutral";
   
-  // Default to amber for other combinations
-  return "Amber";
+  // Default to neutral for other combinations
+  return "neutral";
 };

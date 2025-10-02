@@ -203,7 +203,22 @@ export function AgentReportCard({ report, className = "" }: AgentReportCardProps
         </div>
         
         <div className="bg-zinc-900/40 border border-zinc-800 rounded-lg p-4">
-          <p className="text-sm text-zinc-200 leading-relaxed">{report.final_answer.summary}</p>
+          <p className="text-sm text-zinc-200 leading-relaxed mb-4">{report.final_answer.summary}</p>
+          
+          {/* Key Insights */}
+          {report.final_answer.key_insights && report.final_answer.key_insights.length > 0 && (
+            <div>
+              <h3 className="text-sm font-medium text-zinc-400 mb-2">Key Insights</h3>
+              <ul className="space-y-1">
+                {report.final_answer.key_insights.map((insight, i) => (
+                  <li key={i} className="flex items-start gap-2">
+                    <span className="text-emerald-400 mt-1">•</span>
+                    <span className="text-sm text-zinc-300">{insight}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
         
         {/* Meta Info */}

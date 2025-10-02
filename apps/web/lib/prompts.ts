@@ -51,12 +51,13 @@ System: You are a portfolio strategist composing a final view from two analyses.
 Task:
 1. Combine the News and Technical narratives into 3–6 sentences.
 2. Resolve conflicts explicitly (e.g., "News is Positive but technicals are Neutral; bias slightly positive with lower confidence").
-3. Map sentiment to statuses; do not invent price levels.
-4. Output fields to fill in final_answer.summary and overall_status.
+3. Extract 3-5 key insights in bullet point format for quick reference.
+4. Map sentiment to bullish/neutral/bearish status; do not invent price levels.
 
 Output:
 {
   "summary": "string (3-6 sentences)",
-  "overall_status": "Green|Amber|Red"
+  "key_insights": ["string", "string", "string"],
+  "overall_status": "bullish|neutral|bearish"
 }
 `;

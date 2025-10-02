@@ -609,14 +609,23 @@ export async function POST(req: NextRequest) {
       
         const query = `
           SELECT 
-            date, open, high, low, close, total_volume as volume,
-            company_name, market, stock_type, primary_exchange, currency, total_employees, description,
-            rsi_14 as rsi, ma_5, ma_20, ma_50, ma_200,
-            ema_20, ema_50, ema_200, macd_line, macd_signal, macd_histogram,
-            vwap, atr_14,
-            volume_trend, volume_price_relationship
-          FROM gold_ohlcv_daily_metrics 
-          WHERE symbol = $1
+            g.date, g.open, g.high, g.low, g.close, g.total_volume as volume,
+            COALESCE(c.name, g.company_name) as company_name,
+            COALESCE(c.market, g.market) as market,
+            COALESCE(c.type, g.stock_type) as stock_type,
+            COALESCE(c.primary_exchange, g.primary_exchange) as primary_exchange,
+            COALESCE(c.currency_name, g.currency) as currency,
+            COALESCE(c.total_employees, g.total_employees) as total_employees,
+            COALESCE(c.description, g.description) as description,
+            g.rsi_14 as rsi, g.ma_5, g.ma_20, g.ma_50, g.ma_200,
+            g.ema_20, g.ema_50, g.ema_200, g.macd_line, g.macd_signal, g.macd_histogram,
+            g.vwap, g.atr_14,
+            g.volume_trend, g.volume_price_relationship
+          FROM gold_ohlcv_daily_metrics g
+          LEFT JOIN company_info_cache c ON g.symbol = c.symbol
+          WHERE g.symbol = $1
+          ORDER BY g.date DESC
+          LIMIT 1
         `;
       
       const result = await pool.query(query, [detectedSymbol]);
@@ -1087,6 +1096,11 @@ export async function POST(req: NextRequest) {
       },
       final_answer: {
         summary: finalAnswer?.summary || finalAnswer?.answer || combinedAnswer,
+        key_insights: finalAnswer?.key_insights || [
+          "Technical indicators show mixed signals",
+          "News sentiment appears balanced",
+          "Monitor key support and resistance levels"
+        ],
         overall_status: mapOverallStatus(
           mapNewsSentimentToStatus(newsAnalysisResult?.sentiment || "neutral"),
           mapTechnicalSentimentToStatus(technicalAnalysis?.sentiment || "neutral")

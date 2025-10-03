@@ -1064,7 +1064,7 @@ export async function POST(req: NextRequest) {
         exchange: companyInfo?.primary_exchange || "Unknown Exchange",
         currency: companyInfo?.currency || "USD",
         employees: companyInfo?.total_employees || null,
-        description: companyInfo?.description?.substring(0, 200) || "No description available"
+        description: companyInfo?.description || "No description available"
       },
       news: {
         sentiment: newsAnalysisResult?.sentiment || "neutral",

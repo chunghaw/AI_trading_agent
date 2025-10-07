@@ -518,6 +518,31 @@ const Body = z.object({
   since_days: z.number().default(7)
 });
 
+export async function GET(req: NextRequest) {
+  const url = new URL(req.url);
+  const symbol = url.searchParams.get('symbol');
+  
+  if (!symbol) {
+    return NextResponse.json({ 
+      error: "Symbol parameter required",
+      code: "MISSING_SYMBOL"
+    }, { status: 400 });
+  }
+  
+  // Convert GET request to POST format
+  const mockReq = new NextRequest(req.url, {
+    method: 'POST',
+    body: JSON.stringify({
+      symbol,
+      query: "trading analysis",
+      timeframe: "1d",
+      since_days: 7
+    })
+  });
+  
+  return POST(mockReq);
+}
+
 export async function POST(req: NextRequest) {
   try {
     console.log(`🚀 === ANALYSIS REQUEST START ===`);

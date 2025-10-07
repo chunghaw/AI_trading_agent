@@ -4,62 +4,7 @@ import OpenAI from "openai";
 import { z } from "zod";
 import { AgentReportSchema, mapNewsSentimentToStatus, mapTechnicalSentimentToStatus, mapOverallStatus } from "../../../lib/agent.schema";
 import { getNewsAnalystPrompt, getTechnicalAnalystPrompt, getSynthesisPrompt } from "../../../lib/prompts";
-// Use a simple schema that matches the original format
-const SimpleReportSchema = z.object({
-  symbol: z.string(),
-  timeframe: z.string(),
-  answer: z.string(),
-  action: z.enum(["BUY","SELL","FLAT"]).default("FLAT"),
-  confidence: z.number().min(0).max(1).default(0.5),
-  bullets: z.array(z.string()).default([]),
-  indicators: z.object({
-    rsi14: z.number(),
-    macd: z.number(),
-    macd_signal: z.number(),
-    macd_hist: z.number(),
-    ema20: z.number(),
-    ema50: z.number(),
-    ema200: z.number(),
-    atr14: z.number().default(0),
-  }),
-  levels: z.object({
-    support: z.array(z.string()).or(z.array(z.number())).default([]),
-    resistance: z.array(z.string()).or(z.array(z.number())).default([]),
-    breakout_trigger: z.string().or(z.number()).default("")
-  }),
-  news: z.object({
-    summary: z.array(z.string()).default([]),
-    citations: z.array(z.string()).default([]),
-    metrics: z.object({
-      docs: z.number().default(0),
-      sources: z.number().default(0),
-      pos: z.number().default(0),
-      neg: z.number().default(0),
-      neu: z.number().default(0),
-      net_sentiment: z.number().default(0)
-    }).optional(),
-    catalysts: z.array(z.string()).default([]),
-    risks: z.array(z.string()).default([]),
-    confidence_reasons: z.array(z.string()).default([]),
-    // Add new format fields
-    rationale: z.string().optional()
-  }),
-  technical: z.object({
-    summary: z.array(z.string()).default([]),
-    chart_notes: z.string().default("Analysis based on current indicators"),
-    scenarios: z.object({
-      bull_case: z.string().optional(),
-      bear_case: z.string().optional()
-    }).optional(),
-    risk_box: z.object({
-      atr_pct: z.string().optional(),
-      suggested_stop: z.string().optional(),
-      position_hint: z.string().optional()
-    }).optional(),
-    // Add new format fields
-    rationale: z.string().optional()
-  }),
-});
+// Use the correct AgentReportSchema format
 // import { barsQualityOk } from "../../../lib/ohlcv";
 // import { computeIndicators } from "../../../lib/indicators";
 // import { levelCandidates } from "../../../lib/levels";

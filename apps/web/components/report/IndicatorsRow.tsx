@@ -1,8 +1,7 @@
 import React from 'react';
 // import { cn } from '../../lib/utils';
 
-// Temporary cn function
-const cn = (...classes: any[]) => classes.filter(Boolean).join(' ');
+import { cn } from "../../lib/utils";
 
 interface IndicatorsRowProps {
   indicators: {

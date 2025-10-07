@@ -183,8 +183,8 @@ async function getRealNewsData(query: string): Promise<any[]> {
       console.log(`🔍 Using Milvus query with ticker filter for: ${tickerSymbol}`);
       
       try {
-        // Use query endpoint with ticker filter (more reliable than vector search)
-        const queryResults = await milvusRequest('/v1/vector/query', 'POST', {
+        // Use v2 query endpoint for Milvus serverless
+        const queryResults = await milvusRequest('/v2/vectordb/collections/query', 'POST', {
           collectionName: MILVUS_CONFIG.collection,
           filter: `ticker == "${tickerSymbol}"`,
           limit: 1000,

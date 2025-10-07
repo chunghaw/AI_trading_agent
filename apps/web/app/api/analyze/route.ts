@@ -1098,44 +1098,53 @@ export async function POST(req: NextRequest) {
       console.error("❌ Validation errors:", error.issues || error.message);
       console.error("❌ Response data that failed validation:", JSON.stringify(agentResponse, null, 2));
       
-      // Return a simplified response with all required fields
+      // Return a simplified response with all required fields in AgentReportSchema format
       const fallbackResponse = {
-        symbol: detectedSymbol,
-        timeframe: "1d",
-        answer: finalAnswer?.answer || combinedAnswer || "Analysis completed but format validation failed.",
-        action: "FLAT" as const,
-        confidence: 0.5,
-        bullets: ["Analysis completed", "Technical indicators calculated", "News analysis available"],
-        indicators: {
-          rsi14: indicators.rsi14 || 0,
-          macd: indicators.macd?.macd || 0,
-          macd_signal: indicators.macd?.signal || 0,
-          macd_hist: indicators.macd?.histogram || 0,
-          ema20: indicators.ema_20 || indicators.ma_20 || 0,
-          ema50: indicators.ema_50 || indicators.ma_50 || 0,
-          ema200: indicators.ema_200 || indicators.ma_200 || 0,
-          atr14: indicators.atr || 0,
-          fibonacci_support: indicators.fibonacci?.support || [],
-          fibonacci_resistance: indicators.fibonacci?.resistance || [],
-          vwap: indicators.vwap || 0,
-          atr: indicators.atr || 0,
-          volume_trend: indicators.volumeAnalysis?.trend || "insufficient_data",
-          volume_price_relationship: indicators.volumeAnalysis?.volumePriceRelationship || "insufficient_data"
-        },
-        levels: {
-          support: indicators.fibonacci?.support?.map(String) || [],
-          resistance: indicators.fibonacci?.resistance?.map(String) || [],
-          breakout_trigger: ""
+        header: {
+          name: detectedSymbol || "Unknown Company",
+          market: "stocks",
+          type: "CS", 
+          exchange: "XNAS",
+          currency: "USD",
+          employees: null,
+          description: "Analysis completed but format validation failed."
         },
         news: {
-          summary: ["News analysis completed"],
-          citations: newsAnalysisResult?.sources || [],
-          rationale: newsAnalysisResult?.trading_implications || "News analysis completed"
+          sentiment: "neutral" as const,
+          key_points: ["Analysis completed", "Technical indicators calculated", "News analysis available"],
+          analysis: "News analysis completed but format validation failed.",
+          sources: [],
+          status: "Balanced" as const,
+          no_data: true
         },
         technical: {
-          summary: ["Technical analysis completed"],
-          rationale: technicalAnalysis?.technical_analysis || technicalAnalysis?.trading_outlook || "Technical analysis completed"
+          indicators: {
+            rsi: indicators.rsi14 || 0,
+            macd_line: indicators.macd?.macd || 0,
+            macd_signal: indicators.macd?.signal || 0,
+            macd_hist: indicators.macd?.histogram || 0,
+            ema20: indicators.ema_20 || indicators.ma_20 || 0,
+            ema50: indicators.ema_50 || indicators.ma_50 || 0,
+            ema200: indicators.ema_200 || indicators.ma_200 || 0,
+            vwap: indicators.vwap || 0,
+            atr: indicators.atr || 0,
+            volume_trend: "flat" as const,
+            vol_price_relation: "neutral" as const
+          },
+          analysis: "Technical analysis completed but format validation failed.",
+          sentiment: "neutral" as const,
+          status: "Neutral" as const
         },
+        final_answer: {
+          summary: finalAnswer?.answer || combinedAnswer || "Analysis completed but format validation failed.",
+          key_insights: ["Technical analysis completed", "News analysis completed", "Format validation failed"],
+          overall_status: "neutral" as const
+        },
+        meta: {
+          ticker: detectedSymbol,
+          as_of: new Date().toISOString(),
+          horizon: "1–3 days" as const
+        }
       };
       
       return NextResponse.json({ 

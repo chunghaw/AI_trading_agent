@@ -1,7 +1,1 @@
-{
-  "buildCommand": "cd apps/web && rm -rf .next node_modules/.cache && npm run build",
-  "outputDirectory": "apps/web/.next",
-  "framework": "nextjs",
-  "cleanUrls": true,
-  "installCommand": "npm install"
-}
+{}

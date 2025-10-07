@@ -58,3 +58,4 @@ export async function searchAndRerankNewsStrict(symbol: string, query: string, s
     return [];
   }
 }
+

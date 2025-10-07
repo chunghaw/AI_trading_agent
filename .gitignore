@@ -113,6 +113,7 @@
 **/yarn-error.log*
 **/lerna-debug.log*
 **/.pnpm-debug.log*
+server.log
 
 # Runtime data
 **/pids

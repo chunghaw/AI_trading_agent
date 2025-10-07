@@ -1009,13 +1009,13 @@ export async function POST(req: NextRequest) {
         exchange: companyInfo?.primary_exchange || "Unknown Exchange",
         currency: companyInfo?.currency || "USD",
         employees: companyInfo?.total_employees || null,
-        description: companyInfo?.description || "No description available"
+        description: (companyInfo?.description || "No description available").substring(0, 200)
       },
       news: {
         sentiment: newsAnalysisResult?.sentiment || "neutral",
-        key_points: newsAnalysisResult?.key_points || newsAnalysisResult?.key_drivers || [],
+        key_points: (newsAnalysisResult?.key_points || newsAnalysisResult?.key_drivers || []).slice(0, 7).filter(point => point && point.trim().length > 0),
         analysis: newsAnalysisResult?.analysis || newsAnalysisResult?.news_analysis || "No news analysis available",
-        sources: newsAnalysisResult?.sources || newsAnalysisResult?.citations || [],
+        sources: (newsAnalysisResult?.sources || newsAnalysisResult?.citations || []).filter(url => url && typeof url === 'string' && url.startsWith('http')),
         status: mapNewsSentimentToStatus(newsAnalysisResult?.sentiment || "neutral"),
         no_data: newsDocs.length === 0
       },
@@ -1054,7 +1054,7 @@ export async function POST(req: NextRequest) {
       meta: {
         ticker: detectedSymbol,
         as_of: new Date().toISOString(),
-        horizon: "1–3 days"
+        horizon: "1–3 days" as const
       }
     };
     // Step 5: Validate with AgentReportSchema

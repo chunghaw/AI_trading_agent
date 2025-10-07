@@ -93,3 +93,4 @@ async function testMilvusConnection() {
 }
 
 testMilvusConnection().catch(console.error);
+

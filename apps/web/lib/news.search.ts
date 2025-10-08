@@ -5,7 +5,7 @@ const MILVUS_CONFIG = {
   uri: process.env.MILVUS_URI || process.env.MILVUS_ADDRESS || "localhost:19530",
   user: process.env.MILVUS_USER || process.env.MILVUS_USERNAME || "",
   password: process.env.MILVUS_PASSWORD || "",
-  collection: process.env.MILVUS_COLLECTION_NEWS || "polygon_news_data"
+  collection: "polygon_news_data"  // Force correct collection name
 };
 
 // Debug Milvus configuration

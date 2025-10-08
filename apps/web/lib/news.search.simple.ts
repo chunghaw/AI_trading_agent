@@ -1,12 +1,18 @@
-// Simple news search using Python script
-import { spawn } from 'child_process';
+// Simple news search using Milvus REST API
+import { searchAndRerankNewsStrict as searchNews } from './news.search';
 
 export async function searchAndRerankNewsStrict(symbol: string, query: string, since: string): Promise<any[]> {
   console.log(`🔍 News Search Debug - Symbol: ${symbol}, Query: ${query}, Since: ${since}`);
   
-  // For now, return empty results to prevent timeout
-  // TODO: Implement proper Milvus search for Vercel deployment
-  console.log(`⚠️ News search temporarily disabled to prevent timeout`);
-  return [];
+  try {
+    // Use the proper Milvus REST API implementation
+    const results = await searchNews(symbol, query, since);
+    console.log(`✅ Found ${results.length} news articles for ${symbol}`);
+    return results;
+  } catch (error) {
+    console.error(`❌ News search failed for ${symbol}:`, error);
+    // Return empty array instead of throwing to allow the app to continue
+    return [];
+  }
 }
 

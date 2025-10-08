@@ -9,7 +9,11 @@ const nextConfig = {
   // Force cache invalidation for deployment
   env: {
     BUILD_TIMESTAMP: new Date().toISOString(),
+    FORCE_REBUILD: Math.random().toString(36),
   },
+  // Disable all caching
+  generateEtags: false,
+  poweredByHeader: false,
   // Temporarily disable TypeScript for deployment
   typescript: {
     ignoreBuildErrors: true,

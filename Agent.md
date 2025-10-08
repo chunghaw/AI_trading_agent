@@ -27,6 +27,7 @@ News citations must be real URLs from inputs. No invented links.
 - Latest row per ticker with pre-calculated technical indicators
 - Company metadata from company_info_cache
 - Required fields: rsi, macd_line, macd_signal, macd_hist, ema20, ema50, ema200, vwap, atr, volume_trend, volume_price_relationship
+- Price data: current price, previous close, daily change, change percentage, date
 
 ### News Layer
 - Milvus vector database for semantic search
@@ -304,4 +305,15 @@ Implementation Hints (route.ts)
 
 Never send “analysis completed” or “support/resistance” strings.
 Map LLM outputs into the response model exactly; validate with Zod before returning.
-If indicators are stale (gold_time older than N minutes), include a small “as of” note via meta.as_of.
+If indicators are stale (gold_time older than N minutes), include a small "as of" note via meta.as_of.
+
+## UI Components
+
+### Price Indicator Component
+- **Location**: Header section beside ticker symbol (TradingView style)
+- **Display**: Current price, daily change, change percentage, date
+- **Styling**: Green for gains (+), red for losses (-), gray for unchanged
+- **Data Source**: Real-time price data from gold table via API
+- **Format**: $XXX.XX (+/-X.XX (+/-X.XX%))
+- **Icons**: TrendingUp for gains, TrendingDown for losses
+- **Implementation**: PriceIndicator.tsx component in ReportCard header

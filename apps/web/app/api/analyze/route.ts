@@ -631,37 +631,12 @@ export async function POST(req: NextRequest) {
       }
     } catch (error: any) {
       console.error("❌ STEP 1 ERROR: Failed to fetch OHLCV data from Postgres:", error);
-      console.log("⚠️ Falling back to mock data due to database connection failure");
-      
-      // Fallback to mock data when database connection fails
-      symbolData = [{
+      return NextResponse.json({ 
+        error: `Database connection failed. Cannot fetch OHLCV data for ${detectedSymbol}. Please ensure database is properly configured.`,
+        code: "DATABASE_CONNECTION_ERROR",
         symbol: detectedSymbol,
-        date: new Date().toISOString().split('T')[0],
-        close: 185.50,
-        volume: 50000000,
-        company_name: `${detectedSymbol} Corp`,
-        market: "stocks",
-        stock_type: "CS",
-        primary_exchange: "XNAS",
-        currency: "USD",
-        total_employees: null,
-        description: "Company description not available",
-        // Mock technical indicators
-        rsi_14: 65.5,
-        ma_20: 180.25,
-        ma_50: 175.80,
-        ma_200: 165.40,
-        ema_20: 182.15,
-        ema_50: 177.30,
-        ema_200: 168.75,
-        macd_line: 2.45,
-        macd_signal: 2.20,
-        macd_histogram: 0.25,
-        vwap: 185.70,
-        atr_14: 4.25,
-        volume_trend: "rising",
-        volume_price_relationship: "bullish"
-      }];
+        details: error.message
+      }, { status: 500 });
     }
 
     console.log(`🔍 About to call barsQualityOk with bars:`, bars);

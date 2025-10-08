@@ -6,6 +6,10 @@ const __dirname = path.dirname(__filename);
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Force cache invalidation for deployment
+  env: {
+    BUILD_TIMESTAMP: new Date().toISOString(),
+  },
   // Temporarily disable TypeScript for deployment
   typescript: {
     ignoreBuildErrors: true,

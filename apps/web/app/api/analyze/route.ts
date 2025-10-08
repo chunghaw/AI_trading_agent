@@ -631,11 +631,27 @@ export async function POST(req: NextRequest) {
       }
     } catch (error: any) {
       console.error("❌ STEP 1 ERROR: Failed to fetch OHLCV data from Postgres:", error);
+      console.error("❌ Error details:", {
+        message: error.message,
+        code: error.code,
+        errno: error.errno,
+        syscall: error.syscall,
+        hostname: error.hostname,
+        port: error.port,
+        stack: error.stack
+      });
+      console.error("❌ Environment check:", {
+        POSTGRES_URL: process.env.POSTGRES_URL ? 'SET (length: ' + process.env.POSTGRES_URL.length + ')' : 'NOT SET',
+        NODE_ENV: process.env.NODE_ENV || 'NOT SET'
+      });
+      
       return NextResponse.json({ 
-        error: `Database connection failed. Cannot fetch OHLCV data for ${detectedSymbol}. Please ensure database is properly configured.`,
+        error: `Database connection failed. Cannot fetch OHLCV data for ${detectedSymbol}.`,
         code: "DATABASE_CONNECTION_ERROR",
         symbol: detectedSymbol,
-        details: error.message
+        details: error.message,
+        errorCode: error.code,
+        syscall: error.syscall
       }, { status: 500 });
     }
 

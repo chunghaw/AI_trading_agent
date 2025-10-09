@@ -591,9 +591,9 @@ export async function POST(req: NextRequest) {
             COALESCE(c.currency_name, g.currency) as currency,
             COALESCE(c.total_employees, g.total_employees) as total_employees,
             COALESCE(c.description, g.description) as description,
-            g.rsi_14 as rsi, g.ma_5, g.ma_20, g.ma_50, g.ma_200,
+            g.rsi as rsi, g.ma_5, g.ma_20, g.ma_50, g.ma_200,
             g.ema_20, g.ema_50, g.ema_200, g.macd_line, g.macd_signal, g.macd_histogram,
-            g.vwap, g.atr_14,
+            g.vwap, g.atr as atr_14,
             g.volume_trend, g.volume_price_relationship
           FROM gold_ohlcv_daily_metrics g
           LEFT JOIN company_info_cache c ON g.symbol = c.symbol
@@ -1178,7 +1178,17 @@ export async function POST(req: NextRequest) {
     }
 
   } catch (error: any) {
-    console.error("Analysis error:", error);
+    console.error("❌ === ANALYSIS ERROR ===");
+    console.error("❌ Error message:", error.message);
+    console.error("❌ Error stack:", error.stack);
+    console.error("❌ Error details:", {
+      name: error.name,
+      code: error.code,
+      errno: error.errno,
+      syscall: error.syscall,
+      hostname: error.hostname,
+      port: error.port
+    });
     
     if (error.message?.includes("OHLCV insufficient")) {
       return NextResponse.json({ 
@@ -1194,9 +1204,12 @@ export async function POST(req: NextRequest) {
       }, { status: 422 });
     }
     
+    // Return detailed error for debugging
     return NextResponse.json({ 
       error: "Failed to analyze data",
-      details: error.message 
+      details: error.message,
+      errorType: error.name,
+      code: error.code || "UNKNOWN_ERROR"
     }, { status: 500 });
   }
 }

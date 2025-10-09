@@ -5,7 +5,8 @@ const MILVUS_CONFIG = {
   uri: process.env.MILVUS_URI || process.env.MILVUS_ADDRESS || "localhost:19530",
   user: process.env.MILVUS_USER || process.env.MILVUS_USERNAME || "",
   password: process.env.MILVUS_PASSWORD || "",
-  collection: process.env.MILVUS_COLLECTION_NEWS || "polygon_news_data"
+  // Force correct collection name - was causing 500 errors on Vercel with old "news_chunks" value
+  collection: "polygon_news_data"
 };
 
 // Debug Milvus configuration

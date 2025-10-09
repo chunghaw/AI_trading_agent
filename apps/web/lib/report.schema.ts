@@ -1,5 +1,14 @@
 import { z } from "zod";
 
+// New schema that matches the API response format
+export const ApiResponseSchema = z.object({
+  ticker: z.string(),
+  newsStatus: z.string(),
+  technicalStatus: z.string(),
+  overallStatus: z.enum(["bullish", "neutral", "bearish"])
+});
+
+// Legacy schema for backward compatibility
 export const ReportSchema = z.object({
   symbol: z.string(),
   timeframe: z.string().default("1d"),
@@ -7,15 +16,13 @@ export const ReportSchema = z.object({
   action: z.enum(["BUY","SELL","FLAT"]),
   confidence: z.number().min(0).max(1),
   bullets: z.array(z.string()).min(3).max(6),
-  company: z.object({
-    name: z.string().default("Unknown Company"),
-    market: z.string().default("Unknown Market"),
-    type: z.string().default("Unknown Type"),
-    exchange: z.string().default("Unknown Exchange"),
-    currency: z.string().default("USD"),
-    employees: z.number().nullable().default(null),
-    description: z.string().default("No description available")
-  }).optional(),
+  price: z.object({
+    current: z.number(),
+    previous: z.number(),
+    change: z.number(),
+    changePercent: z.number(),
+    date: z.string()
+  }),
   indicators: z.object({
     rsi14: z.number(),
     macd: z.number(),
@@ -25,12 +32,6 @@ export const ReportSchema = z.object({
     ema50: z.number(),
     ema200: z.number(),
     atr14: z.number(),
-    fibonacci_support: z.array(z.number()).default([]),
-    fibonacci_resistance: z.array(z.number()).default([]),
-    vwap: z.number().default(0),
-    atr: z.number().default(0),
-    volume_trend: z.string().default("insufficient_data"),
-    volume_price_relationship: z.string().default("insufficient_data")
   }),
   levels: z.object({
     support: z.array(z.string()).or(z.array(z.number())).default([]),
@@ -38,33 +39,20 @@ export const ReportSchema = z.object({
     breakout_trigger: z.string().or(z.number()).default("")
   }),
   news: z.object({
-    summary: z.array(z.string()).default(["No material news available in window."]),
-    citations: z.array(z.string()).default([]),
-    metrics: z.object({
-      docs: z.number().default(0),
-      sources: z.number().default(0),
-      pos: z.number().default(0),
-      neg: z.number().default(0),
-      neu: z.number().default(0),
-      net_sentiment: z.number().default(0)
-    }).optional(),
-    catalysts: z.array(z.string()).default([]),
-    risks: z.array(z.string()).default([]),
-    confidence_reasons: z.array(z.string()).default([])
+    summary: z.array(z.string()).min(1),
+    citations: z.array(z.string()).default([])
   }),
   technical: z.object({
-    summary: z.array(z.string()).default([]),
-    chart_notes: z.string().default("Analysis based on current indicators"),
-    scenarios: z.object({
-      bull_case: z.string().optional(),
-      bear_case: z.string().optional()
-    }).optional(),
-    risk_box: z.object({
-      atr_pct: z.string().optional(),
-      suggested_stop: z.string().optional(),
-      position_hint: z.string().optional()
-    }).optional()
-  })
+    summary: z.array(z.string()).min(1),
+    chart_notes: z.array(z.string()).optional(),
+    image_used: z.boolean().optional()
+  }),
+  portfolio: z.object({
+    size_suggestion_pct: z.number().min(0).max(1).default(0.05),
+    tp: z.array(z.string()).optional(),
+    sl: z.string().optional()
+  }).optional()
 });
 
 export type Report = z.infer<typeof ReportSchema>;
+export type ApiResponse = z.infer<typeof ApiResponseSchema>;

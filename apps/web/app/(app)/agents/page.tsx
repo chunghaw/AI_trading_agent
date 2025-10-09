@@ -1,169 +1,257 @@
 "use client";
 
 import React from "react";
-import { Card } from "../../../components/ui/card";
-import { Button } from "../../../components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Send } from "lucide-react";
-import { AgentReportSchema, type AgentReport } from "../../../lib/agent.schema";
-import { cn } from "../../../lib/utils";
-import { AgentReportCard } from "../../../components/report/AgentReportCard";
 
+import { ApiResponseSchema, type ApiResponse } from "@/lib/report.schema";
+import { cn } from "@/lib/utils";
+import { ReportCard } from "@/components/report/ReportCard";
+import { ErrorBanner } from "@/components/report/ErrorBanner";
+
+// Simple component to display the new API response format
+function ApiResponseCard({ response }: { response: ApiResponse }) {
+  const getStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'bullish': return 'text-green-600 bg-green-50';
+      case 'bearish': return 'text-red-600 bg-red-50';
+      case 'neutral': return 'text-yellow-600 bg-yellow-50';
+      default: return 'text-gray-600 bg-gray-50';
+    }
+  };
+
+  // Capitalize first letter of status
+  const capitalizeStatus = (status: string) => {
+    return status.charAt(0).toUpperCase() + status.slice(1);
+  };
+
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 shadow-sm max-w-4xl mx-auto">
+      {/* Header */}
+      <div className="border-b border-gray-200 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">{response.ticker}</h1>
+            <p className="text-sm text-gray-500">Market Analysis</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Status Cards */}
+      <div className="p-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* News Status */}
+          <div className="text-center">
+            <h3 className="text-sm font-medium text-gray-500 mb-2">News Sentiment</h3>
+            <div className={`inline-flex px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(response.newsStatus)}`}>
+              {capitalizeStatus(response.newsStatus)}
+            </div>
+          </div>
+
+          {/* Technical Status */}
+          <div className="text-center">
+            <h3 className="text-sm font-medium text-gray-500 mb-2">Technical Analysis</h3>
+            <div className={`inline-flex px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(response.technicalStatus)}`}>
+              {capitalizeStatus(response.technicalStatus)}
+            </div>
+          </div>
+
+          {/* Overall Status */}
+          <div className="text-center">
+            <h3 className="text-sm font-medium text-gray-500 mb-2">Overall Outlook</h3>
+            <div className={`inline-flex px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(response.overallStatus)}`}>
+              {capitalizeStatus(response.overallStatus)}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const analysisTypes = [
   { id: "combined", label: "Combined Analysis", description: "News + Technical + Portfolio" },
 ];
 
+// Common stock symbols to detect from text
+const STOCK_SYMBOLS = [
+  "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "TSLA", "META", "BRK.B",
+  "UNH", "JNJ", "V", "PG", "HD", "MA", "BAC", "ABBV", "PFE", "KO",
+  "AVGO", "PEP", "TMO", "COST", "DHR", "MRK", "WMT", "ACN", "ABT",
+  "LLY", "VZ", "TXN", "QCOM", "HON", "PM", "LOW", "UNP", "RTX",
+  "SPY", "QQQ", "IWM", "GLD", "SLV", "TLT", "VNQ", "XLE", "XLF",
+  "BTC-USD", "ETH-USD", "SOL-USD", "ADA-USD", "DOGE-USD", "AMD"
+];
 
-
-
+// Function to detect stock symbol from text
+function detectSymbolFromText(text: string): string | null {
+  const upperText = text.toUpperCase();
+  
+  // Look for exact symbol matches
+  for (const symbol of STOCK_SYMBOLS) {
+    if (upperText.includes(symbol)) {
+      return symbol;
+    }
+  }
+  
+  // Look for common company names and map to symbols
+  const companyMappings: { [key: string]: string } = {
+    "APPLE": "AAPL",
+    "MICROSOFT": "MSFT",
+    "GOOGLE": "GOOGL",
+    "ALPHABET": "GOOGL",
+    "AMAZON": "AMZN",
+    "NVIDIA": "NVDA",
+    "TESLA": "TSLA",
+    "FACEBOOK": "META",
+    "META": "META",
+    "BERKSHIRE": "BRK.B",
+    "UNITEDHEALTH": "UNH",
+    "JOHNSON": "JNJ",
+    "VISA": "V",
+    "PROCTER": "PG",
+    "HOME DEPOT": "HD",
+    "MASTERCARD": "MA",
+    "BANK OF AMERICA": "BAC",
+    "ABBVIE": "ABBV",
+    "PFIZER": "PFE",
+    "COCA COLA": "KO",
+    "BROADCOM": "AVGO",
+    "PEPSI": "PEP",
+    "THERMO FISHER": "TMO",
+    "COSTCO": "COST",
+    "DANAHER": "DHR",
+    "MERCK": "MRK",
+    "WALMART": "WMT",
+    "ACCENTURE": "ACN",
+    "ABBOTT": "ABT",
+    "ELI LILLY": "LLY",
+    "VERIZON": "VZ",
+    "TEXAS INSTRUMENTS": "TXN",
+    "QUALCOMM": "QCOM",
+    "HONEYWELL": "HON",
+    "PHILIP MORRIS": "PM",
+    "LOWE": "LOW",
+    "UNION PACIFIC": "UNP",
+    "RAYTHEON": "RTX",
+    "ADVANCED MICRO": "AMD",
+    "AMD": "AMD"
+  };
+  
+  for (const [company, symbol] of Object.entries(companyMappings)) {
+    if (upperText.includes(company)) {
+      return symbol;
+    }
+  }
+  
+  return null;
+}
 
 export default function AgentsPage() {
   const [prompt, setPrompt] = React.useState("");
+  const [symbol, setSymbol] = React.useState("NVDA");
   const [timeframe, setTimeframe] = React.useState("1d");
-  const [isLoading, setIsLoading] = React.useState(false);
-  const [response, setResponse] = React.useState<AgentReport | null>(null);
-  const [isMockData, setIsMockData] = React.useState(false);
-  const [showModelDropdown, setShowModelDropdown] = React.useState(false);
-  const [progressMessage, setProgressMessage] = React.useState("");
+  const [sinceDays, setSinceDays] = React.useState(7);
 
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [response, setResponse] = React.useState<ApiResponse | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
+  const [symbolAutoDetected, setSymbolAutoDetected] = React.useState(false);
 
   // Auto-detect symbol when prompt changes
   const handlePromptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setPrompt(e.target.value);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      if (prompt.trim() && !isLoading) {
-        handleSubmit(e as any);
-      }
+    const newPrompt = e.target.value;
+    setPrompt(newPrompt);
+    
+    // Auto-detect symbol from prompt
+    const detectedSymbol = detectSymbolFromText(newPrompt);
+    if (detectedSymbol && detectedSymbol !== symbol) {
+      setSymbol(detectedSymbol);
+      setSymbolAutoDetected(true);
+      // Clear the auto-detected flag after 3 seconds
+      setTimeout(() => setSymbolAutoDetected(false), 3000);
     }
   };
 
-
+  const handleSymbolChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSymbol(e.target.value.toUpperCase());
+    setSymbolAutoDetected(false); // Clear auto-detected flag when manually changed
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!prompt.trim()) return;
 
-    // Clear previous response immediately
+    // Clear previous response and error
     setResponse(null);
-    setIsMockData(false);
+    setError(null);
     setIsLoading(true);
-    setProgressMessage("🤖 Detecting stock symbol from your question...");
 
     try {
-      // Simulate progress updates
-      const progressSteps = [
-        "📊 Loading OHLCV data from database...",
-        "📰 Searching for relevant news articles...",
-        "🔍 Analyzing technical indicators...",
-        "🧠 Processing news sentiment analysis...",
-        "📈 Computing technical analysis...",
-        "🎯 Generating final investment recommendation..."
-      ];
-
-      let currentStep = 0;
-      const progressInterval = setInterval(() => {
-        if (currentStep < progressSteps.length) {
-          setProgressMessage(progressSteps[currentStep]);
-          currentStep++;
-        }
-      }, 2000);
-
       const res = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          prompt,
+          symbol,
+          query: prompt,
           timeframe,
-          since_days: 7,
-          k: 12
+          since_days: sinceDays
         }),
       });
 
-      clearInterval(progressInterval);
-      setProgressMessage("✅ Analysis complete! Processing results...");
+      const data = await res.json();
 
       if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || "Failed to get response");
-      }
-
-      const data = await res.json();
-      console.log("🔍 Raw API Response:", data);
-      
-      try {
-        const validatedData = AgentReportSchema.parse(data);
-        console.log("✅ Schema validation passed:", validatedData);
-        setResponse(validatedData);
-      } catch (schemaError: any) {
-        console.error("❌ Schema validation failed:", schemaError);
-        console.error("❌ Raw data that failed validation:", data);
-        
-        // Try to set response anyway for debugging
-        setResponse(data);
-        
-        // Show specific error
-        alert(`Schema validation failed: ${schemaError.message}. Check console for details.`);
+        // Handle specific error cases
+        if (res.status === 422) {
+          if (data.code === "NO_NEWS_DATA") {
+            setError(`No news data available for ${symbol}. The Airflow DAG may need to be run to ingest recent news.`);
+          } else if (data.code === "INSUFFICIENT_OHLCV") {
+            setError("Insufficient OHLCV data. Please ensure proper data sources are configured.");
+          } else {
+            setError(data.error || "Data validation failed");
+          }
+        } else {
+          setError(data.error || "Analysis failed");
+        }
         return;
       }
-      
-      // Set mock data to false since we're not using mock data anymore
-      setIsMockData(false);
-      
 
+      const validatedData = ApiResponseSchema.parse(data);
+      setResponse(validatedData);
       
-      // Log RAG data sources for debugging
-      const metadata = (data as any)._metadata;
-      if (metadata?.ragData) {
-        console.log(`📊 RAG Analysis:`, {
-          newsCount: metadata.ragData.newsCount,
-          ohlcvSource: metadata.ragData.ohlcvSource,
-          newsSource: metadata.ragData.newsSource
-        });
-      }
     } catch (error: any) {
-      console.error("❌ Full error object:", error);
-      console.error("❌ Error message:", error.message);
-      console.error("❌ Error stack:", error.stack);
-      console.error("❌ Error name:", error.name);
-      
-      // Handle specific error types
-      if (error.message?.includes("SYMBOL_NOT_SUPPORTED")) {
-        alert(`Symbol not supported. Only NVDA is currently supported with real data.`);
-      } else if (error.message?.includes("not available yet")) {
-        alert(`Real-time data for this symbol is not available yet. We're working on adding more symbols soon!`);
-      } else if (error.message?.includes("DATA_NOT_AVAILABLE")) {
-        alert(`Real-time data for this symbol is not available yet. We're working on adding more symbols soon!`);
-      } else if (error.message?.includes("Schema validation failed")) {
-        // Don't show alert again, we already showed it above
-        console.log("Schema validation error handled above");
-      } else {
-        alert(`Failed to get analysis: ${error.message}. Check console for details.`);
-      }
+      console.error("Error:", error);
+      setError("Failed to get analysis. Please try again.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleExampleClick = (examplePrompt: string) => {
+  const handleExampleClick = (examplePrompt: string, exampleSymbol: string) => {
     setPrompt(examplePrompt);
+    setSymbol(exampleSymbol);
+    setSymbolAutoDetected(false);
     // Clear any existing response when selecting an example
     setResponse(null);
-    setIsMockData(false);
+    setError(null);
   };
 
-
+  const handleRetry = () => {
+    setError(null);
+    if (prompt.trim()) {
+      handleSubmit(new Event('submit') as any);
+    }
+  };
 
   const examplePrompts = [
-    { prompt: "What's the technical outlook for NVDA?" },
-    { prompt: "Should I buy GOOGL based on recent news?" },
-    { prompt: "Analyze AAPL's portfolio positioning" },
-    { prompt: "What's the market sentiment for TSLA?" },
-    { prompt: "Should I sell my MSFT position?" },
-    { prompt: "What's the risk profile for AMZN?" },
+    { prompt: "What's the technical outlook for NVDA?", symbol: "NVDA" },
+    { prompt: "Should I buy AMD based on recent news?", symbol: "AMD" },
+    { prompt: "Analyze MSFT's portfolio positioning", symbol: "MSFT" },
+    { prompt: "What's the market sentiment for TSLA?", symbol: "TSLA" },
+    { prompt: "Should I sell my AAPL position?", symbol: "AAPL" },
+    { prompt: "What's the risk profile for META?", symbol: "META" },
   ];
 
   return (
@@ -176,9 +264,6 @@ export default function AgentsPage() {
         <p className="text-lg text-[var(--muted)] max-w-2xl mx-auto leading-relaxed">
           Ask questions about market analysis, technical indicators, news sentiment, or portfolio insights
         </p>
-        <p className="text-sm text-[var(--muted)] max-w-2xl mx-auto">
-          Currently supporting: <span className="text-green-400 font-medium">NVDA</span>, <span className="text-green-400 font-medium">GOOGL</span>, <span className="text-green-400 font-medium">AAPL</span>, <span className="text-green-400 font-medium">MSFT</span>, <span className="text-green-400 font-medium">TSLA</span> and other major stocks
-        </p>
       </div>
 
       {/* Cursor-style Chat Input */}
@@ -187,18 +272,13 @@ export default function AgentsPage() {
           <form onSubmit={handleSubmit} className="p-0">
             <div className="relative">
               <textarea
-                placeholder="Ask Trading AI to analyze markets, optimize strategies, explore opportunities... (Press Enter to submit)"
+                placeholder="Ask Trading AI to analyze markets, optimize strategies, explore opportunities..."
                 value={prompt}
                 onChange={handlePromptChange}
-                onKeyDown={handleKeyDown}
                 className="w-full h-20 px-6 py-4 bg-transparent border-none text-[var(--text)] placeholder-[var(--muted)] resize-none focus:outline-none text-base leading-relaxed"
               />
+
               <div className="flex items-center justify-between px-6 py-3 border-t border-white/10 bg-[#2a2a2a]/50">
-                <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
-                  <span>Press Enter to submit</span>
-                  <span>•</span>
-                  <span>Shift+Enter for new line</span>
-                </div>
                 <div className="flex items-center space-x-4">
                   <div className="relative">
                     <Button
@@ -212,7 +292,39 @@ export default function AgentsPage() {
                     </Button>
                   </div>
                   
+                  <div className="flex items-center space-x-2">
+                    <div className="relative">
+                      <input
+                        placeholder="NVDA"
+                        value={symbol}
+                        onChange={handleSymbolChange}
+                        className={cn(
+                          "px-3 py-1.5 bg-white/5 rounded-lg border text-sm text-[var(--text)] placeholder-[var(--muted)] w-20 transition-all duration-200",
+                          symbolAutoDetected
+                            ? "border-emerald-500/50 bg-emerald-900/20" 
+                            : "border-white/10"
+                        )}
+                      />
+                      {symbolAutoDetected && (
+                        <div className="absolute -top-6 left-0 text-xs text-emerald-400 font-medium">
+                          Auto-detected
+                        </div>
+                      )}
+                    </div>
+
+                    <select
+                      value={sinceDays}
+                      onChange={(e) => setSinceDays(Number(e.target.value))}
+                      className="px-3 py-1.5 bg-white/5 rounded-lg border border-white/10 text-sm text-[var(--text)]"
+                    >
+                      <option value={3}>3d</option>
+                      <option value={7}>7d</option>
+                      <option value={14}>14d</option>
+                      <option value={30}>30d</option>
+                    </select>
+                  </div>
                 </div>
+
                 <Button
                   type="submit"
                   disabled={isLoading || !prompt.trim()}
@@ -235,7 +347,7 @@ export default function AgentsPage() {
           {examplePrompts.map((example, index) => (
             <button
               key={index}
-              onClick={() => handleExampleClick(example.prompt)}
+              onClick={() => handleExampleClick(example.prompt, example.symbol)}
               className="px-4 py-2 bg-white/5 rounded-lg border border-white/10 hover:bg-white/10 text-sm text-[var(--text)] transition-colors"
             >
               {example.prompt}
@@ -244,31 +356,33 @@ export default function AgentsPage() {
         </div>
       </div>
 
+      {/* Error Banner */}
+      {error && (
+        <ErrorBanner 
+          message={error}
+          steps={[
+            "Check if the Airflow DAG is running to ingest news data",
+            "Verify the symbol exists in our data sources",
+            "Try a different time window or symbol"
+          ]}
+          onRetry={handleRetry}
+        />
+      )}
+
       {/* Analysis Results */}
       {response && (
         <div className="mt-8">
-          <AgentReportCard report={response} />
-          
-          {/* DEBUG: Show raw JSON as fallback */}
-          <details className="mt-4">
-            <summary className="cursor-pointer text-sm text-gray-400 hover:text-gray-300">
-              🔍 Debug: Show Raw Response
-            </summary>
-            <pre className="text-xs text-gray-300 bg-black/50 p-4 rounded-lg overflow-auto max-h-96 mt-2 whitespace-pre-wrap">
-              {JSON.stringify(response, null, 2)}
-            </pre>
-          </details>
+          <div className="mb-4 text-center text-sm text-[var(--muted)]">
+            News window: {sinceDays}d • Final K: {process.env.NEWS_FINAL_K || 12}
+          </div>
+          <ApiResponseCard response={response} />
         </div>
       )}
 
       {/* Loading State */}
       {isLoading && (
-        <div className="flex flex-col items-center justify-center py-12 space-y-4">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--accent)]"></div>
-          <div className="text-[var(--text)] text-center">
-            <div className="text-lg font-medium mb-2">AI Trading Analysis in Progress</div>
-            <div className="text-sm text-[var(--muted)]">{progressMessage}</div>
-          </div>
+        <div className="flex items-center justify-center py-12">
+          <div className="text-[var(--text)]">Analyzing market data...</div>
         </div>
       )}
     </div>

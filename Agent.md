@@ -321,6 +321,64 @@ If indicators are stale (gold_time older than N minutes), include a small "as of
 
 ## UI Components
 
+### Main Interface (Agents Page)
+- **Design**: Cursor-style dark theme interface with modern aesthetics
+- **Layout**: Centered container with max-width 1200px
+- **Background**: Dark theme with proper contrast ratios
+- **Responsive**: Mobile-friendly design with proper spacing
+
+### Chat Input Component
+- **Style**: Cursor-style chat interface with rounded corners
+- **Background**: Dark gray (#3a3a3a) with subtle borders
+- **Textarea**: Large input area (h-20) with transparent background
+- **Placeholder**: "Ask Trading AI to analyze markets, optimize strategies, explore opportunities... (Press Enter to submit)"
+- **Send Button**: Circular button with Send icon, accent color background
+- **Keyboard Shortcuts**: 
+  - Enter: Submit query
+  - Shift+Enter: New line
+- **Footer**: Instructions and Combined Analysis pill
+
+### Progress Messages
+- **Loading State**: Animated spinner with step-by-step progress
+- **Messages**: 
+  - "🤖 Detecting stock symbol from your question..."
+  - "📊 Loading OHLCV data from database..."
+  - "📰 Searching for relevant news articles..."
+  - "🔍 Analyzing technical indicators..."
+  - "🧠 Processing news sentiment analysis..."
+  - "📈 Computing technical analysis..."
+  - "🎯 Generating final investment recommendation..."
+  - "✅ Analysis complete! Processing results..."
+
+### Example Prompts
+- **Location**: Below chat input, centered
+- **Style**: Pill-shaped buttons with hover effects
+- **Examples**:
+  - "What's the technical outlook for NVDA?"
+  - "Should I buy GOOGL based on recent news?"
+  - "Analyze AAPL's portfolio positioning"
+  - "What's the market sentiment for TSLA?"
+  - "Should I sell my MSFT position?"
+  - "What's the risk profile for AMZN?"
+
+### Analysis Results Display
+- **Component**: ReportCard with full Agent.md specification
+- **Debug Mode**: Collapsible raw JSON response for troubleshooting
+- **Sections**:
+  - Company header with description
+  - News analysis with key points and sources
+  - Technical indicators table (RSI, MACD, EMAs, etc.)
+  - Technical analysis paragraph
+  - Final answer with key insights and overall status
+
+### Error Handling
+- **Alert System**: Browser alerts for specific error types
+- **Error Types**:
+  - SYMBOL_NOT_SUPPORTED: "Symbol not supported. Only NVDA is currently supported with real data."
+  - DATA_NOT_AVAILABLE: "Real-time data for this symbol is not available yet. We're working on adding more symbols soon!"
+  - Schema validation errors with console logging
+- **Console Logging**: Comprehensive error details for debugging
+
 ### Price Indicator Component
 - **Location**: Header section beside ticker symbol (TradingView style)
 - **Display**: Current price, daily change, change percentage, date
@@ -329,3 +387,11 @@ If indicators are stale (gold_time older than N minutes), include a small "as of
 - **Format**: $XXX.XX (+/-X.XX (+/-X.XX%))
 - **Icons**: TrendingUp for gains, TrendingDown for losses
 - **Implementation**: PriceIndicator.tsx component in ReportCard header
+
+### Color Scheme & Styling
+- **Primary Background**: Dark theme (#3a3a3a, #2a2a2a)
+- **Text Colors**: var(--text), var(--muted) for proper contrast
+- **Accent Color**: var(--accent) for buttons and highlights
+- **Borders**: White/10 opacity for subtle borders
+- **Hover Effects**: White/10 background on interactive elements
+- **Shadows**: Proper shadow hierarchy for depth

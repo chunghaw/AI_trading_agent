@@ -9,7 +9,13 @@ export const ReportSchema = z.object({
     exchange: z.string(),
     currency: z.string(),
     employees: z.number().nullable(),
-    description: z.string().max(200)
+    description: z.string().max(200),
+    price: z.object({
+      current: z.number().nullable(),
+      change: z.number().nullable(),
+      change_percent: z.number().nullable(),
+      as_of_date: z.string().nullable()
+    }).nullable()
   }),
   news: z.object({
     sentiment: z.enum(["bullish", "neutral", "bearish"]),
@@ -46,7 +52,8 @@ export const ReportSchema = z.object({
   meta: z.object({
     ticker: z.string(),
     as_of: z.string(),
-    horizon: z.enum(["intraday", "1–3 days", "1 week"])
+    horizon: z.enum(["intraday", "1–3 days", "1 week"]),
+    user_question: z.string()
   })
 });
 

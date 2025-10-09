@@ -205,7 +205,33 @@ export function ReportCard({ report, className, isMockData = false, dataSource =
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-3">
               <h2 className="text-2xl font-bold text-zinc-100">{report.meta?.ticker || 'Unknown'}</h2>
-              <span className="text-sm text-zinc-400">{String(report.meta?.horizon || '1d').toUpperCase()}</span>
+              {/* TradingView-style price indicator */}
+              {report.header?.price && (
+                <div className="flex items-center gap-2">
+                  <span className="text-lg font-bold text-zinc-100">
+                    ${report.header.price.current?.toFixed(2)}
+                  </span>
+                  {report.header.price.change !== null && report.header.price.change_percent !== null && (
+                    <div className="flex items-center gap-1">
+                      {report.header.price.change >= 0 ? (
+                        <TrendingUp className="w-4 h-4 text-emerald-400" />
+                      ) : (
+                        <TrendingDown className="w-4 h-4 text-red-400" />
+                      )}
+                      <span className={`text-sm font-medium ${
+                        report.header.price.change >= 0 ? 'text-emerald-400' : 'text-red-400'
+                      }`}>
+                        {report.header.price.change >= 0 ? '+' : ''}{report.header.price.change?.toFixed(2)}
+                      </span>
+                      <span className={`text-sm ${
+                        report.header.price.change >= 0 ? 'text-emerald-400' : 'text-red-400'
+                      }`}>
+                        ({report.header.price.change >= 0 ? '+' : ''}{report.header.price.change_percent?.toFixed(2)}%)
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
               {dataSource === 'databricks' && (
                 <span className="text-xs px-2 py-0.5 rounded-lg bg-sky-900/20 border border-sky-700/30 text-sky-300">
                   Databricks snapshot
@@ -318,10 +344,10 @@ export function ReportCard({ report, className, isMockData = false, dataSource =
           </section>
         )}
 
-        {/* Final Answer */}
+        {/* Overall Analysis */}
         {report.final_answer && (
-          <section aria-label="Final Answer">
-            <h3 className="text-[17px] font-medium tracking-tight text-zinc-100 mb-3">Final Answer</h3>
+          <section aria-label="Overall Analysis">
+            <h3 className="text-[17px] font-medium tracking-tight text-zinc-100 mb-3">Overall Analysis</h3>
             <div className="space-y-3">
               <p className="text-[15px] leading-relaxed text-zinc-200 bg-zinc-900/40 border border-zinc-800 rounded-lg p-4">
                 {report.final_answer.summary}
@@ -329,7 +355,7 @@ export function ReportCard({ report, className, isMockData = false, dataSource =
               
               {finalAnswer && (
                 <div className="mt-4">
-                  <h4 className="text-sm font-medium text-zinc-400 mb-2">Direct Answer</h4>
+                  <h4 className="text-sm font-medium text-zinc-400 mb-2">{report.meta?.user_question || "Direct Answer"}</h4>
                   <p className="text-[15px] leading-relaxed text-zinc-300 bg-zinc-900/40 border border-zinc-800 rounded-lg p-4">
                     {finalAnswer}
                   </p>

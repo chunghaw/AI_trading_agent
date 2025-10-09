@@ -144,3 +144,4 @@ def update_gold_table():
 
 if __name__ == "__main__":
     update_gold_table()
+

@@ -100,24 +100,36 @@ export async function POST(req: NextRequest) {
     
     console.log(`🔍 Fetching real OHLCV data from Postgres for ${detectedSymbol}`);
     const sqlQuery = `
+      WITH latest_data AS (
+        SELECT 
+          g.date, g.open, g.high, g.low, g.close, g.total_volume as volume,
+          COALESCE(c.name, g.company_name) as company_name,
+          COALESCE(c.market, g.market) as market,
+          COALESCE(c.type, g.stock_type) as stock_type,
+          COALESCE(c.primary_exchange, g.primary_exchange) as primary_exchange,
+          COALESCE(c.currency_name, g.currency) as currency,
+          COALESCE(c.total_employees, g.total_employees) as total_employees,
+          COALESCE(c.description, g.description) as description,
+          g.rsi_14 as rsi, g.ma_5, g.ma_20, g.ma_50, g.ma_200,
+          g.ema_20, g.ema_50, g.ema_200, g.macd_line, g.macd_signal, g.macd_histogram,
+          g.vwap, g.atr_14 as atr,
+          g.volume_trend, g.volume_price_relationship,
+          ROW_NUMBER() OVER (ORDER BY g.date DESC) as rn
+        FROM gold_ohlcv_daily_metrics g
+        LEFT JOIN company_info_cache c ON g.symbol = c.symbol
+        WHERE g.symbol = $1
+      )
       SELECT 
-        g.date, g.open, g.high, g.low, g.close, g.total_volume as volume,
-        COALESCE(c.name, g.company_name) as company_name,
-        COALESCE(c.market, g.market) as market,
-        COALESCE(c.type, g.stock_type) as stock_type,
-        COALESCE(c.primary_exchange, g.primary_exchange) as primary_exchange,
-        COALESCE(c.currency_name, g.currency) as currency,
-        COALESCE(c.total_employees, g.total_employees) as total_employees,
-        COALESCE(c.description, g.description) as description,
-        g.rsi_14 as rsi, g.ma_5, g.ma_20, g.ma_50, g.ma_200,
-        g.ema_20, g.ema_50, g.ema_200, g.macd_line, g.macd_signal, g.macd_histogram,
-        g.vwap, g.atr_14 as atr,
-        g.volume_trend, g.volume_price_relationship
-      FROM gold_ohlcv_daily_metrics g
-      LEFT JOIN company_info_cache c ON g.symbol = c.symbol
-      WHERE g.symbol = $1
-      ORDER BY g.date DESC
-      LIMIT 1
+        current.*,
+        prev.close as prev_close,
+        (current.close - prev.close) as price_change,
+        CASE 
+          WHEN prev.close > 0 THEN ((current.close - prev.close) / prev.close) * 100
+          ELSE NULL 
+        END as price_change_percent
+      FROM latest_data current
+      LEFT JOIN latest_data prev ON prev.rn = current.rn + 1
+      WHERE current.rn = 1
     `;
     
     const result = await client.query(sqlQuery, [detectedSymbol]);
@@ -233,7 +245,13 @@ export async function POST(req: NextRequest) {
         exchange: dbData.primary_exchange || "XNAS",
         currency: dbData.currency || "usd",
         employees: dbData.total_employees || null,
-        description: (dbData.description || `${detectedSymbol} is a publicly traded company.`).substring(0, 200)
+        description: (dbData.description || `${detectedSymbol} is a publicly traded company.`).substring(0, 200),
+        price: {
+          current: parseFloat(dbData.close) || null,
+          change: parseFloat(dbData.price_change) || null,
+          change_percent: parseFloat(dbData.price_change_percent) || null,
+          as_of_date: dbData.date || null
+        }
       },
       news: {
         sentiment: newsResult.sentiment || "neutral",
@@ -270,7 +288,8 @@ export async function POST(req: NextRequest) {
       meta: {
         ticker: detectedSymbol,
         as_of: dayjs().toISOString(),
-        horizon: since_days <= 1 ? "intraday" : since_days <= 3 ? "1–3 days" : "1 week"
+        horizon: since_days <= 1 ? "intraday" : since_days <= 3 ? "1–3 days" : "1 week",
+        user_question: query
       }
     };
     

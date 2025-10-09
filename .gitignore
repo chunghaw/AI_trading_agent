@@ -198,3 +198,4 @@ server.log
 **/plugins/
 **/standalone_admin_password.txt
 **/webserver_config.py 
+.vercel

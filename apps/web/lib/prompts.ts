@@ -11,7 +11,7 @@ Task:
 5. Return 1–5 unique source URLs used (from ARTICLES only).
 6. If nothing material: no_data=true and empty arrays.
 
-Output:
+Return a JSON object with the following structure:
 {
   "sentiment": "bullish|neutral|bearish",
   "key_points": ["...", "..."],
@@ -23,7 +23,7 @@ Output:
 Rules:
 - No TA/indicators unless present in articles.
 - Call out rumor/unconfirmed explicitly and temper tone.
-- JSON only.
+- Return only valid JSON.
 `;
 
 export const getTechnicalAnalystPrompt = () => `
@@ -37,7 +37,7 @@ Task:
 Forbidden:
 - No support/resistance, no "levels to watch", no Fib, no price targets.
 
-Output:
+Return a JSON object with the following structure:
 {
   "indicators": { rsi, macd_line, macd_signal, macd_hist, ema20, ema50, ema200, vwap, atr, volume_trend, vol_price_relation },
   "analysis": "string",
@@ -54,7 +54,7 @@ Task:
 3. Extract 3-5 key insights in bullet point format for quick reference.
 4. Map sentiment to bullish/neutral/bearish status; do not invent price levels.
 
-Output:
+Return a JSON object with the following structure:
 {
   "summary": "string (3-6 sentences)",
   "key_insights": ["string", "string", "string"],

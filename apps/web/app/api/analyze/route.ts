@@ -9,8 +9,9 @@ import { searchAndRerankNewsStrict } from "@/lib/news.search";
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
 
 const Body = z.object({
-  symbol: z.string().min(1),
+  symbol: z.string().optional(),
   query: z.string().default("trading analysis"),
+  prompt: z.string().optional(), // Support old frontend format
   timeframe: z.string().default("1d"),
   since_days: z.number().default(7)
 });
@@ -66,13 +67,16 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
     
-    const { symbol, query, timeframe, since_days } = Body.parse(requestBody);
-    console.log(`📝 Parsed request: ${query}, symbol: ${symbol}, timeframe: ${timeframe}, since_days: ${since_days}`);
+    const { symbol, query, prompt, timeframe, since_days } = Body.parse(requestBody);
+    
+    // Handle both old and new frontend formats
+    const actualQuery = prompt || query;
+    console.log(`📝 Parsed request: ${actualQuery}, symbol: ${symbol}, timeframe: ${timeframe}, since_days: ${since_days}`);
     
     // Use provided symbol or detect from query
     let detectedSymbol = symbol;
-    if (!detectedSymbol && query) {
-      detectedSymbol = await detectSymbolFromQuestion(query, openai);
+    if (!detectedSymbol && actualQuery) {
+      detectedSymbol = await detectSymbolFromQuestion(actualQuery, openai);
     }
     if (!detectedSymbol) {
       console.log(`❌ AI SYMBOL DETECTION FAILED`);

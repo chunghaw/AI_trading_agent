@@ -82,9 +82,9 @@ export async function POST(req: NextRequest) {
         COALESCE(c.currency_name, g.currency) as currency,
         COALESCE(c.total_employees, g.total_employees) as total_employees,
         COALESCE(c.description, g.description) as description,
-        g.rsi_14 as rsi, g.ma_5, g.ma_20, g.ma_50, g.ma_200,
+        g.rsi as rsi, g.ma_5, g.ma_20, g.ma_50, g.ma_200,
         g.ema_20, g.ema_50, g.ema_200, g.macd_line, g.macd_signal, g.macd_histogram,
-        g.vwap, g.atr_14,
+        g.vwap, g.atr,
         g.volume_trend, g.volume_price_relationship
       FROM gold_ohlcv_daily_metrics g
       LEFT JOIN company_info_cache c ON g.symbol = c.symbol

@@ -43,8 +43,31 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     console.log(`🚀 === ANALYSIS REQUEST START === v3.0 - NUCLEAR CACHE BUST - ${new Date().toISOString()}`);
-    const { symbol, query, timeframe, since_days } = Body.parse(await req.json());
-    console.log(`📝 Request: ${query}, symbol: ${symbol}, timeframe: ${timeframe}, since_days: ${since_days}`);
+    
+    // Debug request body parsing
+    let requestBody;
+    try {
+      requestBody = await req.json();
+      console.log(`📝 Raw request body:`, JSON.stringify(requestBody, null, 2));
+    } catch (parseError) {
+      console.error(`❌ JSON parse error:`, parseError);
+      return NextResponse.json({ 
+        error: "Invalid JSON in request body",
+        details: parseError.message
+      }, { status: 400 });
+    }
+    
+    // Validate request body
+    if (!requestBody || typeof requestBody !== 'object') {
+      console.error(`❌ Invalid request body:`, requestBody);
+      return NextResponse.json({ 
+        error: "Request body must be a JSON object",
+        received: typeof requestBody
+      }, { status: 400 });
+    }
+    
+    const { symbol, query, timeframe, since_days } = Body.parse(requestBody);
+    console.log(`📝 Parsed request: ${query}, symbol: ${symbol}, timeframe: ${timeframe}, since_days: ${since_days}`);
     
     // Use provided symbol or detect from query
     let detectedSymbol = symbol;

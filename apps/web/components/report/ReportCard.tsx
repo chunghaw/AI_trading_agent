@@ -34,8 +34,55 @@ function host(url?: string) {
 // Temporary cn function
 const cn = (...classes: any[]) => classes.filter(Boolean).join(' ');
 
-// Temporary type
-type Report = any;
+// Type matching Agent.md specification
+type Report = {
+  header: {
+    name: string;
+    market: string;
+    type: string;
+    exchange: string;
+    currency: string;
+    employees: number | null;
+    description: string;
+  };
+  news: {
+    sentiment: "bullish" | "neutral" | "bearish";
+    key_points: string[];
+    analysis: string;
+    sources: string[];
+    status: "Positive" | "Balanced" | "Adverse";
+    no_data: boolean;
+  };
+  technical: {
+    indicators: {
+      rsi: number | null;
+      macd_line: number | null;
+      macd_signal: number | null;
+      macd_hist: number | null;
+      ema20: number | null;
+      ema50: number | null;
+      ema200: number | null;
+      vwap: number | null;
+      atr: number | null;
+      volume_trend: "rising" | "falling" | "flat";
+      vol_price_relation: "accumulation" | "distribution" | "neutral";
+    };
+    analysis: string;
+    sentiment: "bullish" | "neutral" | "bearish";
+    status: "Constructive" | "Neutral" | "Weak";
+  };
+  final_answer: {
+    summary: string;
+    key_insights: string[];
+    overall_status: "bullish" | "neutral" | "bearish";
+    answer: string;
+  };
+  meta: {
+    ticker: string;
+    as_of: string;
+    horizon: "intraday" | "1–3 days" | "1 week";
+  };
+};
 
 export function ReportCard({ report, className, isMockData = false, dataSource = 'none' }: ReportCardProps) {
   const [copiedJson, setCopiedJson] = useState(false);
@@ -66,39 +113,35 @@ export function ReportCard({ report, className, isMockData = false, dataSource =
     );
   }
 
-  // DEBUG: Safe data extraction with error handling
-  let newsSummary = [];
-  let newsCitations = [];
-  let newsMetrics = null;
-  let techSummary = [];
-  let newsRationale = null;
-  let techRationale = null;
+  // DEBUG: Safe data extraction with error handling - Updated for Agent.md format
+  let newsKeyPoints = [];
+  let newsSources = [];
+  let newsAnalysis = null;
+  let technicalAnalysis = null;
+  let finalAnswer = null;
+  let keyInsights = [];
   
   try {
-    newsSummary = report?.news?.summary ?? [];
-    newsCitations = report?.news?.citations ?? [];
-    newsMetrics = report?.news?.metrics;
-    techSummary = report?.technical?.summary ?? [];
-    newsRationale = report?.news?.rationale;
-    techRationale = report?.technical?.rationale;
+    newsKeyPoints = report?.news?.key_points ?? [];
+    newsSources = report?.news?.sources ?? [];
+    newsAnalysis = report?.news?.analysis;
+    technicalAnalysis = report?.technical?.analysis;
+    finalAnswer = report?.final_answer?.answer;
+    keyInsights = report?.final_answer?.key_insights ?? [];
     
-    console.log("🔍 Extracted data:", {
-      newsSummary: newsSummary.length,
-      newsCitations: newsCitations.length,
-      techSummary: techSummary.length,
-      hasNewsRationale: !!newsRationale,
-      hasTechRationale: !!techRationale
+    console.log("🔍 Extracted Agent.md data:", {
+      newsKeyPoints: newsKeyPoints.length,
+      newsSources: newsSources.length,
+      hasNewsAnalysis: !!newsAnalysis,
+      hasTechnicalAnalysis: !!technicalAnalysis,
+      hasFinalAnswer: !!finalAnswer,
+      keyInsights: keyInsights.length
     });
   } catch (error) {
     console.error("❌ Error extracting report data:", error);
     console.error("❌ Report structure:", report);
   }
 
-  const tpList = useMemo(() => {
-    const tp = report.portfolio?.tp;
-    if (!tp) return [];
-    return Array.isArray(tp) ? tp : [tp];
-  }, [report.portfolio?.tp]);
 
   const copyJson = async () => {
     try {
@@ -112,26 +155,32 @@ export function ReportCard({ report, className, isMockData = false, dataSource =
 
   const copySummary = async () => {
     const lines: string[] = [];
-    lines.push(`${report.symbol} • ${String(report.timeframe || '1d').toUpperCase()}`);
-    if (report.price) {
-      lines.push(`Price: ${fmtMoney(report.price.current)} (${report.price.change >= 0 ? '+' : ''}${fmtMoney(report.price.change)} ${report.price.changePercent >= 0 ? '+' : ''}${report.price.changePercent.toFixed(2)}%)`);
+    lines.push(`${report.meta?.ticker || 'Unknown'} • ${String(report.meta?.horizon || '1d').toUpperCase()}`);
+    if (report.header) {
+      lines.push(`Company: ${report.header.name}`);
     }
-    lines.push(`Action: ${report.action} • Confidence: ${(report.confidence ?? 0).toFixed(2)}`);
-    if (report.answer) lines.push(`\n${report.answer}`);
-    if (newsSummary.length) {
+    if (newsAnalysis) {
+      lines.push('\nNews Analysis:');
+      lines.push(newsAnalysis);
+    }
+    if (newsKeyPoints.length) {
       lines.push('\nNews Key Points:');
-      newsSummary.forEach((s: string) => lines.push(`• ${s}`));
+      newsKeyPoints.forEach((s: string) => lines.push(`• ${s}`));
     }
-    if (techSummary.length) {
-      lines.push('\nTechnical Key Points:');
-      techSummary.forEach((s: string) => lines.push(`• ${s}`));
+    if (technicalAnalysis) {
+      lines.push('\nTechnical Analysis:');
+      lines.push(technicalAnalysis);
     }
-    if (report.answer) {
-      lines.push('\nFinal Answer:');
-      lines.push(report.answer);
-      if (report.bullets && report.bullets.length > 0) {
+    if (report.final_answer) {
+      lines.push('\nFinal Summary:');
+      lines.push(report.final_answer.summary);
+      if (finalAnswer) {
+        lines.push('\nDirect Answer:');
+        lines.push(finalAnswer);
+      }
+      if (keyInsights.length > 0) {
         lines.push('\nKey Insights:');
-        report.bullets.forEach((s: string) => lines.push(`• ${s}`));
+        keyInsights.forEach((s: string) => lines.push(`• ${s}`));
       }
     }
     try {
@@ -155,8 +204,8 @@ export function ReportCard({ report, className, isMockData = false, dataSource =
         <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-3">
-              <h2 className="text-2xl font-bold text-zinc-100">{report.symbol}</h2>
-              <span className="text-sm text-zinc-400">{String(report.timeframe || '1d').toUpperCase()}</span>
+              <h2 className="text-2xl font-bold text-zinc-100">{report.meta?.ticker || 'Unknown'}</h2>
+              <span className="text-sm text-zinc-400">{String(report.meta?.horizon || '1d').toUpperCase()}</span>
               {dataSource === 'databricks' && (
                 <span className="text-xs px-2 py-0.5 rounded-lg bg-sky-900/20 border border-sky-700/30 text-sky-300">
                   Databricks snapshot
@@ -164,20 +213,20 @@ export function ReportCard({ report, className, isMockData = false, dataSource =
               )}
             </div>
             {/* Company Information */}
-            {report.company && (
+            {report.header && (
               <div className="flex flex-col gap-1 text-xs text-zinc-400">
                 <div className="flex items-center gap-4">
-                  <span className="font-medium text-zinc-300">{report.company.name}</span>
-                  <span>{report.company.market}</span>
-                  <span>{report.company.type}</span>
-                  <span>{report.company.exchange}</span>
-                  {report.company.employees && <span>{report.company.employees.toLocaleString()} employees</span>}
+                  <span className="font-medium text-zinc-300">{report.header.name}</span>
+                  <span>{report.header.market}</span>
+                  <span>{report.header.type}</span>
+                  <span>{report.header.exchange}</span>
+                  {report.header.employees && <span>{report.header.employees.toLocaleString()} employees</span>}
                 </div>
-                {report.company.description && (
+                {report.header.description && (
                   <p className="text-zinc-500 max-w-2xl leading-relaxed">
-                    {report.company.description.length > 200 
-                      ? `${report.company.description.substring(0, 200)}...` 
-                      : report.company.description}
+                    {report.header.description.length > 200 
+                      ? `${report.header.description.substring(0, 200)}...` 
+                      : report.header.description}
                   </p>
                 )}
               </div>
@@ -198,45 +247,20 @@ export function ReportCard({ report, className, isMockData = false, dataSource =
           </div>
         </div>
 
-        {/* Price Change Row */}
-        {report.price && (
-          <div className="flex items-center justify-between p-3 bg-zinc-900/40 rounded-lg border border-zinc-800">
-            <div className="flex items-center gap-4">
-              <span className="text-2xl font-bold text-zinc-100">{fmtMoney(report.price.current)}</span>
-              <div className="flex items-center gap-2">
-                {report.price.change >= 0 ? (
-                  <TrendingUp className="w-4 h-4 text-emerald-400" />
-                ) : (
-                  <TrendingDown className="w-4 h-4 text-red-400" />
-                )}
-                <span className={`text-lg font-semibold ${report.price.change >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                  {report.price.change >= 0 ? '+' : ''}{fmtMoney(report.price.change)}
-                </span>
-                <span className={`text-sm ${report.price.change >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                  ({report.price.changePercent >= 0 ? '+' : ''}{report.price.changePercent.toFixed(2)}%)
-                </span>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <ActionBadge action={report.action} />
-              <ConfidenceBar value={report.confidence ?? 0} />
-            </div>
-          </div>
-        )}
 
         {/* News Analysis */}
-        {(newsSummary.length > 0 || newsRationale) && (
+        {(newsKeyPoints.length > 0 || newsAnalysis) && (
           <section aria-label="News Analysis">
             <h3 className="text-[17px] font-medium tracking-tight text-zinc-100 mb-3">News Analysis</h3>
 
-            {/* Display rationale if available (new format), otherwise show summary (old format) */}
-            {newsRationale ? (
+            {/* Display analysis if available, otherwise show key points */}
+            {newsAnalysis ? (
               <div className="mb-3">
-                <p className="text-[15px] leading-snug text-zinc-300">{newsRationale}</p>
+                <p className="text-[15px] leading-snug text-zinc-300">{newsAnalysis}</p>
               </div>
             ) : (
               <ul className="space-y-2 mb-3">
-                {newsSummary.map((point: string, i: number) => (
+                {newsKeyPoints.map((point: string, i: number) => (
                   <li key={i} className="flex items-start gap-2">
                     <span className="text-blue-400 mt-1">•</span>
                     <span className="text-[15px] leading-snug text-zinc-300">{point}</span>
@@ -246,85 +270,77 @@ export function ReportCard({ report, className, isMockData = false, dataSource =
             )}
 
             {/* Citations */}
-            {newsCitations.length > 0 && (
+            {newsSources.length > 0 && (
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <LinkIcon className="w-4 h-4 text-zinc-400" />
                   <span className="text-sm text-zinc-400">Sources</span>
                 </div>
-                <CitationsChips citations={newsCitations} />
+                <CitationsChips citations={newsSources} />
               </div>
             )}
           </section>
         )}
 
         {/* Technical Analysis */}
-        {(techSummary.length > 0 || techRationale) && (
+        {report.technical && (
           <section aria-label="Technical Analysis">
             <h3 className="text-[17px] font-medium tracking-tight text-zinc-100 mb-3">Technical Analysis</h3>
             <div className="space-y-3">
-              {report.indicators ? (
+              {report.technical.indicators ? (
                 <IndicatorsRow indicators={{
-                  rsi14: report.indicators.rsi14 || 0,
-                  macd: report.indicators.macd || 0,
-                  macd_signal: report.indicators.macd_signal || 0,
-                  macd_hist: report.indicators.macd_hist || 0,
-                  ema20: report.indicators.ema20 || 0,
-                  ema50: report.indicators.ema50 || 0,
-                  ema200: report.indicators.ema200 || 0,
-                  fibonacci_support: report.indicators.fibonacci_support || [],
-                  fibonacci_resistance: report.indicators.fibonacci_resistance || [],
-                  vwap: report.indicators.vwap || 0,
-                  atr: report.indicators.atr || 0,
-                  volume_trend: report.indicators.volume_trend || "insufficient_data",
-                  volume_price_relationship: report.indicators.volume_price_relationship || "insufficient_data"
+                  rsi14: report.technical.indicators.rsi || 0,
+                  macd: report.technical.indicators.macd_line || 0,
+                  macd_signal: report.technical.indicators.macd_signal || 0,
+                  macd_hist: report.technical.indicators.macd_hist || 0,
+                  ema20: report.technical.indicators.ema20 || 0,
+                  ema50: report.technical.indicators.ema50 || 0,
+                  ema200: report.technical.indicators.ema200 || 0,
+                  fibonacci_support: [],
+                  fibonacci_resistance: [],
+                  vwap: report.technical.indicators.vwap || 0,
+                  atr: report.technical.indicators.atr || 0,
+                  volume_trend: report.technical.indicators.volume_trend || "insufficient_data",
+                  volume_price_relationship: report.technical.indicators.vol_price_relation || "insufficient_data"
                 }} />
               ) : (
                 <div className="text-red-400">❌ No indicators data available</div>
               )}
               
               {/* Display AI technical analysis */}
-              {techRationale ? (
+              {technicalAnalysis && (
                 <div className="mt-4">
                   <h4 className="text-sm font-medium text-zinc-400 mb-2">AI Technical Analysis</h4>
-                  <p className="text-[15px] leading-snug text-zinc-300">{techRationale}</p>
-                </div>
-              ) : techSummary.length > 0 ? (
-                <div className="mt-4">
-                  <h4 className="text-sm font-medium text-zinc-400 mb-2">Technical Summary</h4>
-                  <ul className="space-y-2">
-                    {techSummary.map((point: string, i: number) => (
-                      <li key={i} className="flex items-start gap-2">
-                        <span className="text-emerald-400 mt-1">•</span>
-                        <span className="text-[15px] leading-snug text-zinc-300">{point}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : (
-                <div className="mt-4">
-                  <p className="text-[15px] leading-snug text-zinc-300">Technical analysis completed based on available indicators.</p>
+                  <p className="text-[15px] leading-snug text-zinc-300">{technicalAnalysis}</p>
                 </div>
               )}
-              {/* LevelsBlock removed - user explicitly requested no support/resistance levels */}
             </div>
           </section>
         )}
 
         {/* Final Answer */}
-        {report.answer && (
+        {report.final_answer && (
           <section aria-label="Final Answer">
             <h3 className="text-[17px] font-medium tracking-tight text-zinc-100 mb-3">Final Answer</h3>
             <div className="space-y-3">
               <p className="text-[15px] leading-relaxed text-zinc-200 bg-zinc-900/40 border border-zinc-800 rounded-lg p-4">
-                {report.answer}
+                {report.final_answer.summary}
               </p>
               
-              {report.bullets && report.bullets.length > 0 && (
+              {finalAnswer && (
+                <div className="mt-4">
+                  <h4 className="text-sm font-medium text-zinc-400 mb-2">Direct Answer</h4>
+                  <p className="text-[15px] leading-relaxed text-zinc-300 bg-zinc-900/40 border border-zinc-800 rounded-lg p-4">
+                    {finalAnswer}
+                  </p>
+                </div>
+              )}
+              
+              {keyInsights.length > 0 && (
                 <div className="space-y-2">
                   <h4 className="text-sm font-medium text-zinc-400">Key Insights</h4>
                   <ul className="space-y-1">
-                    {report.bullets.map((insight: string, i: number) => (
+                    {keyInsights.map((insight: string, i: number) => (
                       <li key={i} className="flex items-start gap-2">
                         <span className="text-emerald-400 mt-1">•</span>
                         <span className="text-[14px] text-zinc-300">{insight}</span>

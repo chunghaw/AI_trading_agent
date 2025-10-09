@@ -188,12 +188,22 @@ export async function POST(req: NextRequest) {
     
     console.log(`✅ News analysis prepared with ${newsAnalysis.rationale.length} articles`);
     
-    // Step 3: Compute technical indicators
-    console.log(`📊 STEP 3: Computing technical indicators for ${detectedSymbol}`);
-    const indicators = computeIndicators(bars, [dbData]);
+    // Step 3: Use pre-calculated technical indicators from gold table
+    console.log(`📊 STEP 3: Using pre-calculated technical indicators for ${detectedSymbol}`);
+    const indicators = {
+      rsi14: parseFloat(dbData.rsi) || 0,
+      macd: parseFloat(dbData.macd_line) || 0,
+      macd_signal: parseFloat(dbData.macd_signal) || 0,
+      macd_hist: parseFloat(dbData.macd_histogram) || 0,
+      ema20: parseFloat(dbData.ema_20) || 0,
+      ema50: parseFloat(dbData.ema_50) || 0,
+      ema200: parseFloat(dbData.ema_200) || 0,
+      vwap: parseFloat(dbData.vwap) || 0,
+      atr: parseFloat(dbData.atr) || 0
+    };
     const currentPrice = parseFloat(dbData.close);
     
-    console.log(`✅ STEP 3 SUCCESS: Indicators calculated - RSI: ${indicators.rsi14}, MACD: ${indicators.macd?.macd}, Price: $${currentPrice}, Source: gold_table_precalculated`);
+    console.log(`✅ STEP 3 SUCCESS: Using pre-calculated indicators - RSI: ${indicators.rsi14}, MACD: ${indicators.macd}, Price: $${currentPrice}, Source: gold_table_precalculated`);
     
     // Step 4: Generate analysis using GPT
     console.log(`🎯 STAGE C: Generating final answer for user's question`);

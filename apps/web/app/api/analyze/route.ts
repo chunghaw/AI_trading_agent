@@ -332,11 +332,11 @@ function computeIndicators(bars: any, dbData?: any[]) {
 
 async function detectSymbolFromQuestion(question: string, openai: OpenAI): Promise<string | null> {
   try {
-    const prompt = `Extract the stock ticker symbol from this question. Return only the ticker symbol (e.g., AAPL, NVDA, TSLA) or null if no symbol is found.
+    const prompt = `Extract the stock ticker symbol from this question. Return only the ticker symbol (e.g., AAPL, NVDA, TSLA) or null if no symbol is found.                                     
 
 Question: "${question}"
 
-Response format: {"symbol": "AAPL" or null}`;
+Return a JSON object with the following format: {"symbol": "AAPL" or null}`;
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",

@@ -5,76 +5,9 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Send } from "lucide-react";
 
-import { ApiResponseSchema, type ApiResponse } from "@/lib/report.schema";
+import { ReportSchema, type Report } from "@/lib/report.schema";
 import { cn } from "@/lib/utils";
-
-// Simple component to display the new API response format
-function ApiResponseCard({ response }: { response: ApiResponse }) {
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'bullish': return 'text-green-600 bg-green-50';
-      case 'bearish': return 'text-red-600 bg-red-50';
-      case 'neutral': return 'text-yellow-600 bg-yellow-50';
-      default: return 'text-gray-600 bg-gray-50';
-    }
-  };
-
-  // Capitalize first letter of status
-  const capitalizeStatus = (status: string) => {
-    return status.charAt(0).toUpperCase() + status.slice(1);
-  };
-
-  return (
-    <div className="bg-white rounded-lg border border-gray-200 shadow-sm max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="border-b border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">{response.ticker}</h1>
-            <p className="text-sm text-gray-500">Market Analysis</p>
-          </div>
-        </div>
-        
-        {/* Answer to User Question */}
-        {response.answer && (
-          <div className="mt-4 p-4 bg-blue-50 border-l-4 border-blue-500 rounded">
-            <p className="text-sm font-medium text-blue-900 mb-1">Answer:</p>
-            <p className="text-blue-800">{response.answer}</p>
-          </div>
-        )}
-      </div>
-
-      {/* Status Cards */}
-      <div className="p-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* News Status */}
-          <div className="text-center">
-            <h3 className="text-sm font-medium text-gray-500 mb-2">News Sentiment</h3>
-            <div className={`inline-flex px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(response.newsStatus)}`}>
-              {capitalizeStatus(response.newsStatus)}
-            </div>
-          </div>
-
-          {/* Technical Status */}
-          <div className="text-center">
-            <h3 className="text-sm font-medium text-gray-500 mb-2">Technical Analysis</h3>
-            <div className={`inline-flex px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(response.technicalStatus)}`}>
-              {capitalizeStatus(response.technicalStatus)}
-            </div>
-          </div>
-
-          {/* Overall Status */}
-          <div className="text-center">
-            <h3 className="text-sm font-medium text-gray-500 mb-2">Overall Outlook</h3>
-            <div className={`inline-flex px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(response.overallStatus)}`}>
-              {capitalizeStatus(response.overallStatus)}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
+import { ReportCard } from "@/components/report/ReportCard";
 
 const analysisTypes = [
   { id: "combined", label: "Combined Analysis", description: "News + Technical + Portfolio" },
@@ -161,7 +94,7 @@ export default function AgentsPage() {
   const [sinceDays, setSinceDays] = React.useState(7);
 
   const [isLoading, setIsLoading] = React.useState(false);
-  const [response, setResponse] = React.useState<ApiResponse | null>(null);
+  const [response, setResponse] = React.useState<Report | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [symbolAutoDetected, setSymbolAutoDetected] = React.useState(false);
 
@@ -224,7 +157,7 @@ export default function AgentsPage() {
         return;
       }
 
-      const validatedData = ApiResponseSchema.parse(data);
+      const validatedData = ReportSchema.parse(data);
       setResponse(validatedData);
       
     } catch (error: any) {
@@ -392,7 +325,7 @@ export default function AgentsPage() {
           <div className="mb-4 text-center text-sm text-[var(--muted)]">
             News window: {sinceDays}d • Final K: {process.env.NEWS_FINAL_K || 12}
           </div>
-          <ApiResponseCard response={response} />
+          <ReportCard report={response} />
         </div>
       )}
 

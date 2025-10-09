@@ -224,9 +224,8 @@ export async function POST(req: NextRequest) {
     const finalResult = JSON.parse(finalCompletion.choices[0].message.content || "{}");
     console.log(`✅ Final synthesis completed`);
     
-    // Build response
+    // Build response according to Agent.md specification
     const response = {
-      ticker: detectedSymbol,
       header: {
         name: dbData.company_name || `${detectedSymbol} Inc.`,
         market: dbData.market || "stocks",
@@ -234,45 +233,53 @@ export async function POST(req: NextRequest) {
         exchange: dbData.primary_exchange || "XNAS",
         currency: dbData.currency || "usd",
         employees: dbData.total_employees || null,
-        description: dbData.description || `${detectedSymbol} is a publicly traded company.`
+        description: (dbData.description || `${detectedSymbol} is a publicly traded company.`).substring(0, 200)
       },
       news: {
         sentiment: newsResult.sentiment || "neutral",
-        key_points: newsAnalysis.rationale,
+        key_points: newsResult.key_points || newsAnalysis.rationale,
         analysis: newsResult.analysis || `News analysis for ${detectedSymbol}`,
         sources: newsAnalysis.citations,
         status: mapNewsSentimentToStatus(newsResult.sentiment || "neutral"),
         no_data: newsAnalysis.rationale.length === 0
       },
       technical: {
-        overall_bias: techResult.overall_bias || "neutral",
-        key_levels: techResult.key_levels || [],
-        momentum_assessment: techResult.momentum_assessment || "neutral",
-        trading_outlook: techResult.trading_outlook || `Technical analysis for ${detectedSymbol}`
+        indicators: {
+          rsi: indicators.rsi14,
+          macd_line: indicators.macd?.macd,
+          macd_signal: indicators.macd?.signal,
+          macd_hist: indicators.macd?.histogram,
+          ema20: indicators.ema_20,
+          ema50: indicators.ema_50,
+          ema200: indicators.ema_200,
+          vwap: indicators.vwap,
+          atr: indicators.atr,
+          volume_trend: dbData.volume_trend || "flat",
+          vol_price_relation: dbData.volume_price_relationship || "neutral"
+        },
+        analysis: techResult.analysis || `Technical analysis for ${detectedSymbol}`,
+        sentiment: techResult.sentiment || "neutral",
+        status: mapTechnicalSentimentToStatus(techResult.sentiment || "neutral")
       },
-      portfolio: {
-        size_suggestion_pct: finalResult.size_suggestion_pct || 5
+      final_answer: {
+        summary: finalResult.summary || `Analysis summary for ${detectedSymbol}`,
+        key_insights: finalResult.key_insights || [],
+        overall_status: finalResult.overall_status || "neutral",
+        answer: finalResult.answer || `Based on the analysis, ${detectedSymbol} shows ${finalResult.overall_status || 'neutral'} outlook.`
       },
-      price: {
-        current: currentPrice,
-        previous: currentPrice, // Could be improved with previous day data
-        change: 0, // Could be improved with previous day data
-        changePercent: 0, // Could be improved with previous day data
-        date: dayjs().format('YYYY-MM-DD')
-      },
-      timeframe,
-      newsStatus: mapNewsSentimentToStatus(newsResult.sentiment || "neutral"),
-      technicalStatus: mapTechnicalSentimentToStatus(techResult.overall_bias || "neutral"),
-      overallStatus: mapOverallStatus(newsResult.sentiment || "neutral", techResult.overall_bias || "neutral"),
-      answer: finalResult.answer || `Based on the analysis, ${detectedSymbol} shows ${finalResult.overall_status || 'neutral'} outlook.`
+      meta: {
+        ticker: detectedSymbol,
+        as_of: dayjs().toISOString(),
+        horizon: since_days <= 1 ? "intraday" : since_days <= 3 ? "1–3 days" : "1 week"
+      }
     };
     
     console.log(`🎉 === ANALYSIS COMPLETED SUCCESSFULLY ===`);
     console.log(`🔍 Final response structure:`, {
-      ticker: response.ticker,
-      newsStatus: response.newsStatus,
-      technicalStatus: response.technicalStatus,
-      overallStatus: response.overallStatus
+      ticker: response.meta.ticker,
+      newsStatus: response.news.status,
+      technicalStatus: response.technical.status,
+      overallStatus: response.final_answer.overall_status
     });
     
     return NextResponse.json(response);

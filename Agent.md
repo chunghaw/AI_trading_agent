@@ -189,7 +189,8 @@ Route should return this single normalized object (front end consumes it directl
 "final_answer": {
 "summary": "3–6 sentence synthesis",
 "key_insights": ["string", "..."],
-"overall_status": "bullish" | "neutral" | "bearish"
+"overall_status": "bullish" | "neutral" | "bearish",
+"answer": "string (2-3 sentence direct answer to user's question)"
 },
 "meta": {
 "ticker": "string",
@@ -261,10 +262,21 @@ Synthesis Prompt
 System: You are a portfolio strategist composing a final view from two analyses.
 Task:
 
-Combine the News and Technical narratives into 3–6 sentences.
-Resolve conflicts explicitly (e.g., “News is Positive but technicals are Neutral; bias slightly positive with lower confidence”).
-Map sentiment to statuses via the table above; do not invent price levels.
-Output fields to fill in final_answer.summary and overall_status.
+1. Combine the News and Technical narratives into 3–6 sentences.
+2. Resolve conflicts explicitly (e.g., "News is Positive but technicals are Neutral; bias slightly positive with lower confidence").
+3. Extract 3-5 key insights in bullet point format for quick reference.
+4. Map sentiment to statuses via the table above; do not invent price levels.
+5. **Answer the user's question directly** based on all provided data (news + technical analysis) in 2-3 sentences.
+
+Output:
+{
+  "summary": "string (3-6 sentences)",
+  "key_insights": ["string", "string", "string"],
+  "overall_status": "bullish|neutral|bearish",
+  "answer": "string (direct answer to user's question in 2-3 sentences)"
+}
+
+Output fields to fill in final_answer.summary, overall_status, and answer.
 Rendering (ReportCard.tsx)
 
 Order

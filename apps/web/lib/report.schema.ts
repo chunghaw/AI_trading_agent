@@ -5,7 +5,8 @@ export const ApiResponseSchema = z.object({
   ticker: z.string(),
   newsStatus: z.string(),
   technicalStatus: z.string(),
-  overallStatus: z.enum(["bullish", "neutral", "bearish"])
+  overallStatus: z.enum(["bullish", "neutral", "bearish"]),
+  answer: z.string().optional() // Direct answer to user's question
 });
 
 // Legacy schema for backward compatibility

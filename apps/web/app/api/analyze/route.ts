@@ -263,7 +263,8 @@ export async function POST(req: NextRequest) {
       timeframe,
       newsStatus: mapNewsSentimentToStatus(newsResult.sentiment || "neutral"),
       technicalStatus: mapTechnicalSentimentToStatus(techResult.overall_bias || "neutral"),
-      overallStatus: mapOverallStatus(newsResult.sentiment || "neutral", techResult.overall_bias || "neutral")
+      overallStatus: mapOverallStatus(newsResult.sentiment || "neutral", techResult.overall_bias || "neutral"),
+      answer: finalResult.answer || `Based on the analysis, ${detectedSymbol} shows ${finalResult.overall_status || 'neutral'} outlook.`
     };
     
     console.log(`🎉 === ANALYSIS COMPLETED SUCCESSFULLY ===`);

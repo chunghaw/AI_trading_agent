@@ -7,8 +7,6 @@ import { Send } from "lucide-react";
 
 import { ApiResponseSchema, type ApiResponse } from "@/lib/report.schema";
 import { cn } from "@/lib/utils";
-import { ReportCard } from "@/components/report/ReportCard";
-import { ErrorBanner } from "@/components/report/ErrorBanner";
 
 // Simple component to display the new API response format
 function ApiResponseCard({ response }: { response: ApiResponse }) {
@@ -36,6 +34,14 @@ function ApiResponseCard({ response }: { response: ApiResponse }) {
             <p className="text-sm text-gray-500">Market Analysis</p>
           </div>
         </div>
+        
+        {/* Answer to User Question */}
+        {response.answer && (
+          <div className="mt-4 p-4 bg-blue-50 border-l-4 border-blue-500 rounded">
+            <p className="text-sm font-medium text-blue-900 mb-1">Answer:</p>
+            <p className="text-blue-800">{response.answer}</p>
+          </div>
+        )}
       </div>
 
       {/* Status Cards */}
@@ -358,15 +364,26 @@ export default function AgentsPage() {
 
       {/* Error Banner */}
       {error && (
-        <ErrorBanner 
-          message={error}
-          steps={[
-            "Check if the Airflow DAG is running to ingest news data",
-            "Verify the symbol exists in our data sources",
-            "Try a different time window or symbol"
-          ]}
-          onRetry={handleRetry}
-        />
+        <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <div className="flex items-center space-x-2 mb-2">
+            <div className="text-red-600 font-semibold">Error</div>
+          </div>
+          <p className="text-red-700 mb-3">{error}</p>
+          <div className="text-sm text-red-600">
+            <p className="font-medium mb-1">Troubleshooting steps:</p>
+            <ul className="list-disc list-inside space-y-1">
+              <li>Check if the Airflow DAG is running to ingest news data</li>
+              <li>Verify the symbol exists in our data sources</li>
+              <li>Try a different time window or symbol</li>
+            </ul>
+          </div>
+          <button
+            onClick={handleRetry}
+            className="mt-3 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+          >
+            Retry
+          </button>
+        </div>
       )}
 
       {/* Analysis Results */}

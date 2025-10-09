@@ -53,11 +53,13 @@ Task:
 2. Resolve conflicts explicitly (e.g., "News is Positive but technicals are Neutral; bias slightly positive with lower confidence").
 3. Extract 3-5 key insights in bullet point format for quick reference.
 4. Map sentiment to bullish/neutral/bearish status; do not invent price levels.
+5. Answer the user's question directly based on all provided data (news + technical analysis).
 
 Return a JSON object with the following structure:
 {
   "summary": "string (3-6 sentences)",
   "key_insights": ["string", "string", "string"],
-  "overall_status": "bullish|neutral|bearish"
+  "overall_status": "bullish|neutral|bearish",
+  "answer": "string (direct answer to user's question in 2-3 sentences)"
 }
 `;

@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
     await client.connect();
     
     console.log(`🔍 Fetching real OHLCV data from Postgres for ${detectedSymbol}`);
-    const query = `
+    const sqlQuery = `
       SELECT 
         g.date, g.open, g.high, g.low, g.close, g.total_volume as volume,
         COALESCE(c.name, g.company_name) as company_name,
@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
       LIMIT 1
     `;
     
-    const result = await client.query(query, [detectedSymbol]);
+    const result = await client.query(sqlQuery, [detectedSymbol]);
     await client.end();
     
     if (result.rows.length === 0) {

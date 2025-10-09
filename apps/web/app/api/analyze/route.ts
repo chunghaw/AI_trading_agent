@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    console.log(`🚀 === ANALYSIS REQUEST START === v2.2 - FORCE DEPLOY`);
+    console.log(`🚀 === ANALYSIS REQUEST START === v2.3 - CACHE CLEAR - ${new Date().toISOString()}`);
     const { symbol, query, timeframe, since_days } = Body.parse(await req.json());
     console.log(`📝 Request: ${query}, symbol: ${symbol}, timeframe: ${timeframe}, since_days: ${since_days}`);
     

@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
     console.log("🔍 Testing NVDA data query...");
     const nvdaResult = await pool.query(`
       SELECT 
-        symbol, date, close, volume,
+        symbol, date, close, total_volume as volume,
         rsi_14, ma_20, ma_50, ma_200,
         ema_20, ema_50, ema_200,
         macd_line, macd_signal, macd_histogram,

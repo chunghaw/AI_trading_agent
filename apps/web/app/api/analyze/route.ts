@@ -513,7 +513,8 @@ const detectSymbolFromQuestion = async (question: string, openai: any): Promise<
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
 
 const Body = z.object({
-  prompt: z.string().min(1), // Changed from query to match frontend
+  symbol: z.string().min(1),
+  query: z.string().default("trading analysis"),
   timeframe: z.string().default("1d"),
   since_days: z.number().default(7)
 });
@@ -546,11 +547,14 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     console.log(`🚀 === ANALYSIS REQUEST START ===`);
-    const { prompt, timeframe, since_days } = Body.parse(await req.json());
-    console.log(`📝 Request: ${prompt}, timeframe: ${timeframe}, since_days: ${since_days}`);
+    const { symbol, query, timeframe, since_days } = Body.parse(await req.json());
+    console.log(`📝 Request: ${query}, symbol: ${symbol}, timeframe: ${timeframe}, since_days: ${since_days}`);
     
-    // Automatically detect symbol from the user's question using AI
-    const detectedSymbol = await detectSymbolFromQuestion(prompt, openai);
+    // Use provided symbol or detect from query
+    let detectedSymbol = symbol;
+    if (!detectedSymbol && query) {
+      detectedSymbol = await detectSymbolFromQuestion(query, openai);
+    }
     if (!detectedSymbol) {
       console.log(`❌ AI SYMBOL DETECTION FAILED`);
       return NextResponse.json({ 
@@ -558,7 +562,7 @@ export async function POST(req: NextRequest) {
         code: "SYMBOL_NOT_DETECTED"
       }, { status: 422 });
     }
-    console.log(`✅ AI SYMBOL DETECTED: "${detectedSymbol}" from prompt: "${prompt}"`);
+    console.log(`✅ AI SYMBOL DETECTED: "${detectedSymbol}" from query: "${query}"`);
     
     const sinceIso = dayjs().subtract(since_days, "day").toISOString();
 
@@ -684,7 +688,7 @@ export async function POST(req: NextRequest) {
     let newsDocs: any[] = [];
     try {
       console.log(`🔍 Searching for news for ${detectedSymbol} since ${sinceIso}`);
-      newsHits = await searchAndRerankNewsStrict(detectedSymbol, prompt, sinceIso);
+      newsHits = await searchAndRerankNewsStrict(detectedSymbol, query, sinceIso);
       console.log(`📰 Found ${newsHits.length} news articles for ${detectedSymbol}`);
       
       if (newsHits.length > 0) {
@@ -732,7 +736,7 @@ export async function POST(req: NextRequest) {
     // Format news data properly for the prompt (newsDocs already populated above)
     
     // Debug: Check function call
-    console.log("🔍 Calling buildNewsQAPrompt with:", { prompt, newsDocsLength: newsDocs.length });
+    console.log("🔍 Calling buildNewsQAPrompt with:", { query, newsDocsLength: newsDocs.length });
     console.log("🔍 newsDocs sample:", newsDocs.slice(0, 2));
     
     let newsPromptRaw;
@@ -745,7 +749,7 @@ export async function POST(req: NextRequest) {
       console.log("🔍 newsPromptRaw first 100 chars:", newsPromptRaw?.substring(0, 100));
     } catch (error: any) {
       console.error("❌ Error calling buildNewsQAPrompt:", error);
-      newsPromptRaw = "Please analyze the following news data and provide a JSON response. Query: " + prompt + " News data: " + JSON.stringify(newsDocs) + " Please respond with a JSON object containing: - answer_sentence: A brief analysis - key_points: Array of key insights - citations: Array of source URLs JSON response:";
+      newsPromptRaw = "Please analyze the following news data and provide a JSON response. Query: " + query + " News data: " + JSON.stringify(newsDocs) + " Please respond with a JSON object containing: - answer_sentence: A brief analysis - key_points: Array of key insights - citations: Array of source URLs JSON response:";
     }
     
     const newsPrompt = newsPromptRaw + "\n\nPlease provide your analysis in JSON format.";
@@ -938,7 +942,7 @@ export async function POST(req: NextRequest) {
     try {
     const finalAnswerPrompt = buildFinalAnswerPrompt({
       symbol: detectedSymbol,
-      userQuestion: prompt,
+      userQuestion: query,
       newsAnalysis: newsAnalysisResult,
       technicalAnalysis,
       price: {

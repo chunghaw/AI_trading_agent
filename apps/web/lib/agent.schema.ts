@@ -13,7 +13,7 @@ export const AgentReportSchema = z.object({
   }),
   news: z.object({
     sentiment: z.enum(["bullish", "neutral", "bearish"]),
-    key_points: z.array(z.string()).min(3).max(7),
+    key_points: z.array(z.string()).default([]),
     analysis: z.string(),
     sources: z.array(z.string().url()),
     status: z.enum(["Positive", "Balanced", "Adverse"]),

@@ -66,7 +66,7 @@ export async function GET(req: NextRequest) {
         for (const symbol of testSymbols) {
           const result = await pool.query(`
             SELECT 
-              symbol, date, close, volume,
+              symbol, date, close, total_volume,
               rsi_14, ma_20, ma_50, ma_200,
               ema_20, ema_50, ema_200,
               macd_line, macd_signal, macd_histogram,
@@ -155,7 +155,7 @@ export async function GET(req: NextRequest) {
       if (tableChecks.company_info_cache) {
         const companyCount = await pool.query('SELECT COUNT(*) FROM company_info_cache');
         const companySample = await pool.query(`
-          SELECT symbol, name, market, type, exchange, currency, total_employees
+          SELECT symbol, name, market, type, primary_exchange, currency_name, total_employees
           FROM company_info_cache 
           WHERE symbol IN ('NVDA', 'AAPL', 'GOOGL', 'MSFT', 'TSLA')
           ORDER BY symbol

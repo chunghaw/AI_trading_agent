@@ -175,10 +175,9 @@ async function getRealNewsData(query: string): Promise<any[]> {
       
       console.log(`✅ Collection info:`, collectionInfo);
       
-      // Extract ticker symbol from query (e.g., "NVDA" from "What's the technical outlook for NVDA?")
-      const tickerMatch = query.match(/\b([A-Z]{2,5})\b/);
-      const tickerSymbol = tickerMatch ? tickerMatch[1] : query;
-      console.log(`🔍 Extracted ticker symbol: ${tickerSymbol}`);
+      // Use the symbol directly (passed from the API call)
+      const tickerSymbol = query; // query is actually the symbol parameter
+      console.log(`🔍 Using ticker symbol: ${tickerSymbol}`);
       
       // Use the CORRECT Milvus REST API endpoints that actually work!
       console.log(`🔍 Using Milvus vector search for: ${tickerSymbol}`);

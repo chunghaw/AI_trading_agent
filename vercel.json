@@ -4,7 +4,9 @@
   "buildCommand": "rm -rf .next && npm run build",
   "installCommand": "npm ci --force",
   "env": {
-    "FORCE_DEPLOY": "true"
+    "FORCE_DEPLOY": "true",
+    "BUILD_TIMESTAMP": "2025-01-09-12:00:00",
+    "CACHE_BUST": "nuclear"
   },
   "functions": {
     "app/api/**": {

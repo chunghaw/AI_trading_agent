@@ -295,7 +295,7 @@ export async function GET(request: NextRequest) {
           exchange
         },
         sort: {
-          by: sortColumn,
+          by: sortBy,
           order: orderDirection
         }
       }

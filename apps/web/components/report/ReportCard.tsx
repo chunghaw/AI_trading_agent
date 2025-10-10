@@ -44,6 +44,12 @@ type Report = {
     currency: string;
     employees: number | null;
     description: string;
+    price?: {
+      current: number | null;
+      change: number | null;
+      change_percent: number | null;
+      as_of_date: string | null;
+    };
   };
   news: {
     sentiment: "bullish" | "neutral" | "bearish";
@@ -81,6 +87,7 @@ type Report = {
     ticker: string;
     as_of: string;
     horizon: "intraday" | "1–3 days" | "1 week";
+    user_question?: string;
   };
 };
 
@@ -114,12 +121,12 @@ export function ReportCard({ report, className, isMockData = false, dataSource =
   }
 
   // DEBUG: Safe data extraction with error handling - Updated for Agent.md format
-  let newsKeyPoints = [];
-  let newsSources = [];
+  let newsKeyPoints: string[] = [];
+  let newsSources: string[] = [];
   let newsAnalysis = null;
   let technicalAnalysis = null;
   let finalAnswer = null;
-  let keyInsights = [];
+  let keyInsights: string[] = [];
   
   try {
     newsKeyPoints = report?.news?.key_points ?? [];
@@ -277,7 +284,18 @@ export function ReportCard({ report, className, isMockData = false, dataSource =
         {/* News Analysis */}
         {(newsKeyPoints.length > 0 || newsAnalysis) && (
           <section aria-label="News Analysis">
-            <h3 className="text-[17px] font-medium tracking-tight text-zinc-100 mb-3">News Analysis</h3>
+            <div className="flex items-center gap-3 mb-3">
+              <h3 className="text-[17px] font-medium tracking-tight text-zinc-100">News Analysis</h3>
+              {report.news?.sentiment && (
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                  report.news.sentiment === 'bullish' ? 'bg-emerald-900/20 text-emerald-400 border border-emerald-700/30' :
+                  report.news.sentiment === 'bearish' ? 'bg-red-900/20 text-red-400 border border-red-700/30' :
+                  'bg-yellow-900/20 text-yellow-400 border border-yellow-700/30'
+                }`}>
+                  {report.news.sentiment.toUpperCase()}
+                </span>
+              )}
+            </div>
 
             {/* Display analysis if available, otherwise show key points */}
             {newsAnalysis ? (
@@ -311,7 +329,18 @@ export function ReportCard({ report, className, isMockData = false, dataSource =
         {/* Technical Analysis */}
         {report.technical && (
           <section aria-label="Technical Analysis">
-            <h3 className="text-[17px] font-medium tracking-tight text-zinc-100 mb-3">Technical Analysis</h3>
+            <div className="flex items-center gap-3 mb-3">
+              <h3 className="text-[17px] font-medium tracking-tight text-zinc-100">Technical Analysis</h3>
+              {report.technical?.sentiment && (
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                  report.technical.sentiment === 'bullish' ? 'bg-emerald-900/20 text-emerald-400 border border-emerald-700/30' :
+                  report.technical.sentiment === 'bearish' ? 'bg-red-900/20 text-red-400 border border-red-700/30' :
+                  'bg-yellow-900/20 text-yellow-400 border border-yellow-700/30'
+                }`}>
+                  {report.technical.sentiment.toUpperCase()}
+                </span>
+              )}
+            </div>
             <div className="space-y-3">
               {report.technical.indicators ? (
                 <IndicatorsRow indicators={{
@@ -347,7 +376,18 @@ export function ReportCard({ report, className, isMockData = false, dataSource =
         {/* Overall Analysis */}
         {report.final_answer && (
           <section aria-label="Overall Analysis">
-            <h3 className="text-[17px] font-medium tracking-tight text-zinc-100 mb-3">Overall Analysis</h3>
+            <div className="flex items-center gap-3 mb-3">
+              <h3 className="text-[17px] font-medium tracking-tight text-zinc-100">Overall Analysis</h3>
+              {report.final_answer?.overall_status && (
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                  report.final_answer.overall_status === 'bullish' ? 'bg-emerald-900/20 text-emerald-400 border border-emerald-700/30' :
+                  report.final_answer.overall_status === 'bearish' ? 'bg-red-900/20 text-red-400 border border-red-700/30' :
+                  'bg-yellow-900/20 text-yellow-400 border border-yellow-700/30'
+                }`}>
+                  {report.final_answer.overall_status.toUpperCase()}
+                </span>
+              )}
+            </div>
             <div className="space-y-3">
               <p className="text-[15px] leading-relaxed text-zinc-200 bg-zinc-900/40 border border-zinc-800 rounded-lg p-4">
                 {report.final_answer.summary}
@@ -355,7 +395,9 @@ export function ReportCard({ report, className, isMockData = false, dataSource =
               
               {finalAnswer && (
                 <div className="mt-4">
-                  <h4 className="text-sm font-medium text-zinc-400 mb-2">{report.meta?.user_question || "Direct Answer"}</h4>
+                  <h4 className="text-sm font-medium text-zinc-400 mb-2">
+                    {report.meta?.user_question ? `"${report.meta.user_question}"` : "Direct Answer"}
+                  </h4>
                   <p className="text-[15px] leading-relaxed text-zinc-300 bg-zinc-900/40 border border-zinc-800 rounded-lg p-4">
                     {finalAnswer}
                   </p>

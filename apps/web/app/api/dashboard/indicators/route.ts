@@ -18,40 +18,39 @@ export async function GET() {
     let client: any = null;
     
     try {
+      console.log('Connecting to database...');
       client = new Client({
         connectionString: process.env.POSTGRES_URL || 'postgresql://neondb_owner:npg_GhSFKa2wf8vb@ep-billowing-waterfall-a76q5go4-pooler.ap-southeast-2.aws.neon.tech/neondb?sslmode=require',
         ssl: { rejectUnauthorized: false }
       });
       await client.connect();
+      console.log('✅ Database connected');
 
       const indices = await Promise.all(
         MARKET_INDICES.map(async (symbol) => {
           try {
             // Get latest data for each index from database
             const query = `
-              WITH latest_data AS (
-                SELECT 
-                  g.close, g.last_close, g.change_pct, g.date,
-                  ROW_NUMBER() OVER (PARTITION BY g.symbol ORDER BY g.date DESC) as rn
-                FROM gold_ohlcv_daily_metrics g
-                WHERE g.symbol = $1
-                  AND g.date >= CURRENT_DATE - INTERVAL '30 days'
-                  AND g.close > 0
-              )
               SELECT 
                 close,
                 last_close as prev_close,
                 date,
                 COALESCE(change_pct, 0) as change_percent,
                 (close - last_close) as change
-              FROM latest_data
-              WHERE rn = 1
+              FROM gold_ohlcv_daily_metrics
+              WHERE symbol = $1
+                AND date >= CURRENT_DATE - INTERVAL '30 days'
+                AND close > 0
+              ORDER BY date DESC
+              LIMIT 1
             `;
 
             const result = await client.query(query, [symbol]);
+            console.log(`${symbol} query result:`, result.rows.length, 'rows');
             
             if (result.rows.length > 0) {
               const row = result.rows[0];
+              console.log(`${symbol} data:`, row);
               return {
                 symbol,
                 name: getIndexName(symbol),

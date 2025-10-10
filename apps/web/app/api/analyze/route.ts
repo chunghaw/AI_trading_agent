@@ -92,8 +92,8 @@ export async function POST(req: NextRequest) {
     console.log(`📊 STEP 1: Loading OHLCV data for ${detectedSymbol}`);
     const { Client } = await import('pg');
     const client = new Client({
-      connectionString: process.env.POSTGRES_URL,
-      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+      connectionString: process.env.POSTGRES_URL || 'postgresql://neondb_owner:npg_GhSFKa2wf8vb@ep-billowing-waterfall-a76q5go4-pooler.ap-southeast-2.aws.neon.tech/neondb?sslmode=require',
+      ssl: { rejectUnauthorized: false }
     });
     
     await client.connect();
@@ -304,12 +304,12 @@ export async function POST(req: NextRequest) {
       technical: {
         indicators: {
           rsi: indicators.rsi14,
-          macd_line: indicators.macd?.macd,
-          macd_signal: indicators.macd?.signal,
-          macd_hist: indicators.macd?.histogram,
-          ema20: indicators.ema_20,
-          ema50: indicators.ema_50,
-          ema200: indicators.ema_200,
+          macd_line: indicators.macd,
+          macd_signal: indicators.macd_signal,
+          macd_hist: indicators.macd_hist,
+          ema20: indicators.ema20,
+          ema50: indicators.ema50,
+          ema200: indicators.ema200,
           vwap: indicators.vwap,
           atr: indicators.atr,
           volume_trend: dbData.volume_trend || "flat",

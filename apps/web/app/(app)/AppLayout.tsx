@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import Logo from "@/components/brand/Logo";
 
 export default function AppLayout({
   children,
@@ -17,11 +18,8 @@ export default function AppLayout({
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             {/* Logo */}
-            <Link href="/agents" className="flex items-center space-x-3">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                <span className="text-white font-bold text-lg">AI</span>
-              </div>
-              <span className="text-xl font-semibold text-white">Trading Agent</span>
+            <Link href="/agents" className="flex items-center">
+              <Logo size={24} />
             </Link>
 
             {/* Navigation */}

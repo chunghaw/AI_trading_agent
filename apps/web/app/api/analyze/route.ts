@@ -110,9 +110,9 @@ export async function POST(req: NextRequest) {
           COALESCE(c.currency_name, g.currency) as currency,
           COALESCE(c.total_employees, g.total_employees) as total_employees,
           COALESCE(c.description, g.description) as description,
-          g.rsi_14 as rsi, g.ma_5, g.ma_20, g.ma_50, g.ma_200,
-          g.ema_20, g.ema_50, g.ema_200, g.macd_line, g.macd_signal, g.macd_histogram,
-          g.vwap, g.atr_14 as atr,
+        g.rsi_14, g.ma_5, g.ma_20, g.ma_50, g.ma_200,
+        g.ema_20, g.ema_50, g.ema_200, g.macd_line, g.macd_signal, g.macd_histogram,
+        g.vwap, g.atr_14,
           g.volume_trend, g.volume_price_relationship,
           ROW_NUMBER() OVER (ORDER BY g.date DESC) as rn
         FROM gold_ohlcv_daily_metrics g
@@ -149,7 +149,7 @@ export async function POST(req: NextRequest) {
     console.log(`📊 Symbol data found: ${result.rows.length} records from Postgres GOLD TABLE`);
     console.log(`🔍 DEBUG - First record from gold table:`, dbData);
     console.log(`🔍 DEBUG - Technical indicators from DB:`, {
-      rsi: dbData.rsi,
+      rsi_14: dbData.rsi_14,
       macd_line: dbData.macd_line,
       macd_signal: dbData.macd_signal,
       macd_histogram: dbData.macd_histogram,
@@ -157,7 +157,7 @@ export async function POST(req: NextRequest) {
       ema_50: dbData.ema_50,
       ema_200: dbData.ema_200,
       vwap: dbData.vwap,
-      atr: dbData.atr
+      atr_14: dbData.atr_14
     });
     
     // Create bars object from database data
@@ -202,7 +202,7 @@ export async function POST(req: NextRequest) {
     // Step 3: Use pre-calculated technical indicators from gold table
     console.log(`📊 STEP 3: Using pre-calculated technical indicators for ${detectedSymbol}`);
     const indicators = {
-      rsi14: dbData.rsi ? parseFloat(dbData.rsi) : null,
+      rsi14: dbData.rsi_14 ? parseFloat(dbData.rsi_14) : null,
       macd: dbData.macd_line ? parseFloat(dbData.macd_line) : null,
       macd_signal: dbData.macd_signal ? parseFloat(dbData.macd_signal) : null,
       macd_hist: dbData.macd_histogram ? parseFloat(dbData.macd_histogram) : null,
@@ -210,7 +210,7 @@ export async function POST(req: NextRequest) {
       ema50: dbData.ema_50 ? parseFloat(dbData.ema_50) : null,
       ema200: dbData.ema_200 ? parseFloat(dbData.ema_200) : null,
       vwap: dbData.vwap ? parseFloat(dbData.vwap) : null,
-      atr: dbData.atr ? parseFloat(dbData.atr) : null
+      atr: dbData.atr_14 ? parseFloat(dbData.atr_14) : null
     };
     const currentPrice = parseFloat(dbData.close);
     

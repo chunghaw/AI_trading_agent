@@ -490,25 +490,101 @@ If indicators are stale (gold_time older than N minutes), include a small "as of
     - **Time Horizon**: Short-term (1-3 days) vs Medium-term (1-2 weeks)
   - **Update Frequency**: Every 4 hours during market hours, daily summary
 
-- [ ] **3.5 True AI Stock Recommendations**
-  - **Predictive Models**: 
-    - Train ML models on historical price patterns
-    - Use ensemble methods (Random Forest, XGBoost, Neural Networks)
-    - Incorporate fundamental data (P/E, growth rates, debt ratios)
-    - Include technical momentum indicators
-  - **LLM Reasoning Engine**:
-    - Generate natural language explanations for recommendations
-    - Analyze company-specific news and events
-    - Provide risk assessments and position sizing suggestions
-    - Create investment thesis for each recommendation
-  - **Personalization**: 
-    - Consider user's risk tolerance and investment style
-    - Portfolio correlation analysis
-    - Sector diversification recommendations
-  - **Performance Tracking**:
-    - Track recommendation accuracy over time
-    - Learn from user feedback and market outcomes
-    - Continuously improve model parameters
+- [ ] **3.5 True AI Stock Recommendations - Specific Implementation**
+
+#### **Input Data Sources:**
+- **Company Fundamentals** (from `gold_ohlcv_daily_metrics` + `company_info_cache`):
+  - `symbol`, `company_name`, `description`, `sector`, `industry`, `market_cap`, `total_employees`, `primary_exchange`, `currency`
+- **Technical Indicators** (from `gold_ohlcv_daily_metrics`):
+  - `close`, `prev_close`, `change_percent`, `volume`, `rsi`, `macd_line`, `macd_signal`, `macd_histogram`, `ema20`, `ema50`, `ema200`, `atr`, `vwap`, `volume_trend`, `daily_return_pct`
+- **News Sentiment** (from Milvus vector database):
+  - Recent news articles (last 7 days), sentiment analysis, key points, sources
+- **Macroeconomic Context**:
+  - SPY, QQQ, DIA, VIXY current prices and changes, overall market sentiment
+- **User Query**: Specific question (e.g., "Should I buy NVDA?", "What's the outlook for TSLA?")
+
+#### **LLM Prompt Structure:**
+```
+System: You are an expert financial analyst. Provide actionable stock recommendations with specific reasoning, targets, and risks. Output MUST be in the specified JSON format.
+
+User: Analyze [STOCK_SYMBOL] and provide recommendation for [USER_QUESTION].
+
+**Company Data:**
+- Name: NVIDIA Corporation
+- Sector: Technology, Industry: Semiconductors  
+- Market Cap: $2.5T, Employees: 29,600
+- Exchange: NASDAQ
+
+**Technical Analysis (as of [DATE]):**
+- Price: $950.00 (prev: $940.00, +1.06%)
+- RSI: 65.2 (healthy momentum)
+- MACD: Line 20.5 > Signal 18.0 (bullish)
+- EMA: 20-day $920, 50-day $880, 200-day $750
+- Volume: Rising trend, accumulation pattern
+- ATR: $25.0 (volatility)
+
+**Recent News (Last 7 Days):**
+- Sentiment: Bullish
+- Key Points: Strong Q1 earnings beat, New AI chip architecture announced, Analyst upgrades
+- Analysis: Positive momentum from earnings and innovation
+
+**Market Context:**
+- SPY: +0.5%, QQQ: +0.8%, VIXY: 13.2 (low volatility)
+- Overall Market Sentiment: Neutral
+
+**Instructions:**
+1. Provide BUY/HOLD/SELL recommendation with confidence %
+2. Explain reasoning with specific data points
+3. Identify key risks and bullish/bearish factors
+4. Set price targets and stop losses
+5. Answer user's specific question directly
+
+**Required JSON Output:**
+{
+  "recommendation": "BUY",
+  "confidence": 85,
+  "reasoning": {
+    "summary": "NVIDIA shows strong bullish momentum driven by robust earnings, innovative AI chip announcements, and positive technical indicators. Stock in accumulation phase with rising volume.",
+    "bullish_factors": [
+      "Strong Q1 earnings beat expectations",
+      "New AI chip architecture driving premium pricing", 
+      "RSI 65.2 (healthy momentum, not overbought)",
+      "MACD line above signal (bullish crossover)",
+      "Volume trend rising (accumulation pattern)"
+    ],
+    "bearish_factors": [
+      "High valuation (P/E 65) creates downside risk",
+      "Potential for profit-taking after recent rally"
+    ],
+    "risks": [
+      "Market-wide tech sector correction",
+      "Increased competition in AI chip market",
+      "Potential China trade restrictions"
+    ],
+    "price_targets": {
+      "short_term": {"low": 960, "high": 1000},
+      "stop_loss": 920,
+      "time_horizon": "1-3 days"
+    }
+  },
+  "overall_sentiment": "bullish",
+  "answer_to_user_question": "NVIDIA is a strong BUY for the next 1-3 days. The stock exhibits robust bullish momentum from recent positive news, strong fundamentals, and favorable technical indicators. Expect continued upward movement towards $960-$1000 range, though monitor for potential short-term profit-taking. Set stop-loss at $920."
+}
+```
+
+#### **Implementation Details:**
+- **API Endpoint**: `/api/dashboard/ai-recommendations`
+- **Input**: `symbol`, `user_question`, `time_horizon` (optional)
+- **Processing**: Fetch all data sources, construct prompt, call GPT-4o-mini
+- **Output**: Structured JSON with recommendation, confidence, reasoning, targets
+- **Caching**: Cache results for 4 hours to avoid excessive API calls
+- **Error Handling**: Fallback to rule-based recommendations if LLM fails
+
+#### **Frontend Display:**
+- **Recommendation Card**: Show BUY/HOLD/SELL with confidence percentage
+- **Reasoning Section**: Expandable sections for bullish factors, risks, price targets
+- **User Question Answer**: Direct response to user's specific question
+- **Action Buttons**: "Set Alert", "Add to Watchlist", "View Analysis"
 
 ### Phase 4: Frontend Dashboard UI
 - [ ] **4.1 Dashboard Layout Structure**

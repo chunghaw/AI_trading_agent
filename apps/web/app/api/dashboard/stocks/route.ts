@@ -118,9 +118,19 @@ export async function GET(request: NextRequest) {
 
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
-    // Build ORDER BY clause
-    const validSortColumns = ['symbol', 'close', 'market_cap', 'rsi', 'macd_line', 'volume', 'daily_return_pct', 'company_name'];
-    const sortColumn = validSortColumns.includes(sortBy) ? sortBy : 'market_cap';
+    // Build ORDER BY clause - map frontend column names to database column names
+    const columnMapping: Record<string, string> = {
+      'symbol': 'symbol',
+      'company_name': 'final_company_name',
+      'price': 'close',
+      'volume': 'volume',
+      'market_cap': 'market_cap',
+      'rsi': 'rsi',
+      'daily_return_pct': 'daily_return_pct'
+    };
+    
+    const validSortColumns = Object.keys(columnMapping);
+    const dbColumn = columnMapping[sortBy] || 'market_cap';
     const orderDirection = sortOrder.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
 
     // Main query to get stocks with latest data from gold table (more reliable for technical indicators)
@@ -192,7 +202,7 @@ export async function GET(request: NextRequest) {
         daily_return_pct,
         date as last_updated
       FROM enriched_data
-      ORDER BY ${sortColumn} ${orderDirection}
+      ORDER BY ${dbColumn} ${orderDirection}
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
 

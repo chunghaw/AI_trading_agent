@@ -411,3 +411,166 @@ If indicators are stale (gold_time older than N minutes), include a small "as of
 - **Borders**: White/10 opacity for subtle borders
 - **Hover Effects**: White/10 background on interactive elements
 - **Shadows**: Proper shadow hierarchy for depth
+
+## Dashboard Implementation - Detailed TODO
+
+### Phase 1: Database & API Foundation
+- [ ] **1.1 Create Dashboard API Endpoint**
+  - Create `/api/dashboard/stocks` for stock screening data
+  - Create `/api/dashboard/insights` for AI insights
+  - Create `/api/dashboard/indicators` for market indices (SPY, QQQ, DIA, VIX)
+  - Implement filtering with dynamic SQL queries
+  - Add pagination for large datasets (100 stocks per page)
+
+- [ ] **1.2 Database Schema Updates**
+  - Create `ai_insights_cache` table for storing generated insights
+  - Add indexes for performance on frequently queried columns
+  - Implement data validation and error handling
+
+- [ ] **1.3 Market Indices Integration**
+  - Replace database average with real market indices (SPY, QQQ, DIA, VIX)
+  - Use existing Polygon API for indices data
+  - Calculate meaningful market metrics (not just database average)
+
+### Phase 2: Automated AI Updates System
+- [ ] **2.1 Vercel Cron Jobs Setup**
+  - Configure `vercel.json` with cron jobs for insights updates
+  - Create `/api/cron/update-insights` endpoint (every 4 hours)
+  - Create `/api/cron/update-recommendations` endpoint (9am, 5pm daily)
+  - Implement cron secret authentication for security
+
+- [ ] **2.2 Webhook-Based Updates**
+  - Create `/api/webhook/update-insights` endpoint
+  - Modify Airflow DAG to trigger webhook after data processing
+  - Implement webhook secret authentication
+  - Add error handling and retry logic
+
+- [ ] **2.3 Smart Caching System**
+  - Implement Redis caching with TTL (4 hours)
+  - Add cache age checking and automatic refresh
+  - Implement fallback to database storage
+  - Add cache invalidation strategies
+
+### Phase 3: AI Features Implementation
+- [ ] **3.1 AI Stock Recommendations**
+  - Generate top 3 stock recommendations with reasoning
+  - Include confidence scores and risk levels
+  - Analyze technical patterns (RSI, MACD, EMA crossovers)
+  - Provide sector rotation insights
+
+- [ ] **3.2 Breakout Detection System**
+  - Detect volume spikes (>1.5x average)
+  - Identify price breakouts (>5% in 5 days)
+  - Calculate breakout strength and targets
+  - Store breakout patterns in database
+
+- [ ] **3.3 Risk Alerts System**
+  - High volatility alerts (ATR > 1.5x average)
+  - Overbought/oversold alerts (RSI > 80 or < 20)
+  - Volume anomaly detection (200% above average)
+  - Correlation analysis for sector movements
+
+- [ ] **3.4 Market Sentiment Analysis**
+  - Aggregate technical sentiment across all stocks
+  - Calculate bullish/bearish percentage
+  - Identify sector rotation trends
+  - Generate market outlook summary
+
+### Phase 4: Frontend Dashboard UI
+- [ ] **4.1 Dashboard Layout Structure**
+  - Top section: Market Overview KPI cards (SPY, QQQ, DIA, VIX)
+  - Middle section: AI Market Insights panel
+  - Main section: Stock screening table with filters
+  - Bottom section: Quick action buttons
+
+- [ ] **4.2 Stock Screening Table**
+  - Display: Symbol, Company, Price, Change%, RSI, MACD, Volume Trend, Market Cap
+  - Implement sorting by any column
+  - Add color coding for gains/losses (green/red)
+  - Include technical indicator columns
+
+- [ ] **4.3 Advanced Filtering System**
+  - Price range filter ($0 - $1000)
+  - Market cap filter ($1B - $5T)
+  - RSI range filter (30-70)
+  - MACD signal filter (bullish/bearish/neutral)
+  - Volume trend filter (rising/flat/falling)
+  - Sector filter (Technology, Healthcare, etc.)
+  - Exchange filter (NASDAQ, NYSE)
+
+- [ ] **4.4 Interactive Features**
+  - Real-time data updates (every 5 minutes)
+  - Export to CSV functionality
+  - Watchlist feature for favorite stocks
+  - Quick analyze button (link to agents page)
+  - Responsive design for all screen sizes
+
+### Phase 5: AI Insights Display
+- [ ] **5.1 Market Overview Cards**
+  - SPY, QQQ, DIA, VIX with real-time prices
+  - Market cap total and sector breakdown
+  - Volatility index and fear gauge
+  - Advance/decline ratio
+
+- [ ] **5.2 AI Insights Panel**
+  - Top 3 AI stock recommendations with reasoning
+  - Market sentiment (bullish/neutral/bearish with percentage)
+  - Sector rotation insights
+  - Risk alerts with severity levels
+
+- [ ] **5.3 Breakout Detection Display**
+  - List of detected breakouts with strength scores
+  - Volume spike alerts
+  - Price target projections
+  - Pattern recognition results
+
+- [ ] **5.4 Risk Alerts Dashboard**
+  - High volatility stocks list
+  - Overbought/oversold warnings
+  - Volume anomaly notifications
+  - Correlation alerts
+
+### Phase 6: Performance & Optimization
+- [ ] **6.1 Database Optimization**
+  - Add composite indexes for filtering queries
+  - Implement query result caching
+  - Optimize SQL queries for large datasets
+  - Add database connection pooling
+
+- [ ] **6.2 Frontend Performance**
+  - Implement virtual scrolling for large tables
+  - Add loading states and skeleton screens
+  - Optimize API calls with debouncing
+  - Implement client-side caching
+
+- [ ] **6.3 Error Handling & Monitoring**
+  - Add comprehensive error boundaries
+  - Implement API error handling and retry logic
+  - Add performance monitoring
+  - Create fallback UI states
+
+### Phase 7: Testing & Deployment
+- [ ] **7.1 Testing Implementation**
+  - Unit tests for API endpoints
+  - Integration tests for AI features
+  - Frontend component tests
+  - End-to-end dashboard tests
+
+- [ ] **7.2 Production Deployment**
+  - Deploy to Vercel with cron jobs enabled
+  - Configure environment variables
+  - Set up monitoring and alerts
+  - Performance testing under load
+
+- [ ] **7.3 Documentation & Maintenance**
+  - Update README with dashboard features
+  - Document API endpoints and usage
+  - Create user guide for dashboard features
+  - Set up maintenance procedures
+
+### Technical Implementation Notes:
+- **Cost Optimization**: Use existing OpenAI quota, no additional infrastructure
+- **Update Strategy**: Webhook (primary) + Cron (fallback) + Smart caching
+- **Data Sources**: Existing PostgreSQL + Polygon API for indices
+- **Update Frequency**: Market data (12h), AI insights (4h), Frontend (5min)
+- **Security**: Cron/webhook secrets, input validation, SQL injection prevention

@@ -100,19 +100,23 @@ export default function DashboardPage() {
     volumeTrend: '',
     exchange: ''
   });
+  const [sortBy, setSortBy] = useState('marketCap');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   useEffect(() => {
     fetchDashboardData();
-  }, []);
+  }, [sortBy, sortOrder]);
 
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // Build query string for stocks API with filters
+      // Build query string for stocks API with filters and sorting
       const stockParams = new URLSearchParams({
         limit: '20',
+        sortBy: sortBy,
+        sortOrder: sortOrder,
         ...Object.fromEntries(
           Object.entries(filters).filter(([_, value]) => value !== '')
         )
@@ -179,6 +183,21 @@ export default function DashboardPage() {
       case 'bearish': return 'text-red-400 bg-red-900/20 border-red-700/30';
       default: return 'text-yellow-400 bg-yellow-900/20 border-yellow-700/30';
     }
+  };
+
+  const handleSort = (column: string) => {
+    if (sortBy === column) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(column);
+      setSortOrder('desc');
+    }
+    fetchDashboardData();
+  };
+
+  const getSortIcon = (column: string) => {
+    if (sortBy !== column) return null;
+    return sortOrder === 'asc' ? '↑' : '↓';
   };
 
   if (loading) {
@@ -475,13 +494,43 @@ export default function DashboardPage() {
             <table className="w-full">
               <thead className="border-b border-white/10">
                 <tr>
-                  <th className="text-left p-4 text-sm font-medium text-gray-400">Symbol</th>
+                  <th 
+                    className="text-left p-4 text-sm font-medium text-gray-400 cursor-pointer hover:text-white transition-colors"
+                    onClick={() => handleSort('symbol')}
+                  >
+                    Symbol {getSortIcon('symbol')}
+                  </th>
                   <th className="text-left p-4 text-sm font-medium text-gray-400">Company</th>
-                  <th className="text-right p-4 text-sm font-medium text-gray-400">Price</th>
-                  <th className="text-right p-4 text-sm font-medium text-gray-400">Change</th>
-                  <th className="text-right p-4 text-sm font-medium text-gray-400">RSI</th>
-                  <th className="text-right p-4 text-sm font-medium text-gray-400">Market Cap</th>
-                  <th className="text-right p-4 text-sm font-medium text-gray-400">Volume Trend</th>
+                  <th 
+                    className="text-right p-4 text-sm font-medium text-gray-400 cursor-pointer hover:text-white transition-colors"
+                    onClick={() => handleSort('price')}
+                  >
+                    Price {getSortIcon('price')}
+                  </th>
+                  <th 
+                    className="text-right p-4 text-sm font-medium text-gray-400 cursor-pointer hover:text-white transition-colors"
+                    onClick={() => handleSort('daily_return_pct')}
+                  >
+                    Change {getSortIcon('daily_return_pct')}
+                  </th>
+                  <th 
+                    className="text-right p-4 text-sm font-medium text-gray-400 cursor-pointer hover:text-white transition-colors"
+                    onClick={() => handleSort('rsi')}
+                  >
+                    RSI {getSortIcon('rsi')}
+                  </th>
+                  <th 
+                    className="text-right p-4 text-sm font-medium text-gray-400 cursor-pointer hover:text-white transition-colors"
+                    onClick={() => handleSort('market_cap')}
+                  >
+                    Market Cap {getSortIcon('market_cap')}
+                  </th>
+                  <th 
+                    className="text-right p-4 text-sm font-medium text-gray-400 cursor-pointer hover:text-white transition-colors"
+                    onClick={() => handleSort('volume')}
+                  >
+                    Volume {getSortIcon('volume')}
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -528,12 +577,8 @@ export default function DashboardPage() {
                       </span>
                     </td>
                     <td className="p-4 text-right">
-                      <span className={`text-xs px-2 py-1 rounded ${
-                        stock.trends.volumeTrend === 'rising' ? 'bg-green-900/20 text-green-400' :
-                        stock.trends.volumeTrend === 'falling' ? 'bg-red-900/20 text-red-400' :
-                        'bg-gray-900/20 text-gray-400'
-                      }`}>
-                        {stock.trends.volumeTrend}
+                      <span className="text-sm text-gray-300">
+                        {stock.volume ? formatNumber(stock.volume, 0) : 'N/A'}
                       </span>
                     </td>
                   </tr>

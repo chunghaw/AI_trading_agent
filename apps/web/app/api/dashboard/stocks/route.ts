@@ -119,33 +119,40 @@ export async function GET(request: NextRequest) {
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
     // Build ORDER BY clause
-    const validSortColumns = ['symbol', 'close', 'market_cap', 'rsi_14', 'macd_line', 'volume', 'total_volume', 'daily_return_pct'];
+    const validSortColumns = ['symbol', 'close', 'market_cap', 'rsi', 'macd_line', 'volume', 'daily_return_pct'];
     const sortColumn = validSortColumns.includes(sortBy) ? sortBy : 'market_cap';
     const orderDirection = sortOrder.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
 
-    // Main query to get stocks with latest data
+    // Main query to get stocks with latest data from silver table (better for price changes)
     const stocksQuery = `
-      WITH latest_data AS (
+      WITH silver_latest AS (
         SELECT 
-          g.symbol, g.date, g.open, g.high, g.low, g.close, g.total_volume, g.market_cap,
-          g.rsi_14, g.macd_line, g.macd_signal, g.macd_histogram, g.ema_20, g.ema_50, g.ema_200,
-          g.ma_5, g.ma_20, g.ma_50, g.ma_200, g.atr_14, g.vwap, g.volume_trend, g.volume_price_relationship,
-          g.daily_return_pct, g.company_name, g.market, g.stock_type, g.primary_exchange, g.currency,
-          g.total_employees, g.description,
-          COALESCE(c.name, g.company_name) as final_company_name,
-          COALESCE(c.market, g.market) as final_market,
-          COALESCE(c.type, g.stock_type) as final_stock_type,
-          COALESCE(c.primary_exchange, g.primary_exchange) as final_primary_exchange,
-          COALESCE(c.currency_name, g.currency) as final_currency,
-          COALESCE(c.total_employees, g.total_employees) as final_total_employees,
-          COALESCE(c.description, g.description) as final_description,
-          -- Calculate price change from previous day
-          LAG(g.close) OVER (PARTITION BY g.symbol ORDER BY g.date) as prev_close,
-          ROW_NUMBER() OVER (PARTITION BY g.symbol ORDER BY g.date DESC) as rn
-        FROM gold_ohlcv_daily_metrics g
-        LEFT JOIN company_info_cache c ON g.symbol = c.symbol
-        WHERE g.close > 0 AND g.date >= CURRENT_DATE - INTERVAL '30 days'
-        ${whereClause ? whereClause.replace('WHERE', 'AND') : ''}
+          s.symbol, s.date, s.open, s.high, s.low, s.close, s.volume, s.company_name,
+          s.market, s.stock_type, s.primary_exchange, s.currency, s.total_employees,
+          s.description, s.shares_outstanding, s.market_cap, s.rsi, s.macd_line, s.macd_signal,
+          s.macd_histogram, s.ema_20, s.ema_50, s.ema_200, s.ma_5, s.ma_20, s.ma_50, s.ma_200,
+          s.atr, s.vwap, s.daily_return_pct, s.volume_trend, s.volume_price_relationship,
+          -- Calculate price change from previous day using silver table
+          LAG(s.close) OVER (PARTITION BY s.symbol ORDER BY s.date) as prev_close,
+          ROW_NUMBER() OVER (PARTITION BY s.symbol ORDER BY s.date DESC) as rn
+        FROM silver_ohlcv s
+        LEFT JOIN company_info_cache c ON s.symbol = c.symbol
+        WHERE s.close > 0 AND s.date >= CURRENT_DATE - INTERVAL '30 days'
+          AND s.is_valid = true
+      ),
+      latest_data AS (
+        SELECT 
+          s.*,
+          COALESCE(c.name, s.company_name) as final_company_name,
+          COALESCE(c.market, s.market) as final_market,
+          COALESCE(c.type, s.stock_type) as final_stock_type,
+          COALESCE(c.primary_exchange, s.primary_exchange) as final_primary_exchange,
+          COALESCE(c.currency_name, s.currency) as final_currency,
+          COALESCE(c.total_employees, s.total_employees) as final_total_employees,
+          COALESCE(c.description, s.description) as final_description
+        FROM silver_latest s
+        LEFT JOIN company_info_cache c ON s.symbol = c.symbol
+        WHERE s.rn = 1
       )
       SELECT 
         symbol,
@@ -161,9 +168,9 @@ export async function GET(request: NextRequest) {
           ELSE NULL 
         END as price_change_percent,
         (close - prev_close) as price_change,
-        total_volume as volume,
+        volume,
         market_cap,
-        rsi_14 as rsi,
+        rsi as rsi,
         macd_line,
         macd_signal,
         macd_histogram,
@@ -174,14 +181,13 @@ export async function GET(request: NextRequest) {
         ma_20,
         ma_50,
         ma_200,
-        atr_14 as atr,
+        atr,
         vwap,
         volume_trend,
         volume_price_relationship,
         daily_return_pct,
         date as last_updated
       FROM latest_data
-      WHERE rn = 1
       ORDER BY ${sortColumn} ${orderDirection}
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;

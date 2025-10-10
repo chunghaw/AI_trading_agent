@@ -123,36 +123,34 @@ export async function GET(request: NextRequest) {
     const sortColumn = validSortColumns.includes(sortBy) ? sortBy : 'market_cap';
     const orderDirection = sortOrder.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
 
-    // Main query to get stocks with latest data from silver table (better for price changes)
+    // Main query to get stocks with latest data from gold table (more reliable for technical indicators)
     const stocksQuery = `
-      WITH silver_latest AS (
+      WITH latest_data AS (
         SELECT 
-          s.symbol, s.date, s.open, s.high, s.low, s.close, s.volume, s.company_name,
-          s.market, s.stock_type, s.primary_exchange, s.currency, s.total_employees,
-          s.description, s.shares_outstanding, s.market_cap, s.rsi, s.macd_line, s.macd_signal,
-          s.macd_histogram, s.ema_20, s.ema_50, s.ema_200, s.ma_5, s.ma_20, s.ma_50, s.ma_200,
-          s.atr, s.vwap, s.daily_return_pct, s.volume_trend, s.volume_price_relationship,
-          -- Calculate price change from previous day using silver table
-          LAG(s.close) OVER (PARTITION BY s.symbol ORDER BY s.date) as prev_close,
-          ROW_NUMBER() OVER (PARTITION BY s.symbol ORDER BY s.date DESC) as rn
-        FROM silver_ohlcv s
-        LEFT JOIN company_info_cache c ON s.symbol = c.symbol
-        WHERE s.close > 0 AND s.date >= CURRENT_DATE - INTERVAL '30 days'
-          AND s.is_valid = true
+          g.symbol, g.date, g.open, g.high, g.low, g.close, g.total_volume as volume, g.company_name,
+          g.market, g.stock_type, g.primary_exchange, g.currency, g.total_employees,
+          g.description, g.market_cap, g.rsi_14 as rsi, g.macd_line, g.macd_signal,
+          g.macd_histogram, g.ema_20, g.ema_50, g.ema_200, g.ma_5, g.ma_20, g.ma_50, g.ma_200,
+          g.atr_14 as atr, g.vwap, g.daily_return_pct, g.volume_trend, g.volume_price_relationship,
+          -- Get previous day's close from the same table
+          LAG(g.close) OVER (PARTITION BY g.symbol ORDER BY g.date) as prev_close,
+          ROW_NUMBER() OVER (PARTITION BY g.symbol ORDER BY g.date DESC) as rn
+        FROM gold_ohlcv_daily_metrics g
+        WHERE g.close > 0 AND g.date >= CURRENT_DATE - INTERVAL '30 days'
       ),
-      latest_data AS (
+      enriched_data AS (
         SELECT 
-          s.*,
-          COALESCE(c.name, s.company_name) as final_company_name,
-          COALESCE(c.market, s.market) as final_market,
-          COALESCE(c.type, s.stock_type) as final_stock_type,
-          COALESCE(c.primary_exchange, s.primary_exchange) as final_primary_exchange,
-          COALESCE(c.currency_name, s.currency) as final_currency,
-          COALESCE(c.total_employees, s.total_employees) as final_total_employees,
-          COALESCE(c.description, s.description) as final_description
-        FROM silver_latest s
-        LEFT JOIN company_info_cache c ON s.symbol = c.symbol
-        WHERE s.rn = 1
+          l.*,
+          COALESCE(c.name, l.company_name) as final_company_name,
+          COALESCE(c.market, l.market) as final_market,
+          COALESCE(c.type, l.stock_type) as final_stock_type,
+          COALESCE(c.primary_exchange, l.primary_exchange) as final_primary_exchange,
+          COALESCE(c.currency_name, l.currency) as final_currency,
+          COALESCE(c.total_employees, l.total_employees) as final_total_employees,
+          COALESCE(c.description, l.description) as final_description
+        FROM latest_data l
+        LEFT JOIN company_info_cache c ON l.symbol = c.symbol
+        WHERE l.rn = 1
       )
       SELECT 
         symbol,
@@ -164,8 +162,11 @@ export async function GET(request: NextRequest) {
         close as price,
         prev_close,
         CASE 
-          WHEN prev_close > 0 THEN ((close - prev_close) / prev_close) * 100
-          ELSE NULL 
+          WHEN prev_close > 0 AND close > 0 THEN 
+            ROUND(((close - prev_close) / prev_close) * 100, 2)
+          WHEN prev_close IS NULL OR prev_close <= 0 THEN 
+            COALESCE(daily_return_pct, 0)
+          ELSE 0
         END as price_change_percent,
         (close - prev_close) as price_change,
         volume,
@@ -187,7 +188,7 @@ export async function GET(request: NextRequest) {
         volume_price_relationship,
         daily_return_pct,
         date as last_updated
-      FROM latest_data
+      FROM enriched_data
       ORDER BY ${sortColumn} ${orderDirection}
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
@@ -207,12 +208,13 @@ export async function GET(request: NextRequest) {
         exchange: row.primary_exchange || 'XNAS',
         currency: row.currency || 'USD',
         price: safeParseFloat(row.price),
+        prevClose: safeParseFloat(row.prev_close),
         priceChange: safeParseFloat(row.price_change),
         priceChangePercent: safeParseFloat(row.price_change_percent),
         volume: safeParseFloat(row.volume),
         marketCap: safeParseFloat(row.market_cap),
         technical: {
-          rsi: rsi && rsi >= 0 && rsi <= 100 ? rsi : null,
+          rsi: rsi && rsi > 0 && rsi < 100 ? rsi : null,
           macd: {
             line: safeParseFloat(row.macd_line),
             signal: safeParseFloat(row.macd_signal),

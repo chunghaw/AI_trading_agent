@@ -470,11 +470,45 @@ If indicators are stale (gold_time older than N minutes), include a small "as of
   - Volume anomaly detection (200% above average)
   - Correlation analysis for sector movements
 
-- [ ] **3.4 Market Sentiment Analysis**
-  - Aggregate technical sentiment across all stocks
-  - Calculate bullish/bearish percentage
-  - Identify sector rotation trends
-  - Generate market outlook summary
+- [ ] **3.4 Corporate Standard AI Market Sentiment Analysis**
+  - **LLM-Driven Analysis**: Use GPT-4o-mini to analyze:
+    - Recent market news and headlines from Milvus vector database
+    - Economic indicators and Fed announcements
+    - Earnings reports and guidance
+    - Sector performance trends
+    - Global market conditions
+  - **Multi-Source Integration**: Combine:
+    - News sentiment from Milvus vector database
+    - Technical indicator analysis across all stocks
+    - Macroeconomic data (VIX, yield curves, commodity prices)
+    - Social sentiment indicators
+  - **Dynamic Output Format**:
+    - **Sentiment**: Bullish/Neutral/Bearish with confidence score
+    - **Key Drivers**: Top 3 factors influencing market sentiment
+    - **Risk Factors**: Potential concerns and volatility indicators
+    - **Sector Outlook**: Best and worst performing sectors
+    - **Time Horizon**: Short-term (1-3 days) vs Medium-term (1-2 weeks)
+  - **Update Frequency**: Every 4 hours during market hours, daily summary
+
+- [ ] **3.5 True AI Stock Recommendations**
+  - **Predictive Models**: 
+    - Train ML models on historical price patterns
+    - Use ensemble methods (Random Forest, XGBoost, Neural Networks)
+    - Incorporate fundamental data (P/E, growth rates, debt ratios)
+    - Include technical momentum indicators
+  - **LLM Reasoning Engine**:
+    - Generate natural language explanations for recommendations
+    - Analyze company-specific news and events
+    - Provide risk assessments and position sizing suggestions
+    - Create investment thesis for each recommendation
+  - **Personalization**: 
+    - Consider user's risk tolerance and investment style
+    - Portfolio correlation analysis
+    - Sector diversification recommendations
+  - **Performance Tracking**:
+    - Track recommendation accuracy over time
+    - Learn from user feedback and market outcomes
+    - Continuously improve model parameters
 
 ### Phase 4: Frontend Dashboard UI
 - [ ] **4.1 Dashboard Layout Structure**

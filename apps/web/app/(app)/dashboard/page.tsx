@@ -100,7 +100,7 @@ export default function DashboardPage() {
     volumeTrend: '',
     exchange: ''
   });
-  const [sortBy, setSortBy] = useState('marketCap');
+  const [sortBy, setSortBy] = useState('volume');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   useEffect(() => {
@@ -507,6 +507,9 @@ export default function DashboardPage() {
                   >
                     Price {getSortIcon('price')}
                   </th>
+                  <th className="text-right p-4 text-sm font-medium text-gray-400">
+                    Last
+                  </th>
                   <th 
                     className="text-right p-4 text-sm font-medium text-gray-400 cursor-pointer hover:text-white transition-colors"
                     onClick={() => handleSort('daily_return_pct')}
@@ -547,6 +550,11 @@ export default function DashboardPage() {
                     <td className="p-4 text-right">
                       <span className="font-medium text-white">
                         {stock.price ? `$${formatNumber(stock.price)}` : 'N/A'}
+                      </span>
+                    </td>
+                    <td className="p-4 text-right">
+                      <span className="text-sm text-gray-300">
+                        {stock.prevClose ? `$${formatNumber(stock.prevClose)}` : 'N/A'}
                       </span>
                     </td>
                     <td className="p-4 text-right">

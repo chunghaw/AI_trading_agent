@@ -43,6 +43,7 @@ interface MarketInsights {
     bullishPercentage: number;
     bearishPercentage: number;
     neutralPercentage: number;
+    totalStocks: number;
   };
   topRecommendations: Array<{
     rank: number;
@@ -87,6 +88,18 @@ export default function DashboardPage() {
   const [insights, setInsights] = useState<MarketInsights | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState({
+    minPrice: '',
+    maxPrice: '',
+    minMarketCap: '',
+    maxMarketCap: '',
+    minRsi: '',
+    maxRsi: '',
+    macdSignal: '',
+    volumeTrend: '',
+    exchange: ''
+  });
 
   useEffect(() => {
     fetchDashboardData();
@@ -97,10 +110,18 @@ export default function DashboardPage() {
       setLoading(true);
       setError(null);
 
+      // Build query string for stocks API with filters
+      const stockParams = new URLSearchParams({
+        limit: '20',
+        ...Object.fromEntries(
+          Object.entries(filters).filter(([_, value]) => value !== '')
+        )
+      });
+
       // Fetch all dashboard data in parallel
       const [indicatorsResponse, stocksResponse, insightsResponse] = await Promise.all([
         fetch('/api/dashboard/indicators'),
-        fetch('/api/dashboard/stocks?limit=20'),
+        fetch(`/api/dashboard/stocks?${stockParams}`),
         fetch('/api/dashboard/insights')
       ]);
 
@@ -249,17 +270,49 @@ export default function DashboardPage() {
                   {insights.marketSentiment.sentiment.toUpperCase()}
                 </span>
               </div>
+              
+              {/* Visual Sentiment Bar */}
+              <div className="mb-4">
+                <div className="flex items-center justify-between text-xs text-gray-400 mb-2">
+                  <span>Market Outlook</span>
+                  <span>{insights.marketSentiment.totalStocks} stocks analyzed</span>
+                </div>
+                <div className="relative h-8 bg-gray-700 rounded-full overflow-hidden">
+                  <div 
+                    className="absolute top-0 left-0 h-full bg-green-500 transition-all duration-500"
+                    style={{ width: `${insights.marketSentiment.bullishPercentage}%` }}
+                  />
+                  <div 
+                    className="absolute top-0 h-full bg-yellow-500 transition-all duration-500"
+                    style={{ 
+                      left: `${insights.marketSentiment.bullishPercentage}%`,
+                      width: `${insights.marketSentiment.neutralPercentage}%`
+                    }}
+                  />
+                  <div 
+                    className="absolute top-0 h-full bg-red-500 transition-all duration-500"
+                    style={{ 
+                      left: `${insights.marketSentiment.bullishPercentage + insights.marketSentiment.neutralPercentage}%`,
+                      width: `${insights.marketSentiment.bearishPercentage}%`
+                    }}
+                  />
+                </div>
+              </div>
+
               <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-400">Bullish</span>
+                <div className="flex items-center space-x-3">
+                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                  <span className="text-sm text-gray-400 flex-1">Stocks Rising</span>
                   <span className="text-sm text-green-400 font-medium">{insights.marketSentiment.bullishPercentage}%</span>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-400">Bearish</span>
+                <div className="flex items-center space-x-3">
+                  <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                  <span className="text-sm text-gray-400 flex-1">Stocks Falling</span>
                   <span className="text-sm text-red-400 font-medium">{insights.marketSentiment.bearishPercentage}%</span>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-400">Neutral</span>
+                <div className="flex items-center space-x-3">
+                  <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                  <span className="text-sm text-gray-400 flex-1">Stocks Flat</span>
                   <span className="text-sm text-yellow-400 font-medium">{insights.marketSentiment.neutralPercentage}%</span>
                 </div>
               </div>
@@ -304,11 +357,120 @@ export default function DashboardPage() {
                 <h3 className="text-lg font-semibold text-white">Stock Screener</h3>
                 <span className="text-sm text-gray-400">({stocks.length} stocks)</span>
               </div>
-              <Button variant="outline" size="sm">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setShowFilters(!showFilters)}
+              >
                 Advanced Filters
               </Button>
             </div>
           </div>
+          
+          {/* Advanced Filters */}
+          {showFilters && (
+            <div className="p-6 border-b border-white/10 bg-white/5">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Price Range</label>
+                  <div className="flex space-x-2">
+                    <input
+                      type="number"
+                      placeholder="Min"
+                      value={filters.minPrice}
+                      onChange={(e) => setFilters({...filters, minPrice: e.target.value})}
+                      className="w-full px-3 py-2 bg-[#2a2a2a] border border-white/10 rounded text-white text-sm"
+                    />
+                    <input
+                      type="number"
+                      placeholder="Max"
+                      value={filters.maxPrice}
+                      onChange={(e) => setFilters({...filters, maxPrice: e.target.value})}
+                      className="w-full px-3 py-2 bg-[#2a2a2a] border border-white/10 rounded text-white text-sm"
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Market Cap Range</label>
+                  <div className="flex space-x-2">
+                    <input
+                      type="number"
+                      placeholder="Min (M)"
+                      value={filters.minMarketCap}
+                      onChange={(e) => setFilters({...filters, minMarketCap: e.target.value})}
+                      className="w-full px-3 py-2 bg-[#2a2a2a] border border-white/10 rounded text-white text-sm"
+                    />
+                    <input
+                      type="number"
+                      placeholder="Max (M)"
+                      value={filters.maxMarketCap}
+                      onChange={(e) => setFilters({...filters, maxMarketCap: e.target.value})}
+                      className="w-full px-3 py-2 bg-[#2a2a2a] border border-white/10 rounded text-white text-sm"
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">RSI Range</label>
+                  <div className="flex space-x-2">
+                    <input
+                      type="number"
+                      placeholder="Min"
+                      min="0"
+                      max="100"
+                      value={filters.minRsi}
+                      onChange={(e) => setFilters({...filters, minRsi: e.target.value})}
+                      className="w-full px-3 py-2 bg-[#2a2a2a] border border-white/10 rounded text-white text-sm"
+                    />
+                    <input
+                      type="number"
+                      placeholder="Max"
+                      min="0"
+                      max="100"
+                      value={filters.maxRsi}
+                      onChange={(e) => setFilters({...filters, maxRsi: e.target.value})}
+                      className="w-full px-3 py-2 bg-[#2a2a2a] border border-white/10 rounded text-white text-sm"
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Volume Trend</label>
+                  <select
+                    value={filters.volumeTrend}
+                    onChange={(e) => setFilters({...filters, volumeTrend: e.target.value})}
+                    className="w-full px-3 py-2 bg-[#2a2a2a] border border-white/10 rounded text-white text-sm"
+                  >
+                    <option value="">All</option>
+                    <option value="rising">Rising</option>
+                    <option value="falling">Falling</option>
+                    <option value="flat">Flat</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div className="flex justify-end space-x-2 mt-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setFilters({
+                    minPrice: '', maxPrice: '', minMarketCap: '', maxMarketCap: '',
+                    minRsi: '', maxRsi: '', macdSignal: '', volumeTrend: '', exchange: ''
+                  })}
+                >
+                  Clear Filters
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={fetchDashboardData}
+                >
+                  Apply Filters
+                </Button>
+              </div>
+            </div>
+          )}
+          
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="border-b border-white/10">

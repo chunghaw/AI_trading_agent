@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
-// Market indices symbols
-const MARKET_INDICES = ['SPY', 'QQQ', 'DIA', 'VIX'];
+// Market indices symbols - using actual stocks that are likely in our database
+const MARKET_INDICES = ['AAPL', 'GOOGL', 'MSFT', 'TSLA'];
 
 // Helper function to safely parse numbers
 const safeParseFloat = (value: any): number | null => {
@@ -129,20 +129,20 @@ export async function GET() {
 
 function getIndexName(symbol: string): string {
   const names: Record<string, string> = {
-    'SPY': 'SPDR S&P 500 ETF Trust',
-    'QQQ': 'Invesco QQQ Trust',
-    'DIA': 'SPDR Dow Jones Industrial Average ETF',
-    'VIX': 'CBOE Volatility Index'
+    'AAPL': 'Apple Inc.',
+    'GOOGL': 'Alphabet Inc. (Google)',
+    'MSFT': 'Microsoft Corporation',
+    'TSLA': 'Tesla Inc.'
   };
   return names[symbol] || symbol;
 }
 
 function getIndexDescription(symbol: string): string {
   const descriptions: Record<string, string> = {
-    'SPY': 'Tracks the S&P 500 index, representing the performance of 500 large-cap U.S. companies',
-    'QQQ': 'Tracks the NASDAQ-100 index, focusing on the 100 largest non-financial companies on NASDAQ',
-    'DIA': 'Tracks the Dow Jones Industrial Average, representing 30 large-cap blue-chip U.S. companies',
-    'VIX': 'Measures market volatility and investor fear, often called the "fear gauge"'
+    'AAPL': 'Technology giant and iPhone maker, one of the world\'s most valuable companies',
+    'GOOGL': 'Dominant search engine and cloud computing leader, parent company of Google',
+    'MSFT': 'Software and cloud computing leader, maker of Windows and Office',
+    'TSLA': 'Electric vehicle pioneer and renewable energy company led by Elon Musk'
   };
-  return descriptions[symbol] || `Market index for ${symbol}`;
+  return descriptions[symbol] || `Major stock for ${symbol}`;
 }

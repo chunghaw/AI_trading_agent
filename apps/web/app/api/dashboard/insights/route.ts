@@ -79,9 +79,10 @@ export async function GET() {
     const totalStocks = marketData.market_stats?.total_stocks || 0;
     const positiveStocks = marketData.market_stats?.positive_stocks || 0;
     const negativeStocks = marketData.market_stats?.negative_stocks || 0;
+    const neutralStocks = totalStocks - positiveStocks - negativeStocks;
     
     let marketSentiment: 'bullish' | 'neutral' | 'bearish';
-    const bullishRatio = positiveStocks / totalStocks;
+    const bullishRatio = totalStocks > 0 ? positiveStocks / totalStocks : 0;
     
     if (bullishRatio > 0.6) {
       marketSentiment = 'bullish';
@@ -95,9 +96,10 @@ export async function GET() {
     const insights = {
       marketSentiment: {
         sentiment: marketSentiment,
-        bullishPercentage: Math.round((positiveStocks / totalStocks) * 100),
-        bearishPercentage: Math.round((negativeStocks / totalStocks) * 100),
-        neutralPercentage: Math.round(((totalStocks - positiveStocks - negativeStocks) / totalStocks) * 100)
+        bullishPercentage: totalStocks > 0 ? Math.round((positiveStocks / totalStocks) * 100) : 0,
+        bearishPercentage: totalStocks > 0 ? Math.round((negativeStocks / totalStocks) * 100) : 0,
+        neutralPercentage: totalStocks > 0 ? Math.round((neutralStocks / totalStocks) * 100) : 0,
+        totalStocks: totalStocks
       },
       
       topRecommendations: await generateTopRecommendations(client),
@@ -153,7 +155,14 @@ async function generateTopRecommendations(client: Client) {
           g.*,
           ROW_NUMBER() OVER (PARTITION BY g.symbol ORDER BY g.date DESC) as rn
         FROM gold_ohlcv_daily_metrics g
-        WHERE g.date >= CURRENT_DATE - INTERVAL '30 days'
+        WHERE g.date >= CURRENT_DATE - INTERVAL '7 days'
+          AND g.close > 0
+          AND g.rsi_14 IS NOT NULL
+      ),
+      avg_volume_calc AS (
+        SELECT AVG(total_volume) as avg_volume
+        FROM latest_data 
+        WHERE rn = 1
       ),
       strong_performers AS (
         SELECT 
@@ -165,17 +174,18 @@ async function generateTopRecommendations(client: Client) {
           macd_signal,
           total_volume,
           market_cap,
-          -- Scoring algorithm
+          -- Scoring algorithm (simplified for better results)
           (
-            CASE WHEN daily_return_pct > 0 THEN 1 ELSE 0 END * 0.3 +
-            CASE WHEN rsi_14 BETWEEN 40 AND 70 THEN 1 ELSE 0 END * 0.2 +
-            CASE WHEN macd_line > macd_signal THEN 1 ELSE 0 END * 0.3 +
-            CASE WHEN total_volume > (SELECT AVG(total_volume) FROM latest_data WHERE rn = 1) THEN 1 ELSE 0 END * 0.2
+            CASE WHEN daily_return_pct > 0 THEN 1 ELSE 0 END * 0.4 +
+            CASE WHEN rsi_14 BETWEEN 30 AND 70 THEN 1 ELSE 0 END * 0.3 +
+            CASE WHEN macd_line > macd_signal THEN 1 ELSE 0 END * 0.3
           ) as score
-        FROM latest_data 
+        FROM latest_data, avg_volume_calc
         WHERE rn = 1 
-          AND market_cap > 1000000000  -- Only large cap stocks
-          AND close > 10  -- Minimum price
+          AND close > 5  -- Minimum price
+          AND market_cap > 100000000  -- Minimum market cap
+          AND total_volume > avg_volume_calc.avg_volume * 0.5  -- Above average volume
+          AND rsi_14 BETWEEN 20 AND 80  -- Reasonable RSI range
         ORDER BY score DESC, daily_return_pct DESC
         LIMIT 3
       )

@@ -201,20 +201,28 @@ export async function POST(req: NextRequest) {
     
     // Step 3: Use pre-calculated technical indicators from gold table
     console.log(`📊 STEP 3: Using pre-calculated technical indicators for ${detectedSymbol}`);
+    // Helper function to safely parse numeric values
+    const safeParseFloat = (value: any): number | null => {
+      if (value === null || value === undefined || value === '') return null;
+      const parsed = parseFloat(value);
+      return isNaN(parsed) ? null : parsed;
+    };
+
     const indicators = {
-      rsi14: dbData.rsi_14 ? parseFloat(dbData.rsi_14) : null,
-      macd: dbData.macd_line ? parseFloat(dbData.macd_line) : null,
-      macd_signal: dbData.macd_signal ? parseFloat(dbData.macd_signal) : null,
-      macd_hist: dbData.macd_histogram ? parseFloat(dbData.macd_histogram) : null,
-      ema20: dbData.ema_20 ? parseFloat(dbData.ema_20) : null,
-      ema50: dbData.ema_50 ? parseFloat(dbData.ema_50) : null,
-      ema200: dbData.ema_200 ? parseFloat(dbData.ema_200) : null,
-      vwap: dbData.vwap ? parseFloat(dbData.vwap) : null,
-      atr: dbData.atr_14 ? parseFloat(dbData.atr_14) : null
+      rsi14: safeParseFloat(dbData.rsi_14),
+      macd: safeParseFloat(dbData.macd_line),
+      macd_signal: safeParseFloat(dbData.macd_signal),
+      macd_hist: safeParseFloat(dbData.macd_histogram),
+      ema20: safeParseFloat(dbData.ema_20),
+      ema50: safeParseFloat(dbData.ema_50),
+      ema200: safeParseFloat(dbData.ema_200),
+      vwap: safeParseFloat(dbData.vwap),
+      atr: safeParseFloat(dbData.atr_14)
     };
     const currentPrice = parseFloat(dbData.close);
     
     console.log(`✅ STEP 3 SUCCESS: Using pre-calculated indicators - RSI: ${indicators.rsi14}, MACD: ${indicators.macd}, Price: $${currentPrice}, Source: gold_table_precalculated`);
+    console.log(`🔍 DEBUG - Parsed indicators:`, indicators);
     
     // Step 4: Generate analysis using GPT
     console.log(`🎯 STAGE C: Generating final answer for user's question`);

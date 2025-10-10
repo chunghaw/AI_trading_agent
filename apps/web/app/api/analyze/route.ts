@@ -222,13 +222,24 @@ export async function POST(req: NextRequest) {
     const currentPrice = parseFloat(dbData.close);
     
     console.log(`✅ STEP 3 SUCCESS: Using pre-calculated indicators - RSI: ${indicators.rsi14}, MACD: ${indicators.macd}, Price: $${currentPrice}, Source: gold_table_precalculated`);
+    console.log(`🔍 DEBUG - Raw database values:`, {
+      rsi_14: dbData.rsi_14,
+      macd_line: dbData.macd_line,
+      macd_signal: dbData.macd_signal,
+      macd_histogram: dbData.macd_histogram,
+      ema_20: dbData.ema_20,
+      ema_50: dbData.ema_50,
+      ema_200: dbData.ema_200,
+      atr_14: dbData.atr_14,
+      vwap: dbData.vwap
+    });
     console.log(`🔍 DEBUG - Parsed indicators:`, indicators);
     
     // Step 4: Generate analysis using GPT
     console.log(`🎯 STAGE C: Generating final answer for user's question`);
     const newsPrompt = getNewsAnalystPrompt({ symbol: detectedSymbol, newsDocs: newsAnalysis.rationale, userQuery: query });
     const techPrompt = getTechnicalAnalystPrompt({ symbol: detectedSymbol, indicators, currentPrice, userQuery: query });
-    const synthesisPrompt = getSynthesisPrompt({ symbol: detectedSymbol, newsAnalysis: newsAnalysis.rationale, technicalAnalysis: `RSI: ${indicators.rsi14}, MACD: ${indicators.macd?.macd}`, userQuery: query });
+    const synthesisPrompt = getSynthesisPrompt({ symbol: detectedSymbol, newsAnalysis: newsAnalysis.rationale, technicalAnalysis: `RSI: ${indicators.rsi14}, MACD: ${indicators.macd}`, userQuery: query });
     
     // Call GPT for news analysis
     console.log(`📰 STAGE A1: Calling News QA for ${detectedSymbol}`);

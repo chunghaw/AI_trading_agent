@@ -8,9 +8,6 @@ import { ReportSchema, type Report } from "@/lib/report.schema";
 import { cn } from "@/lib/utils";
 import { ReportCard } from "@/components/report/ReportCard";
 
-const analysisTypes = [
-  { id: "combined", label: "Combined Analysis", description: "News + Technical + Portfolio" },
-];
 
 export default function AgentsPage() {
   const [prompt, setPrompt] = React.useState("");
@@ -185,19 +182,6 @@ export default function AgentsPage() {
                   <span>Press Enter to submit</span>
                   <span>•</span>
                   <span>Shift+Enter for new line</span>
-                </div>
-                <div className="flex items-center space-x-4">
-                  <div className="relative">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      className="flex items-center space-x-2 px-3 py-1.5 bg-white/5 rounded-lg border border-white/10 hover:bg-white/10 transition-colors"
-                    >
-                      <span className="text-sm text-[var(--text)] font-medium">
-                        Combined Analysis
-                      </span>
-                    </Button>
-                  </div>
                 </div>
                 <Button
                   type="submit"

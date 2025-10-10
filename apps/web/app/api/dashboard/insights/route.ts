@@ -42,6 +42,11 @@ export async function GET() {
         FROM latest_data 
         WHERE rn = 1
       ),
+      avg_volume_subquery AS (
+        SELECT AVG(total_volume) * 1.5 as threshold_volume
+        FROM latest_data 
+        WHERE rn = 1
+      ),
       breakout_candidates AS (
         SELECT 
           symbol,
@@ -49,14 +54,14 @@ export async function GET() {
           total_volume,
           daily_return_pct,
           ROW_NUMBER() OVER (ORDER BY total_volume DESC) as volume_rank
-        FROM latest_data 
+        FROM latest_data, avg_volume_subquery
         WHERE rn = 1 
           AND daily_return_pct > 5.0
-          AND total_volume > (SELECT AVG(total_volume) * 1.5 FROM latest_data WHERE rn = 1)
+          AND total_volume > avg_volume_subquery.threshold_volume
         LIMIT 5
       )
       SELECT 
-        (SELECT * FROM market_stats) as market_stats,
+        (SELECT row_to_json(market_stats) FROM market_stats) as market_stats,
         (SELECT json_agg(
           json_build_object(
             'symbol', symbol,

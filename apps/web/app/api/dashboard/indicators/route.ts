@@ -12,79 +12,107 @@ const safeParseFloat = (value: any): number | null => {
 
 export async function GET() {
   try {
-    // For now, we'll use the existing database to get market indices data
-    // In a full implementation, you might want to fetch real-time data from Polygon API
+    // Get market indices data directly from database instead of making HTTP calls
+    const { Client } = await import('pg');
     
-    const indices = await Promise.all(
-      MARKET_INDICES.map(async (symbol) => {
-        try {
-          // Fetch latest data for each index from our database
-          const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/analyze`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              query: `Get latest market data for ${symbol}`,
-              timeframe: '1d',
-              since_days: 1
-            })
-          });
+    let client: any = null;
+    
+    try {
+      client = new Client({
+        connectionString: process.env.POSTGRES_URL || 'postgresql://neondb_owner:npg_GhSFKa2wf8vb@ep-billowing-waterfall-a76q5go4-pooler.ap-southeast-2.aws.neon.tech/neondb?sslmode=require',
+        ssl: { rejectUnauthorized: false }
+      });
+      await client.connect();
 
-          if (response.ok) {
-            const data = await response.json();
-            const price = data.header?.price;
+      const indices = await Promise.all(
+        MARKET_INDICES.map(async (symbol) => {
+          try {
+            // Get latest data for each index from database
+            const query = `
+              WITH latest_data AS (
+                SELECT 
+                  g.close, g.date,
+                  LAG(g.close) OVER (ORDER BY g.date) as prev_close,
+                  ROW_NUMBER() OVER (ORDER BY g.date DESC) as rn
+                FROM gold_ohlcv_daily_metrics g
+                WHERE g.symbol = $1
+                  AND g.date >= CURRENT_DATE - INTERVAL '30 days'
+              )
+              SELECT 
+                close,
+                prev_close,
+                date,
+                CASE 
+                  WHEN prev_close > 0 THEN ((close - prev_close) / prev_close) * 100
+                  ELSE NULL 
+                END as change_percent,
+                (close - prev_close) as change
+              FROM latest_data
+              WHERE rn = 1
+            `;
+
+            const result = await client.query(query, [symbol]);
             
+            if (result.rows.length > 0) {
+              const row = result.rows[0];
+              return {
+                symbol,
+                name: getIndexName(symbol),
+                price: safeParseFloat(row.close),
+                change: safeParseFloat(row.change),
+                changePercent: safeParseFloat(row.change_percent),
+                lastUpdated: row.date,
+                description: getIndexDescription(symbol)
+              };
+            }
+            
+            // Fallback if no data found
             return {
               symbol,
               name: getIndexName(symbol),
-              price: price?.current || null,
-              change: price?.change || null,
-              changePercent: price?.changePercent || null,
-              lastUpdated: price?.asOfDate || null,
+              price: null,
+              change: null,
+              changePercent: null,
+              lastUpdated: null,
+              description: getIndexDescription(symbol)
+            };
+          } catch (error) {
+            console.error(`Failed to fetch ${symbol} from database:`, error);
+            return {
+              symbol,
+              name: getIndexName(symbol),
+              price: null,
+              change: null,
+              changePercent: null,
+              lastUpdated: null,
               description: getIndexDescription(symbol)
             };
           }
-          
-          // Fallback to null if fetch fails
-          return {
-            symbol,
-            name: getIndexName(symbol),
-            price: null,
-            change: null,
-            changePercent: null,
-            lastUpdated: null,
-            description: getIndexDescription(symbol)
-          };
-        } catch (error) {
-          console.error(`Failed to fetch ${symbol}:`, error);
-          return {
-            symbol,
-            name: getIndexName(symbol),
-            price: null,
-            change: null,
-            changePercent: null,
-            lastUpdated: null,
-            description: getIndexDescription(symbol)
-          };
+        })
+      );
+
+      // Calculate market summary
+      const marketSummary = {
+        totalIndices: indices.length,
+        positiveIndices: indices.filter(idx => idx.changePercent && idx.changePercent > 0).length,
+        negativeIndices: indices.filter(idx => idx.changePercent && idx.changePercent < 0).length,
+        averageChange: indices.reduce((sum, idx) => sum + (idx.changePercent || 0), 0) / indices.length,
+        lastUpdated: new Date().toISOString()
+      };
+
+      return NextResponse.json({
+        success: true,
+        data: {
+          indices,
+          summary: marketSummary
         }
-      })
-    );
+      });
 
-    // Calculate market summary
-    const marketSummary = {
-      totalIndices: indices.length,
-      positiveIndices: indices.filter(idx => idx.changePercent && idx.changePercent > 0).length,
-      negativeIndices: indices.filter(idx => idx.changePercent && idx.changePercent < 0).length,
-      averageChange: indices.reduce((sum, idx) => sum + (idx.changePercent || 0), 0) / indices.length,
-      lastUpdated: new Date().toISOString()
-    };
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        indices,
-        summary: marketSummary
+    } finally {
+      if (client) {
+        await client.end();
       }
-    });
+    }
 
   } catch (error) {
     console.error('Dashboard indicators API error:', error);

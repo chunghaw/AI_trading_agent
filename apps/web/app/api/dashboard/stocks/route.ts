@@ -127,14 +127,18 @@ export async function GET(request: NextRequest) {
     const stocksQuery = `
       WITH latest_data AS (
         SELECT 
-          g.*,
-          COALESCE(c.name, g.company_name) as company_name,
-          COALESCE(c.market, g.market) as market,
-          COALESCE(c.type, g.stock_type) as stock_type,
-          COALESCE(c.primary_exchange, g.primary_exchange) as primary_exchange,
-          COALESCE(c.currency_name, g.currency) as currency,
-          COALESCE(c.total_employees, g.total_employees) as total_employees,
-          COALESCE(c.description, g.description) as description,
+          g.symbol, g.date, g.open, g.high, g.low, g.close, g.total_volume, g.market_cap,
+          g.rsi_14, g.macd_line, g.macd_signal, g.macd_histogram, g.ema_20, g.ema_50, g.ema_200,
+          g.ma_5, g.ma_20, g.ma_50, g.ma_200, g.atr_14, g.vwap, g.volume_trend, g.volume_price_relationship,
+          g.daily_return_pct, g.company_name, g.market, g.stock_type, g.primary_exchange, g.currency,
+          g.total_employees, g.description,
+          COALESCE(c.name, g.company_name) as final_company_name,
+          COALESCE(c.market, g.market) as final_market,
+          COALESCE(c.type, g.stock_type) as final_stock_type,
+          COALESCE(c.primary_exchange, g.primary_exchange) as final_primary_exchange,
+          COALESCE(c.currency_name, g.currency) as final_currency,
+          COALESCE(c.total_employees, g.total_employees) as final_total_employees,
+          COALESCE(c.description, g.description) as final_description,
           -- Calculate price change from previous day
           LAG(g.close) OVER (PARTITION BY g.symbol ORDER BY g.date) as prev_close,
           ROW_NUMBER() OVER (PARTITION BY g.symbol ORDER BY g.date DESC) as rn
@@ -144,11 +148,11 @@ export async function GET(request: NextRequest) {
       )
       SELECT 
         symbol,
-        company_name,
-        market,
-        stock_type,
-        primary_exchange,
-        currency,
+        final_company_name as company_name,
+        final_market as market,
+        final_stock_type as stock_type,
+        final_primary_exchange as primary_exchange,
+        final_currency as currency,
         close as price,
         prev_close,
         CASE 

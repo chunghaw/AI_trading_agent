@@ -1,351 +1,222 @@
-# AI Trading Agent
+# AI Trading Agent 🚀
 
-A modern, RAG-powered trading system with a Next.js frontend and Python FastAPI backend, featuring human-in-the-loop (HITL) approval workflows, comprehensive risk management, and automated data pipelines powered by Databricks DLT and Airflow.
+A sophisticated AI-powered trading analysis system that combines real-time market data, news sentiment analysis, and technical indicators to provide comprehensive investment insights. Built with Next.js, PostgreSQL, Milvus vector database, and OpenAI GPT-4o.
 
-## 🚀 Features
+## ✨ Features
 
-### Core System
-- **RAG-Powered Analysis**: Retrieval-Augmented Generation using OpenAI GPT-4o and Milvus vector database
-- **Multi-Agent Architecture**: Specialized AI agents for news analysis, risk assessment, and portfolio management
-- **Human-in-the-Loop**: Manual approval workflow for trading proposals
-- **Real-time Dashboard**: Modern Next.js interface with live market data and analytics
-- **Risk Management**: Comprehensive risk assessment and portfolio constraints
-- **Standardized APIs**: Pydantic models for consistent data validation
+### 🎯 Core Capabilities
+- **Real-time Market Analysis**: Live OHLCV data with technical indicators (RSI, MACD, EMA, ATR, VWAP)
+- **AI-Powered News Analysis**: Semantic search and sentiment analysis using vector embeddings
+- **Multi-Agent Architecture**: Specialized AI agents for news, technical, and synthesis analysis
+- **TradingView-Style UI**: Professional trading interface with price indicators and sentiment badges
+- **Comprehensive Reporting**: Detailed analysis with bullish/neutral/bearish sentiment indicators
 
-### Data Infrastructure
-- **Databricks DLT for OHLCV Data**: Delta Live Tables for real-time market data processing and technical indicators
-- **Airflow Milvus for News Data**: Automated pipeline for Polygon news ingestion, embedding, and vector storage
-- **Multi-Source Integration**: Polygon (equities), Binance (crypto), NewsAPI integration
-- **Technical Indicators**: RSI, MACD, Bollinger Bands, EMA, ATR computed in Databricks
-- **Vector Search**: Semantic news search and context retrieval using Milvus
+### 🏗️ Architecture
+- **Frontend**: Next.js 14 with TypeScript and Tailwind CSS
+- **Backend**: Next.js API routes with PostgreSQL integration
+- **AI**: OpenAI GPT-4o for analysis and synthesis
+- **Vector Database**: Milvus for semantic news search
+- **Data Pipeline**: Airflow DAGs for automated data ingestion
+- **Database**: PostgreSQL with bronze/silver/gold data architecture
 
-### Trading Capabilities
-- **News Sentiment Analysis**: Real-time news monitoring and sentiment scoring
-- **Technical Analysis**: Advanced indicators and pattern recognition
-- **Risk Assessment**: Position, market, liquidity, and concentration risk evaluation
-- **Portfolio Management**: Position sizing, diversification, and constraint enforcement
-- **Proposal Workflow**: Create, review, approve/reject trading proposals
+## 🚀 Live Demo
 
-## 🏗️ Architecture
+**Experience the system**: [AI Trading Agent Demo](https://ai-trading-agent-git-main-chunghaw.vercel.app/)
 
-### System Overview
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Next.js Web   │    │  FastAPI Worker │    │   Vector DB     │
-│   Frontend      │◄──►│   (Python)      │◄──►│   (Milvus)      │
-│                 │    │                 │    │                 │
-│ • Dashboard     │    │ • RAG Agents    │    │ • News Embeddings│
-│ • HITL Approval │    │ • Risk Manager  │    │ • Knowledge Base│
-│ • Real-time UI  │    │ • Proposals     │    │ • Context Search│
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │                       │
-         │                       │                       │
-         ▼                       ▼                       ▼
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Webhook API   │    │   SQLite DB     │    │   OpenAI API    │
-│   (Validation)  │    │   (Proposals)   │    │   (GPT-4o)      │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │                       │
-         │                       │                       │
-         ▼                       ▼                       ▼
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│  Airflow DAGs   │    │ Databricks DLT  │    │  Market Data    │
-│ • News Pipeline │    │ • OHLCV Pipeline│    │ • Polygon       │
-│ • Milvus Store  │    │ • Indicators    │    │ • Binance       │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-```
+### Sample Queries
+- "What is the technical analysis for NVDA?"
+- "Should I buy GOOGL based on recent news?"
+- "Analyze AAPL's portfolio positioning"
+- "What's the market sentiment for TSLA?"
 
-### Data Pipeline Architecture
+## 📊 Data Pipeline
 
-#### 1. Databricks DLT - OHLCV Data Pipeline
-```
-Polygon OHLCV API → Airflow DAG → Databricks DLT → Delta Lake → Trading System
-```
-- **Source**: Polygon.io OHLCV API
-- **Pipeline**: `dags/trading/polygon_ohlcv_to_databricks.py`
-- **Processing**: 
-  - Real-time market data ingestion
-  - Technical indicator computation (RSI, MACD, EMA, ATR, Bollinger Bands)
-  - Data quality checks and validation
-  - Delta Lake storage for ACID transactions
-- **Output**: Processed OHLCV data with computed technical indicators
-- **Benefits**: 
-  - Real-time data processing with DLT
-  - Automatic data quality monitoring
-  - Scalable compute resources
-  - Built-in data versioning and time travel
+### Bronze Layer
+- Raw Polygon API data ingestion
+- Minimal processing, direct API response storage
+- Used for backup and reprocessing
 
-#### 2. Airflow Milvus - News Data Pipeline
-```
-Polygon News API → Airflow DAG → OpenAI Embeddings → Milvus Vector DB → RAG Analysis
-```
-- **Source**: Polygon.io News API
-- **Pipeline**: `airflow-dbt-project/dags/news_rag/polygon_news_milvus_managed.py`
-- **Processing**:
-  - Automated news collection and filtering
-  - OpenAI text embedding generation
-  - Vector storage in Milvus for semantic search
-  - Real-time indexing and retrieval
-- **Output**: Vector embeddings for semantic search and RAG-powered analysis
-- **Benefits**:
-  - Automated pipeline orchestration
-  - Scalable vector search capabilities
-  - Real-time news context retrieval
-  - Fault-tolerant data processing
+### Silver Layer  
+- Cleaned, validated OHLCV time series data
+- Standardized formats and data types
+- Historical data storage (3-year retention)
+- Technical indicator calculations (RSI, MACD, EMA, ATR)
 
-#### 3. Analysis Pipeline
-```
-User Query → News Search (Milvus) → Technical Analysis (Databricks) → RAG Synthesis → Trading Recommendation
-```
-- **News Analysis**: Semantic search in Milvus for relevant news articles
-- **Technical Analysis**: Indicator-based analysis using Databricks-computed data
-- **RAG Synthesis**: OpenAI GPT-4o combines news and technical insights
-- **Output**: Comprehensive trading analysis with separate News and Technical Analyst perspectives
+### Gold Layer
+- Aggregated indicators and company information
+- Latest row per ticker with pre-calculated technical indicators
+- Company metadata integration
+- Price change calculations (current vs previous close)
 
-## 🛠️ Installation
+### News Layer
+- Milvus vector database for semantic search
+- Curated article list with embeddings
+- Real-time news sentiment analysis
+
+## 🛠️ Technology Stack
+
+### Frontend
+- **Framework**: Next.js 14 with App Router
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS
+- **UI Components**: Custom components with Lucide icons
+- **State Management**: React hooks and context
+
+### Backend
+- **API**: Next.js API routes
+- **Database**: PostgreSQL (Neon Cloud)
+- **Vector Database**: Milvus (Zilliz Cloud)
+- **AI**: OpenAI GPT-4o-mini
+- **Orchestration**: Apache Airflow
+
+### Data Sources
+- **Market Data**: Polygon.io API
+- **News Data**: Polygon News API
+- **Company Data**: Polygon Company API
+
+## 🚀 Quick Start
 
 ### Prerequisites
-- Python 3.11+
 - Node.js 20+
+- PostgreSQL database
 - OpenAI API key
 - Polygon API key
-- Databricks workspace (for DLT)
-- Milvus instance (cloud or self-hosted)
-- Airflow instance (for pipeline orchestration)
+- Milvus instance
 
-### 🔐 Environment Setup
+### Installation
 
-**Required Environment Variables:**
+1. **Clone the repository**
 ```bash
-# OpenAI Configuration
-OPENAI_API_KEY=your_openai_api_key_here
-
-# Polygon API
-POLYGON_API_KEY=your_polygon_api_key_here
-
-# Milvus Configuration
-MILVUS_ADDRESS=your_milvus_host:19530
-MILVUS_SSL=true
-MILVUS_USERNAME=your_username
-MILVUS_PASSWORD=your_password
-MILVUS_DB=your_database
-MILVUS_COLLECTION_NEWS=news_chunks
-
-# Databricks Configuration
-DATABRICKS_HOST=your_databricks_workspace_url
-DATABRICKS_TOKEN=your_databricks_token
-DATABRICKS_CATALOG=your_catalog
-DATABRICKS_SCHEMA=your_schema
-
-# News RAG Configuration
-NEWS_TOPK=48
-NEWS_FINAL_K=12
-
-# OHLCV Data Sources
-OHLCV_PARQUET_URI=s3://your-bucket/ohlcv/
-# OR for local development
-OHLCV_LOCAL_DIR=./data/ohlcv
-```
-
-### Quick Start
-
-1. **Clone and setup**:
-```bash
-git clone <repository-url>
+git clone https://github.com/chunghaw/AI_trading_agent.git
 cd AI_trading_agent
 ```
 
-2. **Setup Python environment**:
-```bash
-cd apps/worker
-python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-3. **Setup Node.js environment**:
+2. **Install dependencies**
 ```bash
 cd apps/web
 npm install
 ```
 
-4. **Configure environment**:
+3. **Set up environment variables**
 ```bash
-# Copy example environment files
-cp apps/worker/env.example apps/worker/.env
-cp apps/web/env.example apps/web/.env.local
-
-# Edit with your API keys and configuration
+# Create .env.local file
+POSTGRES_URL=your_postgresql_connection_string
+MILVUS_URI=your_milvus_uri
+MILVUS_USER=your_milvus_user
+MILVUS_PASSWORD=your_milvus_password
+MILVUS_COLLECTION=polygon_news_data
+OPENAI_API_KEY=your_openai_api_key
+POLYGON_API_KEY=your_polygon_api_key
 ```
 
-5. **Start the services**:
+4. **Run the development server**
 ```bash
-# Terminal 1: Start worker API
-cd apps/worker
-source venv/bin/activate
-python -m worker
-
-# Terminal 2: Start web frontend
-cd apps/web
 npm run dev
 ```
 
-6. **Access the application**:
-- Web Dashboard: http://localhost:3001
-- Worker API: http://localhost:8000
-- API Docs: http://localhost:8000/docs
+5. **Access the application**
+- Open [http://localhost:3000](http://localhost:3000)
+- Start analyzing stocks with AI-powered insights
 
-## 📊 Usage
+## 📈 Usage Examples
 
-### Web Dashboard
-1. Navigate to http://localhost:3001
-2. View real-time market data and analytics
-3. Analyze stocks with AI-powered insights
-4. Monitor portfolio performance and risk metrics
+### Web Interface
+1. Navigate to the main page
+2. Enter a stock analysis query (e.g., "What is the technical analysis for NVDA?")
+3. View comprehensive analysis including:
+   - Company information with price indicators
+   - News sentiment analysis with sources
+   - Technical indicators table
+   - AI-generated insights and recommendations
 
 ### API Usage
 ```bash
-# Analyze a symbol
-curl -X POST http://localhost:8000/analyze \
+curl -X POST http://localhost:3000/api/analyze \
   -H "Content-Type: application/json" \
-  -d '{
-    "question": "What is the outlook for AAPL stock?",
-    "symbol": "AAPL"
-  }'
-
-# Get market data
-curl http://localhost:8000/market-data/AAPL
-
-# Get system status
-curl http://localhost:8000/health
+  -d '{"query": "What is the technical analysis for NVDA?"}'
 ```
 
-### Data Pipeline Management
+## 🎨 UI Features
 
-#### Databricks DLT Pipeline
-```python
-# The DLT pipeline automatically:
-# 1. Ingests OHLCV data from Polygon
-# 2. Computes technical indicators
-# 3. Stores in Delta Lake with ACID guarantees
-# 4. Provides real-time access to processed data
-```
+### TradingView-Style Price Indicators
+- Current price display with daily change
+- Color-coded indicators (green for gains, red for losses)
+- Change amount and percentage
+- TrendingUp/TrendingDown icons
 
-#### Airflow Milvus Pipeline
-```python
-# The Airflow pipeline automatically:
-# 1. Collects news from Polygon News API
-# 2. Generates embeddings using OpenAI
-# 3. Stores vectors in Milvus
-# 4. Enables semantic search for RAG
-```
+### Sentiment Analysis Badges
+- **BULLISH**: Green badges for positive sentiment
+- **NEUTRAL**: Yellow badges for neutral sentiment  
+- **BEARISH**: Red badges for negative sentiment
+- Applied to News Analysis, Technical Analysis, and Overall Analysis sections
+
+### Professional Layout
+- Dark theme optimized for trading interfaces
+- Responsive design for all screen sizes
+- Real-time data updates
+- Comprehensive error handling
 
 ## 🔧 Configuration
 
-### Databricks DLT Settings
-```python
-# DLT Pipeline Configuration
-DLT_SETTINGS = {
-    "catalog": "trading_data",
-    "schema": "market_data",
-    "table": "ohlcv_indicators",
-    "compute": "trading_cluster",
-    "data_quality": True,
-    "expectations": {
-        "volume_not_null": "volume IS NOT NULL",
-        "price_positive": "close > 0"
-    }
-}
-```
+### DAG Scheduling
+- **OHLCV Data**: Twice daily (5am and 5pm SGT)
+- **News Data**: Daily (5am SGT)
+- **Scope**: Top 1000 US stocks by market cap
 
-### Airflow Milvus Settings
-```python
-# Milvus Pipeline Configuration
-MILVUS_SETTINGS = {
-    "collection_name": "news_chunks",
-    "dimension": 1536,  # OpenAI embedding dimension
-    "metric_type": "COSINE",
-    "index_type": "IVF_FLAT",
-    "nlist": 1024
-}
-```
-
-### Risk Management Settings
-```python
-RISK_SETTINGS = {
-    "max_position_risk": 0.1,        # 10% max per position
-    "max_market_risk": 0.2,          # 20% market risk limit
-    "max_liquidity_risk": 0.15,      # 15% liquidity risk limit
-    "max_concentration_risk": 0.25,  # 25% concentration limit
-    "daily_loss_cap": 0.05,          # 5% daily loss cap
-    "min_confidence_threshold": 0.7  # Minimum confidence for approval
-}
-```
+### Technical Indicators
+- RSI (14-period)
+- MACD (12, 26, 9)
+- EMA (20, 50, 200)
+- ATR (14-period)
+- VWAP
+- Volume trend analysis
 
 ## 🧪 Testing
 
-### Run Tests
 ```bash
-# Python tests
-cd apps/worker
-python -m pytest tests/ -v
+# Run development server
+npm run dev
 
-# Web tests
-cd apps/web
-npm run test
-
-# Build test
+# Build for production
 npm run build
+
+# Type checking
+npm run type-check
 ```
-
-## 📈 Monitoring
-
-### Health Checks
-- **Web Health**: `GET /api/healthz`
-- **Worker Health**: `GET /health`
-- **Database Status**: Automatic monitoring
-- **RAG System**: Vector database connectivity
-- **Data Pipelines**: Pipeline status and data quality
-
-### Logging
-- Structured logging with Loguru
-- Request/response tracking
-- Error monitoring and alerting
-- Performance metrics
 
 ## 🚀 Deployment
 
-### Vercel Deployment (Web Frontend)
+### Vercel Deployment
+1. Push code to GitHub
+2. Connect repository to Vercel
+3. Set environment variables in Vercel dashboard
+4. Deploy automatically on push
+
+### Environment Variables for Production
 ```bash
-# Navigate to web directory
-cd apps/web
-
-# Run deployment script
-./deploy-vercel.sh
-
-# Or deploy manually:
-# 1. Push to GitHub
-# 2. Connect to Vercel
-# 3. Set environment variables
-# 4. Deploy
+POSTGRES_URL=your_production_postgres_url
+MILVUS_URI=your_production_milvus_uri
+MILVUS_USER=your_production_milvus_user
+MILVUS_PASSWORD=your_production_milvus_password
+MILVUS_COLLECTION=polygon_news_data
+OPENAI_API_KEY=your_openai_api_key
+POLYGON_API_KEY=your_polygon_api_key
 ```
 
-### Production Considerations
-- Use cloud-hosted Milvus (Zilliz Cloud)
-- Set up Databricks Unity Catalog for data governance
-- Configure Airflow for production DAGs
-- Implement proper monitoring and alerting
-- Use environment-specific configurations
-- Set up SSL/TLS certificates
+## 📊 Performance
+
+- **Response Time**: < 3 seconds for complete analysis
+- **Data Freshness**: Real-time market data with 2x daily updates
+- **News Coverage**: 20+ popular tickers with semantic search
+- **Technical Indicators**: Pre-calculated for optimal performance
 
 ## 🤝 Contributing
 
 1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests for new functionality
-5. Ensure all tests pass
-6. Submit a pull request
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ## 📄 License
 
@@ -358,9 +229,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🆘 Support
 
 - **Documentation**: See `/docs` directory
-- **Issues**: GitHub Issues
-- **Discussions**: GitHub Discussions
+- **Issues**: [GitHub Issues](https://github.com/chunghaw/AI_trading_agent/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/chunghaw/AI_trading_agent/discussions)
 
 ---
 
-**Built with ❤️ using Next.js, FastAPI, OpenAI, Milvus, Databricks DLT, and Airflow** 
+**Built with ❤️ using Next.js, PostgreSQL, Milvus, OpenAI, and Airflow**
+
+**Connect with me on LinkedIn**: [Tan Chung Haw](https://linkedin.com/in/chunghaw)

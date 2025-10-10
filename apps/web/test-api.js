@@ -1,1 +1,0 @@
-console.log("Testing API..."); fetch("http://localhost:3000/api/analyze", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({symbol: "AAPL", query: "test", timeframe: "1d", since_days: 7})}).then(r => r.json()).then(console.log).catch(console.error);

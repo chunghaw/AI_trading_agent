@@ -386,7 +386,23 @@ If indicators are stale (gold_time older than N minutes), include a small "as of
 - **Data Source**: Real-time price data from gold table via API
 - **Format**: $XXX.XX (+/-X.XX (+/-X.XX%))
 - **Icons**: TrendingUp for gains, TrendingDown for losses
-- **Implementation**: PriceIndicator.tsx component in ReportCard header
+- **Implementation**: Integrated directly in ReportCard header component
+
+### Sentiment Indicators
+- **Location**: Analysis section headers (News Analysis, Technical Analysis, Overall Analysis)
+- **Display**: Colored badges showing sentiment (BULLISH/NEUTRAL/BEARISH)
+- **Color Scheme**:
+  - 🟢 **BULLISH**: Green background with emerald text and border
+  - 🟡 **NEUTRAL**: Yellow background with yellow text and border  
+  - 🔴 **BEARISH**: Red background with red text and border
+- **Data Source**: Sentiment values from API analysis results
+- **Implementation**: Dynamic badges in ReportCard analysis sections
+
+### User Question Display
+- **Location**: Bottom section of Overall Analysis
+- **Format**: User's question displayed with quotes for clarity
+- **Example**: "What is the technical analysis for NVDA?"
+- **Styling**: Consistent with overall dark theme
 
 ### Color Scheme & Styling
 - **Primary Background**: Dark theme (#3a3a3a, #2a2a2a)

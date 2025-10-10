@@ -500,7 +500,12 @@ export default function DashboardPage() {
                   >
                     Symbol {getSortIcon('symbol')}
                   </th>
-                  <th className="text-left p-4 text-sm font-medium text-gray-400">Company</th>
+                  <th 
+                    className="text-left p-4 text-sm font-medium text-gray-400 cursor-pointer hover:text-white transition-colors"
+                    onClick={() => handleSort('company_name')}
+                  >
+                    Company {getSortIcon('company_name')}
+                  </th>
                   <th 
                     className="text-right p-4 text-sm font-medium text-gray-400 cursor-pointer hover:text-white transition-colors"
                     onClick={() => handleSort('price')}

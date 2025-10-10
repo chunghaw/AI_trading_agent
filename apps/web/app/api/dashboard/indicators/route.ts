@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
-// Market indices symbols - actual market indices (may show N/A if not in database)
-const MARKET_INDICES = ['SPY', 'QQQ', 'DIA', 'VIX'];
+// Market indices symbols - using available ETFs (VIXY instead of VIX since VIX is not available)
+const MARKET_INDICES = ['SPY', 'QQQ', 'DIA', 'VIXY'];
 
 // Helper function to safely parse numbers
 const safeParseFloat = (value: any): number | null => {
@@ -133,7 +133,7 @@ function getIndexName(symbol: string): string {
     'SPY': 'SPDR S&P 500 ETF Trust',
     'QQQ': 'Invesco QQQ Trust',
     'DIA': 'SPDR Dow Jones Industrial Average ETF',
-    'VIX': 'CBOE Volatility Index'
+    'VIXY': 'ProShares VIX Short-Term Futures ETF'
   };
   return names[symbol] || symbol;
 }
@@ -143,7 +143,7 @@ function getIndexDescription(symbol: string): string {
     'SPY': 'Tracks the S&P 500 index, representing 500 largest US companies',
     'QQQ': 'Tracks the NASDAQ-100 index, focused on technology and growth stocks',
     'DIA': 'Tracks the Dow Jones Industrial Average, representing 30 blue-chip stocks',
-    'VIX': 'Measures market volatility and investor fear, often called the "fear gauge"'
+    'VIXY': 'Tracks VIX futures, measures market volatility and investor fear'
   };
   return descriptions[symbol] || `Major market index: ${symbol}`;
 }

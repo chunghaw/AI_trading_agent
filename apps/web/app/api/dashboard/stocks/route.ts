@@ -119,7 +119,7 @@ export async function GET(request: NextRequest) {
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
     // Build ORDER BY clause
-    const validSortColumns = ['symbol', 'close', 'market_cap', 'rsi', 'macd_line', 'volume', 'daily_return_pct'];
+    const validSortColumns = ['symbol', 'close', 'market_cap', 'rsi', 'macd_line', 'volume', 'daily_return_pct', 'company_name'];
     const sortColumn = validSortColumns.includes(sortBy) ? sortBy : 'market_cap';
     const orderDirection = sortOrder.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
 
@@ -170,7 +170,10 @@ export async function GET(request: NextRequest) {
         END as price_change_percent,
         (close - prev_close) as price_change,
         volume,
-        market_cap,
+        CASE 
+          WHEN market_cap > 0 THEN market_cap
+          ELSE NULL
+        END as market_cap,
         rsi as rsi,
         macd_line,
         macd_signal,

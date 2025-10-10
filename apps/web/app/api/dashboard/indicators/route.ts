@@ -31,8 +31,7 @@ export async function GET() {
             const query = `
               WITH latest_data AS (
                 SELECT 
-                  g.close, g.date,
-                  LAG(g.close) OVER (PARTITION BY g.symbol ORDER BY g.date) as prev_close,
+                  g.close, g.last_close, g.change_pct, g.date,
                   ROW_NUMBER() OVER (PARTITION BY g.symbol ORDER BY g.date DESC) as rn
                 FROM gold_ohlcv_daily_metrics g
                 WHERE g.symbol = $1
@@ -41,13 +40,10 @@ export async function GET() {
               )
               SELECT 
                 close,
-                prev_close,
+                last_close as prev_close,
                 date,
-                CASE 
-                  WHEN prev_close > 0 THEN ((close - prev_close) / prev_close) * 100
-                  ELSE NULL 
-                END as change_percent,
-                (close - prev_close) as change
+                COALESCE(change_pct, 0) as change_percent,
+                (close - last_close) as change
               FROM latest_data
               WHERE rn = 1
             `;

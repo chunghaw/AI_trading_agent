@@ -137,13 +137,11 @@ export async function GET(request: NextRequest) {
     const stocksQuery = `
       WITH latest_data AS (
         SELECT 
-          g.symbol, g.date, g.open, g.high, g.low, g.close, g.total_volume as volume, g.company_name,
+          g.symbol, g.date, g.open, g.high, g.low, g.close, g.last_close, g.change_pct, g.total_volume as volume, g.company_name,
           g.market, g.stock_type, g.primary_exchange, g.currency, g.total_employees,
           g.description, g.market_cap, g.rsi_14 as rsi, g.macd_line, g.macd_signal,
           g.macd_histogram, g.ema_20, g.ema_50, g.ema_200, g.ma_5, g.ma_20, g.ma_50, g.ma_200,
           g.atr_14 as atr, g.vwap, g.daily_return_pct, g.volume_trend, g.volume_price_relationship,
-          -- Get previous day's close from the same table
-          LAG(g.close) OVER (PARTITION BY g.symbol ORDER BY g.date) as prev_close,
           ROW_NUMBER() OVER (PARTITION BY g.symbol ORDER BY g.date DESC) as rn
         FROM gold_ohlcv_daily_metrics g
         WHERE g.close > 0 AND g.date >= CURRENT_DATE - INTERVAL '30 days'
@@ -170,15 +168,9 @@ export async function GET(request: NextRequest) {
         final_primary_exchange as primary_exchange,
         final_currency as currency,
         close as price,
-        prev_close,
-        CASE 
-          WHEN prev_close > 0 AND close > 0 THEN 
-            ROUND(((close - prev_close) / prev_close) * 100, 2)
-          WHEN prev_close IS NULL OR prev_close <= 0 THEN 
-            COALESCE(daily_return_pct, 0)
-          ELSE 0
-        END as price_change_percent,
-        (close - prev_close) as price_change,
+        last_close as prev_close,
+        COALESCE(change_pct, daily_return_pct, 0) as price_change_percent,
+        (close - last_close) as price_change,
         volume,
         CASE 
           WHEN market_cap > 0 THEN market_cap

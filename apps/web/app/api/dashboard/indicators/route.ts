@@ -32,11 +32,12 @@ export async function GET() {
               WITH latest_data AS (
                 SELECT 
                   g.close, g.date,
-                  LAG(g.close) OVER (ORDER BY g.date) as prev_close,
-                  ROW_NUMBER() OVER (ORDER BY g.date DESC) as rn
+                  LAG(g.close) OVER (PARTITION BY g.symbol ORDER BY g.date) as prev_close,
+                  ROW_NUMBER() OVER (PARTITION BY g.symbol ORDER BY g.date DESC) as rn
                 FROM gold_ohlcv_daily_metrics g
                 WHERE g.symbol = $1
                   AND g.date >= CURRENT_DATE - INTERVAL '30 days'
+                  AND g.close > 0
               )
               SELECT 
                 close,

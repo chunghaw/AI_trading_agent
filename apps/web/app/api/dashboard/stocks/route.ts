@@ -144,7 +144,8 @@ export async function GET(request: NextRequest) {
           ROW_NUMBER() OVER (PARTITION BY g.symbol ORDER BY g.date DESC) as rn
         FROM gold_ohlcv_daily_metrics g
         LEFT JOIN company_info_cache c ON g.symbol = c.symbol
-        ${whereClause}
+        WHERE g.close > 0 AND g.date >= CURRENT_DATE - INTERVAL '30 days'
+        ${whereClause ? whereClause.replace('WHERE', 'AND') : ''}
       )
       SELECT 
         symbol,
@@ -188,46 +189,51 @@ export async function GET(request: NextRequest) {
     queryParams.push(limit, offset);
 
     const stocksResult = await client.query(stocksQuery, queryParams);
-    const stocks = stocksResult.rows.map(row => ({
-      symbol: row.symbol,
-      company: row.company_name || `${row.symbol} Inc.`,
-      market: row.market || 'stocks',
-      type: row.stock_type || 'CS',
-      exchange: row.primary_exchange || 'XNAS',
-      currency: row.currency || 'USD',
-      price: safeParseFloat(row.price),
-      priceChange: safeParseFloat(row.price_change),
-      priceChangePercent: safeParseFloat(row.price_change_percent),
-      volume: safeParseFloat(row.volume),
-      marketCap: safeParseFloat(row.market_cap),
-      technical: {
-        rsi: safeParseFloat(row.rsi),
-        macd: {
-          line: safeParseFloat(row.macd_line),
-          signal: safeParseFloat(row.macd_signal),
-          histogram: safeParseFloat(row.macd_histogram)
+    const stocks = stocksResult.rows.map(row => {
+      const rsi = safeParseFloat(row.rsi);
+      const volumeTrend = row.volume_trend || 'flat';
+      
+      return {
+        symbol: row.symbol,
+        company: row.company_name || `${row.symbol} Inc.`,
+        market: row.market || 'stocks',
+        type: row.stock_type || 'CS',
+        exchange: row.primary_exchange || 'XNAS',
+        currency: row.currency || 'USD',
+        price: safeParseFloat(row.price),
+        priceChange: safeParseFloat(row.price_change),
+        priceChangePercent: safeParseFloat(row.price_change_percent),
+        volume: safeParseFloat(row.volume),
+        marketCap: safeParseFloat(row.market_cap),
+        technical: {
+          rsi: rsi && rsi >= 0 && rsi <= 100 ? rsi : null,
+          macd: {
+            line: safeParseFloat(row.macd_line),
+            signal: safeParseFloat(row.macd_signal),
+            histogram: safeParseFloat(row.macd_histogram)
+          },
+          ema: {
+            ema20: safeParseFloat(row.ema_20),
+            ema50: safeParseFloat(row.ema_50),
+            ema200: safeParseFloat(row.ema_200)
+          },
+          ma: {
+            ma5: safeParseFloat(row.ma_5),
+            ma20: safeParseFloat(row.ma_20),
+            ma50: safeParseFloat(row.ma_50),
+            ma200: safeParseFloat(row.ma_200)
+          },
+          atr: safeParseFloat(row.atr),
+          vwap: safeParseFloat(row.vwap)
         },
-        ema: {
-          ema20: safeParseFloat(row.ema_20),
-          ema50: safeParseFloat(row.ema_50),
-          ema200: safeParseFloat(row.ema_200)
+        trends: {
+          volumeTrend: volumeTrend,
+          volumePriceRelation: row.volume_price_relationship || 'neutral',
+          dailyReturn: safeParseFloat(row.daily_return_pct)
         },
-        ma: {
-          ma5: safeParseFloat(row.ma_5),
-          ma20: safeParseFloat(row.ma_20),
-          ma50: safeParseFloat(row.ma_50),
-          ma200: safeParseFloat(row.ma_200)
-        },
-        atr: safeParseFloat(row.atr),
-        vwap: safeParseFloat(row.vwap)
-      },
-      trends: {
-        volumeTrend: row.volume_trend,
-        volumePriceRelation: row.volume_price_relationship,
-        dailyReturn: safeParseFloat(row.daily_return_pct)
-      },
-      lastUpdated: row.last_updated
-    }));
+        lastUpdated: row.last_updated
+      };
+    });
 
     // Get total count for pagination
     const countQuery = `

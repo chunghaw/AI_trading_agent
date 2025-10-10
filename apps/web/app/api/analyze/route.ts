@@ -148,6 +148,17 @@ export async function POST(req: NextRequest) {
     const dbData = result.rows[0];
     console.log(`📊 Symbol data found: ${result.rows.length} records from Postgres GOLD TABLE`);
     console.log(`🔍 DEBUG - First record from gold table:`, dbData);
+    console.log(`🔍 DEBUG - Technical indicators from DB:`, {
+      rsi: dbData.rsi,
+      macd_line: dbData.macd_line,
+      macd_signal: dbData.macd_signal,
+      macd_histogram: dbData.macd_histogram,
+      ema_20: dbData.ema_20,
+      ema_50: dbData.ema_50,
+      ema_200: dbData.ema_200,
+      vwap: dbData.vwap,
+      atr: dbData.atr
+    });
     
     // Create bars object from database data
     const bars = {
@@ -191,15 +202,15 @@ export async function POST(req: NextRequest) {
     // Step 3: Use pre-calculated technical indicators from gold table
     console.log(`📊 STEP 3: Using pre-calculated technical indicators for ${detectedSymbol}`);
     const indicators = {
-      rsi14: parseFloat(dbData.rsi) || 0,
-      macd: parseFloat(dbData.macd_line) || 0,
-      macd_signal: parseFloat(dbData.macd_signal) || 0,
-      macd_hist: parseFloat(dbData.macd_histogram) || 0,
-      ema20: parseFloat(dbData.ema_20) || 0,
-      ema50: parseFloat(dbData.ema_50) || 0,
-      ema200: parseFloat(dbData.ema_200) || 0,
-      vwap: parseFloat(dbData.vwap) || 0,
-      atr: parseFloat(dbData.atr) || 0
+      rsi14: dbData.rsi ? parseFloat(dbData.rsi) : null,
+      macd: dbData.macd_line ? parseFloat(dbData.macd_line) : null,
+      macd_signal: dbData.macd_signal ? parseFloat(dbData.macd_signal) : null,
+      macd_hist: dbData.macd_histogram ? parseFloat(dbData.macd_histogram) : null,
+      ema20: dbData.ema_20 ? parseFloat(dbData.ema_20) : null,
+      ema50: dbData.ema_50 ? parseFloat(dbData.ema_50) : null,
+      ema200: dbData.ema_200 ? parseFloat(dbData.ema_200) : null,
+      vwap: dbData.vwap ? parseFloat(dbData.vwap) : null,
+      atr: dbData.atr ? parseFloat(dbData.atr) : null
     };
     const currentPrice = parseFloat(dbData.close);
     

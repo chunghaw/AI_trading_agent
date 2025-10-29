@@ -157,12 +157,26 @@ async function getRealNewsData(query: string): Promise<any[]> {
       
       console.log(`✅ Collections list:`, collections);
       
-      // Check if our collection exists (collections.data is an array of strings)
-      const collectionExists = collections.data?.includes(MILVUS_CONFIG.collection);
+      // Latest Zilliz/Milvus serverless nests collections under data.collections.
+      const availableCollections = (() => {
+        const raw = collections?.data;
+        if (Array.isArray(raw)) return raw;
+        if (Array.isArray(raw?.collections)) return raw.collections;
+        if (Array.isArray(raw?.collection_names)) return raw.collection_names;
+        if (Array.isArray(raw?.data)) return raw.data;
+        return [];
+      })();
+
+      const normalizedNames = availableCollections.map((c: any) => {
+        if (typeof c === "string") return c;
+        return c?.collectionName || c?.name || "";
+      }).filter(Boolean);
+      
+      const collectionExists = normalizedNames.includes(MILVUS_CONFIG.collection);
       
       if (!collectionExists) {
         console.warn(`⚠️ Collection '${MILVUS_CONFIG.collection}' not found in available collections`);
-        console.log(`📋 Available collections:`, collections.data);
+        console.log(`📋 Available collections:`, normalizedNames);
         return [];
       }
       
@@ -196,11 +210,20 @@ async function getRealNewsData(query: string): Promise<any[]> {
         
         console.log(`📊 Milvus search results:`, searchResults);
         
-        if (searchResults.code === 200 && searchResults.data && searchResults.data.length > 0) {
-          console.log(`✅ Found ${searchResults.data.length} news articles`);
+        const successCode = searchResults?.code ?? searchResults?.status?.code;
+        const resultRows = (() => {
+          if (Array.isArray(searchResults?.data)) return searchResults.data;
+          if (Array.isArray(searchResults?.data?.results)) return searchResults.data.results;
+          if (Array.isArray(searchResults?.data?.data)) return searchResults.data.data;
+          return [];
+        })();
+        const isSuccess = resultRows.length > 0 || successCode === 0 || successCode === 200;
+        
+        if (isSuccess && resultRows.length > 0) {
+          console.log(`✅ Found ${resultRows.length} news articles`);
           
           // Filter results by ticker symbol and transform
-          const tickerResults = searchResults.data.filter((article: any) => 
+          const tickerResults = resultRows.filter((article: any) => 
             article.ticker === tickerSymbol || 
             (article.tickers && article.tickers.includes(tickerSymbol))
           );

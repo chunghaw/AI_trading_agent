@@ -52,7 +52,9 @@ export async function searchNews(symbol:string, query:string, sinceIso:string, k
     
     // Pure JavaScript implementation - NO Python dependency
     const { searchAndRerankNewsStrict } = await import('./news.search');
-    const results = await searchAndRerankNewsStrict(symbol, query, sinceIso);
+    const results = await searchAndRerankNewsStrict(symbol, query, sinceIso, {
+      originalQuery: query
+    });
     
     return results;
     

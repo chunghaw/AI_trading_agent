@@ -175,12 +175,82 @@ export async function POST(req: NextRequest) {
     // Step 2: Search for news
     console.log(`📰 STEP 2: Searching for news for ${detectedSymbol} since ${dayjs().subtract(since_days, "day").toISOString()}`);
     let newsAnalysis = { rationale: [], citations: [] };
+    const embeddingTerms = [
+      detectedSymbol,
+      actualQuery,
+      dbData?.company_name,
+      dbData?.stock_type,
+      dbData?.market,
+      "earnings outlook",
+      "guidance",
+      "risk factors",
+      "analyst commentary",
+      "news update"
+    ]
+      .filter(Boolean)
+      .map(term => term!.toString().trim())
+      .filter(term => term.length > 1);
+    const embeddingQuery = Array.from(new Set(embeddingTerms)).join(" ");
     try {
-      const hits = await searchAndRerankNewsStrict(detectedSymbol, query, dayjs().subtract(since_days, "day").toISOString());
+      const hits = await searchAndRerankNewsStrict(
+        detectedSymbol,
+        embeddingQuery,
+        dayjs().subtract(since_days, "day").toISOString(),
+        {
+          originalQuery: actualQuery,
+          companyName: dbData?.company_name
+        }
+      );
       if (hits.length > 0) {
+        const makeSnippet = (rawText: string, focusTerms: string[]) => {
+          const text = String(rawText || "").replace(/\s+/g, " " ).trim();
+          if (!text) return "";
+          const lower = text.toLowerCase();
+          for (const term of focusTerms) {
+            if (!term) continue;
+            const idx = lower.indexOf(term);
+            if (idx !== -1) {
+              const start = Math.max(0, idx - 160);
+              const end = Math.min(text.length, idx + term.length + 160);
+              const slice = text.slice(start, end).trim();
+              const needsEllipsis = slice.length < text.length;
+              return needsEllipsis && !slice.endsWith('.') ? `${slice}…` : slice;
+            }
+          }
+          const fallback = text.slice(0, 320).trim();
+          const needsEllipsis = fallback.length < text.length;
+          return needsEllipsis && !fallback.endsWith('.') ? `${fallback}…` : fallback;
+        };
+
+        const focusTerms = Array.from(
+          new Set(
+            [
+              detectedSymbol,
+              detectedSymbol.replace('.', ''),
+              (dbData.company_name || '').toString(),
+              ...(actualQuery || '').split(/[^a-z0-9]+/i)
+            ]
+              .map((t) => t?.trim().toLowerCase())
+              .filter((t) => t && t.length > 2)
+          )
+        );
+
+        const topHits = hits.slice(0, 3);
+        console.log('News debug: selected top hits', topHits.map((h, idx) => ({
+          rank: idx + 1,
+          title: h.title,
+          url: h.url,
+          score: h.score,
+          published_utc: h.published_utc
+        })));
+
         newsAnalysis = {
-          rationale: hits.slice(0, 3).map(h => h.title || "News article"),
-          citations: hits.slice(0, 3).map(h => h.url).filter(Boolean)
+          rationale: topHits.map(h => {
+            const title = h.title || 'News article';
+            const snippet = makeSnippet((h as any).text || (h as any).content || (h as any).description || '', focusTerms);
+            return snippet ? `${title} — ${snippet}` : title;
+          }),
+          citations: topHits.map(h => h.url).filter(Boolean)
         };
       } else {
         console.warn(`No news found for ${detectedSymbol} in the last ${since_days} days`);
@@ -190,7 +260,7 @@ export async function POST(req: NextRequest) {
         };
       }
     } catch (error: any) {
-      console.warn("News search failed, continuing with technical analysis only:", error.message);
+      console.warn('News search failed, continuing with technical analysis only:', error.message);
       newsAnalysis = {
         rationale: [`News analysis unavailable for ${detectedSymbol}`],
         citations: []

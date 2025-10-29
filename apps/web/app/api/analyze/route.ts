@@ -220,6 +220,8 @@ export async function POST(req: NextRequest) {
       atr: safeParseFloat(dbData.atr_14)
     };
     const currentPrice = parseFloat(dbData.close);
+    const volumeTrend = dbData.volume_trend || "flat";
+    const volumePriceRelation = dbData.volume_price_relationship || "neutral";
     
     console.log(`✅ STEP 3 SUCCESS: Using pre-calculated indicators - RSI: ${indicators.rsi14}, MACD: ${indicators.macd}, Price: $${currentPrice}, Source: gold_table_precalculated`);
     console.log(`🔍 DEBUG - Raw database values:`, {
@@ -237,9 +239,29 @@ export async function POST(req: NextRequest) {
     
     // Step 4: Generate analysis using GPT
     console.log(`🎯 STAGE C: Generating final answer for user's question`);
-    const newsPrompt = getNewsAnalystPrompt({ symbol: detectedSymbol, newsDocs: newsAnalysis.rationale, userQuery: query });
-    const techPrompt = getTechnicalAnalystPrompt({ symbol: detectedSymbol, indicators, currentPrice, userQuery: query });
-    const synthesisPrompt = getSynthesisPrompt({ symbol: detectedSymbol, newsAnalysis: newsAnalysis.rationale, technicalAnalysis: `RSI: ${indicators.rsi14}, MACD: ${indicators.macd}`, userQuery: query });
+    const newsPrompt = getNewsAnalystPrompt({
+      symbol: detectedSymbol,
+      newsDocs: newsAnalysis.rationale,
+      userQuery: actualQuery,
+      citations: newsAnalysis.citations
+    });
+    const techPrompt = getTechnicalAnalystPrompt({
+      symbol: detectedSymbol,
+      indicators,
+      currentPrice,
+      volumeTrend,
+      volumePriceRelation,
+      userQuery: actualQuery
+    });
+    const synthesisPrompt = getSynthesisPrompt({
+      symbol: detectedSymbol,
+      newsSummary: newsAnalysis.rationale,
+      indicators,
+      currentPrice,
+      volumeTrend,
+      volumePriceRelation,
+      userQuery: actualQuery
+    });
     
     // Call GPT for news analysis
     console.log(`📰 STAGE A1: Calling News QA for ${detectedSymbol}`);
@@ -302,19 +324,19 @@ export async function POST(req: NextRequest) {
         no_data: newsAnalysis.rationale.length === 0
       },
       technical: {
-        indicators: {
-          rsi: indicators.rsi14,
-          macd_line: indicators.macd,
-          macd_signal: indicators.macd_signal,
-          macd_hist: indicators.macd_hist,
-          ema20: indicators.ema20,
-          ema50: indicators.ema50,
-          ema200: indicators.ema200,
-          vwap: indicators.vwap,
-          atr: indicators.atr,
-          volume_trend: dbData.volume_trend || "flat",
-          vol_price_relation: dbData.volume_price_relationship || "neutral"
-        },
+      indicators: {
+        rsi: indicators.rsi14,
+        macd_line: indicators.macd,
+        macd_signal: indicators.macd_signal,
+        macd_hist: indicators.macd_hist,
+        ema20: indicators.ema20,
+        ema50: indicators.ema50,
+        ema200: indicators.ema200,
+        vwap: indicators.vwap,
+        atr: indicators.atr,
+        volume_trend: volumeTrend,
+        vol_price_relation: volumePriceRelation
+      },
         analysis: techResult.analysis || `Technical analysis for ${detectedSymbol}`,
         sentiment: techResult.sentiment || "neutral",
         status: mapTechnicalSentimentToStatus(techResult.sentiment || "neutral")

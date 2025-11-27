@@ -135,18 +135,21 @@ export async function searchAndRerankNewsStrict(
         ].map(v => String(v || ""));
         const textBlobRaw = textParts.join(" ");
         const textBlob = textBlobRaw.toLowerCase();
+        const textUpper = textBlobRaw.toUpperCase();
         const keywordBlob = String((h as any).keywords || "").toLowerCase();
         const hasAnyText = textBlob.trim().length > 0;
         const symLower = normalizedSymbol.toLowerCase();
+        const symUpper = normalizedSymbol.toUpperCase();
         const symAltLower = normalizedSymbol.replace(".", "").toLowerCase();
-        const tickerList = (() => {
+        const symAltUpper = normalizedSymbol.replace(".", "").toUpperCase();
+        const tickerList: string[] = (() => {
           if (Array.isArray(h.tickers)) {
-            return h.tickers.map((t: any) => String(t || "").trim().toUpperCase()).filter(Boolean);
+            return (h.tickers as any[]).map((t: any) => String(t || "").trim().toUpperCase()).filter(Boolean);
           }
           if (typeof h.tickers === "string") {
-            return h.tickers.split(",").map(t => t.trim().toUpperCase()).filter(Boolean);
+            return h.tickers.split(",").map((t: string) => t.trim().toUpperCase()).filter(Boolean);
           }
-          return [] as string[];
+          return [];
         })();
         const hasTickerInText =
           textBlob.includes(symLower) ||
@@ -155,21 +158,38 @@ export async function searchAndRerankNewsStrict(
           keywordBlob.includes(symLower) ||
           (!!symAltLower && keywordBlob.includes(symAltLower));
         const hasCompanyInText = companyTerms.some(term => term && textBlob.includes(term));
-        const queryMatches = originalQueryTerms.reduce((sum, term) => sum + (term && textBlob.includes(term) ? 1 : 0), 0);
+        const queryMatches = originalQueryTerms.reduce((sum: number, term: string) => sum + (term && textBlob.includes(term) ? 1 : 0), 0);
         const hasQueryMatch = queryMatches > 0;
-        const symbolMatchCount = tickerList.filter(t => t === normalizedSymbol).length;
-        const foreignTickerCount = tickerList.filter(t => t && t !== normalizedSymbol).length;
-        const keywordTickerList = keywordBlob
+        const keywordTickerList: string[] = keywordBlob
           .split(/[^a-z0-9]+/)
-          .map(t => t.trim().toUpperCase())
+          .map((t: string) => t.trim().toUpperCase())
           .filter(Boolean);
-        const foreignKeywordCount = keywordTickerList.filter(t => t && t !== normalizedSymbol).length;
-        const totalSymbolRefs = symbolMatchCount + (hasTickerInText ? 1 : 0);
-        const totalForeignRefs = foreignTickerCount + foreignKeywordCount;
-        const totalRefs = totalSymbolRefs + totalForeignRefs;
-        const symbolFocusRatio = totalRefs > 0
-          ? totalSymbolRefs / totalRefs
-          : (hasTickerInText ? 1 : 0);
+
+        const countOccurrences = (source: string, token: string) => {
+          if (!token) return 0;
+          const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          const regex = new RegExp(`\\b${escaped}\\b`, "g");
+          return source.match(regex)?.length ?? 0;
+        };
+
+        const symbolRefCount =
+          countOccurrences(textUpper, symUpper) +
+          (symAltUpper !== symUpper ? countOccurrences(textUpper, symAltUpper) : 0) +
+          companyTerms.reduce((sum: number, term: string) => sum + countOccurrences(textBlob, term), 0);
+
+        const foreignTickerTextCount = tickerList
+          .filter((t: string) => t && t !== normalizedSymbol)
+          .reduce((sum: number, t: string) => sum + countOccurrences(textUpper, t), 0);
+
+        const foreignKeywordTextCount = keywordTickerList
+          .filter((t: string) => t && t !== normalizedSymbol)
+          .reduce((sum: number, t: string) => sum + countOccurrences(textUpper, t), 0);
+
+        const totalSymbolRefs = Math.max(symbolRefCount, hasTickerInText ? 1 : 0);
+        const totalForeignRefs = foreignTickerTextCount + foreignKeywordTextCount;
+        const symbolFocusRatio = totalForeignRefs > 0
+          ? totalSymbolRefs / Math.max(1, totalSymbolRefs + totalForeignRefs)
+          : 1.0;
 
         const mentionWeight = hasTickerInText
           ? 1.5
@@ -209,10 +229,9 @@ export async function searchAndRerankNewsStrict(
             hasQueryMatch,
             mentionWeight,
             queryMatches,
-            symbolMatchCount,
-            foreignTickerCount,
-            foreignKeywordCount,
-            totalRefs,
+            symbolRefCount,
+            foreignTickerTextCount,
+            foreignKeywordTextCount,
             symbolFocusRatio,
             crossTickerFactor,
             base,

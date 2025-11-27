@@ -5,11 +5,12 @@ A sophisticated AI-powered trading analysis system that combines real-time marke
 ## ✨ Features
 
 ### 🎯 Core Capabilities
-- **Real-time Market Analysis**: Live OHLCV data with technical indicators (RSI, MACD, EMA, ATR, VWAP)
+- **Real-time Market Analysis**: Live OHLCV data for stocks + ETFs with technical indicators (RSI, MACD, EMA, ATR, VWAP)
 - **AI-Powered News Analysis**: Semantic search and sentiment analysis using vector embeddings
 - **Multi-Agent Architecture**: Specialized AI agents for news, technical, and synthesis analysis
 - **TradingView-Style UI**: Professional trading interface with price indicators and sentiment badges
 - **Comprehensive Reporting**: Detailed analysis with bullish/neutral/bearish sentiment indicators
+- **ETF Support**: ~60 popular ETFs including market index, sector, bond, commodity, and thematic ETFs
 
 ### 🏗️ Architecture
 - **Frontend**: Next.js 14 with TypeScript and Tailwind CSS
@@ -24,15 +25,34 @@ A sophisticated AI-powered trading analysis system that combines real-time marke
 **Experience the system**: [AI Trading Agent Demo](https://ai-trading-agent-git-main-chunghaw.vercel.app/)
 
 ### Sample Queries
+
+**Stock Analysis:**
 - "What is the technical analysis for NVDA?"
 - "Should I buy GOOGL based on recent news?"
 - "Analyze AAPL's portfolio positioning"
 - "What's the market sentiment for TSLA?"
 
+**ETF Analysis:**
+- "What's the technical outlook for SPY?"
+- "Should I buy QQQ based on recent market conditions?"
+- "Analyze GLD as a safe haven asset"
+- "What's driving VXX volatility today?"
+- "Compare XLK vs XLF sector performance"
+
 ## 📊 Data Pipeline
 
+### Supported Instruments
+- **Stocks**: Top 1000 US stocks by market cap and volume
+- **ETFs**: ~60 popular ETFs across categories:
+  - Market Index: SPY, QQQ, IWM, DIA, VOO, VTI
+  - Sector: XLF, XLK, XLE, XLV, XLI, XLY, XLP
+  - Bond: TLT, AGG, BND, LQD, HYG
+  - Commodity: GLD, SLV, USO, IAU
+  - Volatility: VXX, VIXY, UVXY
+  - Thematic: ARKK, ARKG, ARKW, ICLN
+
 ### Bronze Layer
-- Raw Polygon API data ingestion
+- Raw Polygon API data ingestion for stocks + ETFs
 - Minimal processing, direct API response storage
 - Used for backup and reprocessing
 
@@ -43,14 +63,14 @@ A sophisticated AI-powered trading analysis system that combines real-time marke
 - Technical indicator calculations (RSI, MACD, EMA, ATR)
 
 ### Gold Layer
-- Aggregated indicators and company information
+- Aggregated indicators and company/ETF information
 - Latest row per ticker with pre-calculated technical indicators
-- Company metadata integration
+- Metadata integration (company info or ETF details)
 - Price change calculations (current vs previous close)
 
 ### News Layer
 - Milvus vector database for semantic search
-- Curated article list with embeddings
+- Curated article list with embeddings for stocks + major ETFs
 - Real-time news sentiment analysis
 
 ## 🛠️ Technology Stack
@@ -161,7 +181,7 @@ curl -X POST http://localhost:3000/api/analyze \
 ### DAG Scheduling
 - **OHLCV Data**: Twice daily (5am and 5pm SGT)
 - **News Data**: Daily (5am SGT)
-- **Scope**: Top 1000 US stocks by market cap
+- **Scope**: Top 1000 US stocks by market cap + 60 popular ETFs
 
 ### Technical Indicators
 - RSI (14-period)

@@ -491,11 +491,19 @@ function computeIndicators(bars: any, dbData?: any[]) {
 
 async function detectSymbolFromQuestion(question: string, openai: OpenAI): Promise<string | null> {
   try {
-    const prompt = `Extract the stock ticker symbol from the user's query. Return only the ticker symbol (e.g., AAPL, NVDA, TSLA, META, AMZN) or null if no symbol is found. Note that Facebook ticker symbol is META and Amazon is AMZN.                                    
+    const prompt = `Extract the stock or ETF ticker symbol from the user's query. Return only the ticker symbol or null if no symbol is found.
+
+Examples of valid tickers:
+- Stocks: AAPL, NVDA, TSLA, META (Facebook), AMZN (Amazon), GOOGL (Google), MSFT
+- Market Index ETFs: SPY (S&P 500), QQQ (Nasdaq), IWM (Russell 2000), DIA (Dow Jones)
+- Sector ETFs: XLF (Financials), XLK (Technology), XLE (Energy), XLV (Healthcare)
+- Commodity ETFs: GLD (Gold), SLV (Silver), USO (Oil)
+- Bond ETFs: TLT (Treasury Bonds), AGG (Bond Index)
+- Thematic ETFs: ARKK (ARK Innovation), ICLN (Clean Energy)
 
 Question: "${question}"
 
-Return a JSON object with the following format: {"symbol": "AAPL" or null}`;
+Return a JSON object with this format: {"symbol": "SPY"} or {"symbol": null}`;
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",

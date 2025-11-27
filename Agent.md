@@ -9,6 +9,37 @@ No mock/hardcoded data, ever. If DB is unavailable, return a clear error.
 No support/resistance or Fibonacci levels. No “levels to watch”.
 No generic boilerplate. No “docs/sources/+1/−0”, no bull/bear case boxes, no generic “analysis completed” lines.
 News citations must be real URLs from inputs. No invented links.
+## Supported Instruments
+
+### Stocks
+- **Coverage**: Top 1000 US stocks by market cap and volume
+- **Selection Criteria**: Volume-based ranking from Polygon grouped aggregates API
+- **Major Stocks**: AAPL, MSFT, GOOGL, AMZN, NVDA, TSLA, META, JPM, V, MA, etc.
+- **Market Cap Range**: Large-cap to mega-cap stocks with highest liquidity
+
+### ETFs (Exchange-Traded Funds)
+- **Coverage**: ~60 popular ETFs across multiple categories
+- **Categories**:
+  - **Market Index ETFs** (7): SPY, QQQ, IWM, DIA, VOO, VTI, IVV - Track major market indices
+  - **Sector ETFs** (11): XLF, XLK, XLE, XLV, XLI, XLY, XLP, XLU, XLRE, XLC, XLB - Sector exposure
+  - **International ETFs** (6): EFA, EEM, VEA, VWO, IEFA, IEMG - Global market exposure
+  - **Bond ETFs** (8): TLT, AGG, BND, LQD, HYG, TIP, SHY, IEF - Fixed income exposure
+  - **Commodity ETFs** (6): GLD, SLV, USO, UNG, DBC, IAU - Commodity exposure
+  - **Volatility ETFs** (3): VXX, VIXY, UVXY - Market volatility tracking
+  - **Leveraged/Inverse ETFs** (6): TQQQ, SQQQ, UPRO, SPXU, TNA, TZA - Amplified returns
+  - **Thematic ETFs** (10): ARKK, ARKG, ARKW, ARKF, ICLN, TAN, LIT, BOTZ, HACK - Innovation themes
+- **Use Cases**: 
+  - Market sentiment analysis (SPY, QQQ performance indicates overall market direction)
+  - Sector rotation insights (XLK vs XLE vs XLF performance)
+  - Risk-off indicators (VXX, TLT movement during market stress)
+  - Thematic trends (ARKK innovation, ICLN clean energy adoption)
+
+### Data Availability
+- **OHLCV Data**: Available for all stocks and ETFs
+- **Technical Indicators**: RSI, MACD, EMA, ATR, VWAP calculated for all instruments
+- **News Coverage**: Major ETFs (SPY, QQQ, GLD, etc.) receive news analysis
+- **Company Info**: Available for stocks; ETF metadata includes issuer, category, expense ratio
+
 ## Data Pipeline Architecture
 
 ### Bronze Layer
@@ -38,18 +69,33 @@ News citations must be real URLs from inputs. No invented links.
 
 ### OHLCV DAG (polygon_ohlcv_dag.py)
 - **Schedule**: Twice daily at 5am SGT (21:00 UTC) and 5pm SGT (09:00 UTC)
-- **Scope**: Top 1000 US stocks by market cap
+- **Scope**: Top 1000 US stocks by market cap + ~60 popular ETFs
 - **Data Retrieval**: Latest 10 days OHLCV data from Polygon API (merge strategy)
 - **Retention**: 3 years (1095 days) of historical data
 - **Processing**: Bronze → Silver → Gold transformation
 - **Error Handling**: Retry logic with exponential backoff, alerting on failures
+- **ETF Coverage**: 
+  - Market Index: SPY, QQQ, IWM, DIA, VOO, VTI, IVV
+  - Sector: XLF, XLK, XLE, XLV, XLI, XLY, XLP, XLU, XLRE, XLC, XLB
+  - International: EFA, EEM, VEA, VWO, IEFA, IEMG
+  - Bond: TLT, AGG, BND, LQD, HYG, TIP, SHY, IEF
+  - Commodity: GLD, SLV, USO, UNG, DBC, IAU
+  - Volatility: VXX, VIXY, UVXY
+  - Thematic: ARKK, ARKG, ARKW, ARKF, ICLN, TAN, LIT, BOTZ, HACK
 
 ### News DAG (polygon_news_milvus_managed.py)
 - **Schedule**: Daily at 5am SGT (21:00 UTC)
-- **Scope**: 20 popular tickers: NVDA, GOOGL, MSFT, AMZN, TSLA, META, PLTR, PDD, IONQ, AAPL, NFLX, AMD, INTC, ORCL, CRM, ADBE, PYPL, INTC, QCOM, MU
-- **Data Retrieval**: Latest news articles from Polygon API
-- **Retention**: 30 days of news data
-- **Processing**: News ingestion → OpenAI embeddings → Milvus storage
+- **Scope**: ~50 popular stocks + ~25 popular ETFs for comprehensive market news coverage
+- **Stock Tickers**: NVDA, GOOGL, MSFT, AMZN, TSLA, META, PLTR, PDD, IONQ, AAPL, NFLX, AMD, INTC, ORCL, CRM, ADBE, PYPL, QCOM, MU, JPM, BAC, GS, WFC, V, MA, JNJ, PFE, UNH, XOM, CVX
+- **ETF Tickers**: 
+  - Market Index: SPY, QQQ, IWM, DIA, VOO, VTI
+  - Sector: XLF, XLK, XLE, XLV, XLI, XLY, XLP
+  - Commodity/Bond: GLD, SLV, TLT, AGG, USO
+  - Volatility: VXX, VIXY
+  - Thematic: ARKK, ARKG, ARKW, ICLN
+- **Data Retrieval**: Latest news articles from Polygon API (2-day lookback)
+- **Retention**: 90 days of news data for better historical context
+- **Processing**: News ingestion → OpenAI embeddings → Milvus storage (UPSERT mode)
 - **Error Handling**: Connection retry logic, Milvus cleanup on failures
 
 ## Data Quality Requirements

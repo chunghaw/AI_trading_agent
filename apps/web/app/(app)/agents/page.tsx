@@ -7,6 +7,7 @@ import { Send } from "lucide-react";
 import { ReportSchema, type Report } from "@/lib/report.schema";
 import { cn } from "@/lib/utils";
 import { ReportCard } from "@/components/report/ReportCard";
+import { AddTickerDialog } from "@/components/ticker/AddTickerDialog";
 
 
 export default function AgentsPage() {
@@ -76,7 +77,10 @@ export default function AgentsPage() {
 
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.error || "Failed to get response");
+        // Create error with structured data
+        const error = new Error(errorData.error || errorData.message || "Failed to get response");
+        (error as any).errorData = errorData;
+        throw error;
       }
 
       const data = await res.json();
@@ -116,18 +120,50 @@ export default function AgentsPage() {
       console.error("❌ Error stack:", error.stack);
       console.error("❌ Error name:", error.name);
       
-      // Handle specific error types
-      if (error.message?.includes("SYMBOL_NOT_SUPPORTED")) {
+      // Handle specific error types with better messages
+      const errorData = (error as any).errorData || {};
+      
+      if (errorData.code === "MISSING_SYMBOL") {
+        const candidates = errorData.detected_candidates || [];
+        let message = `❌ Could not detect ticker symbol from your question.\n\n`;
+        message += `Please include a ticker symbol (e.g., "What's the outlook for AAPL?")\n\n`;
+        if (candidates.length > 0) {
+          message += `Detected possible symbols: ${candidates.join(", ")}\n\n`;
+        }
+        message += `💡 If the ticker exists, you can add it using the "Add Ticker" button on the dashboard.`;
+        alert(message);
+      } else if (errorData.code === "TICKER_NOT_FOUND") {
+        const symbol = errorData.symbol || 'requested';
+        let message = `❌ Ticker ${symbol} is not in the database.\n\n`;
+        message += `${errorData.message || 'This ticker may not be available yet.'}\n\n`;
+        message += `💡 ${errorData.suggestion || `You can add ${symbol} using the "Add Ticker" button on the dashboard. Once added, data will be available after the next DAG run.`}`;
+        alert(message);
+      } else if (errorData.code === "TICKER_PENDING") {
+        const symbol = errorData.symbol || 'requested';
+        const addedDate = errorData.added_at ? new Date(errorData.added_at).toLocaleDateString() : 'recently';
+        const addedTime = errorData.added_at ? new Date(errorData.added_at).toLocaleTimeString() : '';
+        let message = `⏳ Ticker ${symbol} has been requested but data is not yet available.\n\n`;
+        message += `Added: ${addedDate}${addedTime ? ' at ' + addedTime : ''}\n`;
+        message += `Status: Will be processed in next DAG run (typically within 24 hours)\n\n`;
+        message += `Please try again after the next scheduled DAG run completes.`;
+        alert(message);
+      } else if (errorData.code === "TICKER_INACTIVE") {
+        const symbol = errorData.symbol || 'requested';
+        alert(
+          `⚠️ Ticker ${symbol} exists but is currently inactive.\n\n` +
+          `Please reactivate it using the "Add Ticker" feature on the dashboard.`
+        );
+      } else if (error.message?.includes("SYMBOL_NOT_SUPPORTED")) {
         alert(`Symbol not supported. Only NVDA is currently supported with real data.`);
       } else if (error.message?.includes("not available yet")) {
         alert(`Real-time data for this symbol is not available yet. We're working on adding more symbols soon!`);
       } else if (error.message?.includes("DATA_NOT_AVAILABLE")) {
         alert(`Real-time data for this symbol is not available yet. We're working on adding more symbols soon!`);
       } else if (error.message?.includes("Schema validation failed")) {
-        // Don't show alert again, we already showed it above
         console.log("Schema validation error handled above");
       } else {
-        alert(`Failed to get analysis: ${error.message}. Check console for details.`);
+        const errorMsg = errorData.message || errorData.error || error.message || "Unknown error";
+        alert(`Failed to get analysis: ${errorMsg}\n\nCheck console for details.`);
       }
     } finally {
       setIsLoading(false);
@@ -160,9 +196,14 @@ export default function AgentsPage() {
         <p className="text-lg text-[var(--muted)] max-w-2xl mx-auto leading-relaxed">
           Ask questions about market analysis, technical indicators, news sentiment, or portfolio insights
         </p>
-        <p className="text-sm text-[var(--muted)] max-w-2xl mx-auto">
-          Currently supporting: <span className="text-green-400 font-medium">NVDA</span>, <span className="text-green-400 font-medium">GOOGL</span>, <span className="text-green-400 font-medium">AAPL</span>, <span className="text-green-400 font-medium">MSFT</span>, <span className="text-green-400 font-medium">TSLA</span> and other major stocks
-        </p>
+        <div className="flex items-center justify-center gap-4 flex-wrap">
+          <p className="text-sm text-[var(--muted)]">
+            Currently supporting: <span className="text-green-400 font-medium">NVDA</span>, <span className="text-green-400 font-medium">GOOGL</span>, <span className="text-green-400 font-medium">AAPL</span>, <span className="text-green-400 font-medium">MSFT</span>, <span className="text-green-400 font-medium">TSLA</span> and other major stocks
+          </p>
+          <AddTickerDialog onTickerAdded={(ticker) => {
+            console.log(`✅ Ticker ${ticker} added successfully`);
+          }} />
+        </div>
       </div>
 
       {/* Cursor-style Chat Input */}

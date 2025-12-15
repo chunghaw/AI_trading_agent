@@ -74,17 +74,14 @@ export async function POST(req: NextRequest) {
     console.log(`📝 Parsed request: ${actualQuery}, symbol: ${symbol}, timeframe: ${timeframe}, since_days: ${since_days}`);
     
     // Use provided symbol or detect from query
-    let detectedSymbol = symbol;
+    let detectedSymbol = symbol?.trim().toUpperCase() || null;
+    const fallbackCandidates = extractSymbolCandidates(actualQuery);
+    
     if (!detectedSymbol && actualQuery) {
       detectedSymbol = await detectSymbolFromQuestion(actualQuery, openai);
     }
-    if (!detectedSymbol) {
-      console.log(`❌ AI SYMBOL DETECTION FAILED`);
-      return NextResponse.json({ 
-        error: "Symbol parameter required",
-        code: "MISSING_SYMBOL"
-      }, { status: 400 });
-    }
+    
+    console.log(`🔍 Initial symbol detection result: ${detectedSymbol || "none"}`);
 
     console.log(`✅ AI SYMBOL DETECTED: "${detectedSymbol}" from query: "${query}"`);
     
@@ -97,6 +94,48 @@ export async function POST(req: NextRequest) {
     });
     
     await client.connect();
+
+    // Fallback detection using database symbols if LLM failed
+    if (!detectedSymbol && fallbackCandidates.length > 0) {
+      console.log(`🔎 Attempting fallback symbol detection from candidates: ${fallbackCandidates.join(", ")}`);
+      detectedSymbol = await resolveSymbolFromDatabase(client, fallbackCandidates);
+      console.log(`🔁 Fallback symbol detection result: ${detectedSymbol || "none"}`);
+    }
+    
+    if (!detectedSymbol) {
+      console.log(`❌ No symbol could be detected even after fallback`);
+      
+      // Check if any candidates were found
+      if (fallbackCandidates.length > 0) {
+        // Check if any candidate exists in custom_tickers (pending addition)
+        const customCheck = await client.query(
+          'SELECT symbol, added_at FROM custom_tickers WHERE symbol = ANY($1) AND is_active = TRUE',
+          [fallbackCandidates.map(c => c.toUpperCase())]
+        );
+        
+        if (customCheck.rows.length > 0) {
+          const pendingTicker = customCheck.rows[0];
+          await client.end();
+          return NextResponse.json({ 
+            error: `Ticker ${pendingTicker.symbol} has been requested but data is not yet available.`,
+            code: "TICKER_PENDING",
+            symbol: pendingTicker.symbol,
+            added_at: pendingTicker.added_at,
+            message: `Ticker ${pendingTicker.symbol} was added on ${new Date(pendingTicker.added_at).toLocaleDateString()} and will be available after the next DAG run. Please try again later.`,
+            suggestion: "The ticker is in the pipeline and will be processed automatically."
+          }, { status: 404 });
+        }
+      }
+      
+      await client.end();
+      return NextResponse.json({ 
+        error: "Could not detect a ticker symbol from your question.",
+        code: "MISSING_SYMBOL",
+        detected_candidates: fallbackCandidates,
+        message: "Please include a ticker symbol in your question (e.g., 'What's the outlook for AAPL?') or specify the symbol directly.",
+        suggestion: "If the ticker exists, you can add it using the 'Add Ticker' button on the dashboard."
+      }, { status: 400 });
+    }
     
     console.log(`🔍 Fetching real OHLCV data from Postgres for ${detectedSymbol}`);
     const sqlQuery = `
@@ -133,17 +172,61 @@ export async function POST(req: NextRequest) {
     `;
     
     const result = await client.query(sqlQuery, [detectedSymbol]);
-    await client.end();
     
     if (result.rows.length === 0) {
       console.log(`❌ No data found for ${detectedSymbol}`);
+      
+      // Check if ticker exists in custom_tickers (pending)
+      const customCheck = await client.query(
+        'SELECT symbol, added_at, ticker_type FROM custom_tickers WHERE symbol = $1 AND is_active = TRUE',
+        [detectedSymbol]
+      );
+      
+      await client.end();
+      
+      if (customCheck.rows.length > 0) {
+        const pendingTicker = customCheck.rows[0];
+        const addedDate = new Date(pendingTicker.added_at);
+        return NextResponse.json({ 
+          error: `Ticker ${detectedSymbol} has been requested but data is not yet available.`,
+          code: "TICKER_PENDING",
+          symbol: detectedSymbol,
+          ticker_type: pendingTicker.ticker_type,
+          added_at: pendingTicker.added_at,
+          message: `Ticker ${detectedSymbol} was added on ${addedDate.toLocaleDateString()} at ${addedDate.toLocaleTimeString()}. Data will be available after the next DAG run (typically within 24 hours).`,
+          suggestion: "Please try again after the next scheduled DAG run completes.",
+          action: "wait_for_dag"
+        }, { status: 404 });
+      }
+      
+      // Check if ticker exists in database at all (inactive or not added)
+      const allTickersCheck = await client.query(
+        'SELECT symbol, is_active FROM custom_tickers WHERE symbol = $1',
+        [detectedSymbol]
+      );
+      
+      if (allTickersCheck.rows.length > 0 && !allTickersCheck.rows[0].is_active) {
+        return NextResponse.json({ 
+          error: `Ticker ${detectedSymbol} exists but is currently inactive.`,
+          code: "TICKER_INACTIVE",
+          symbol: detectedSymbol,
+          message: `Ticker ${detectedSymbol} was previously added but is now inactive.`,
+          suggestion: "Please reactivate the ticker using the 'Add Ticker' feature on the dashboard."
+        }, { status: 404 });
+      }
+      
+      // Ticker not in database at all
       return NextResponse.json({ 
-        error: `Database connection failed. Cannot fetch OHLCV data for ${detectedSymbol}.`,
-        code: "DATABASE_CONNECTION_ERROR",
+        error: `Ticker ${detectedSymbol} is not available in the database.`,
+        code: "TICKER_NOT_FOUND",
         symbol: detectedSymbol,
-        details: "No data found in gold table"
-      }, { status: 500 });
+        message: `No data found for ticker ${detectedSymbol}. This ticker may not be in our database yet.`,
+        suggestion: `You can add ${detectedSymbol} using the 'Add Ticker' button on the dashboard. Once added, data will be available after the next DAG run.`,
+        action: "add_ticker"
+      }, { status: 404 });
     }
+    
+    await client.end();
     
     const dbData = result.rows[0];
     console.log(`📊 Symbol data found: ${result.rows.length} records from Postgres GOLD TABLE`);
@@ -518,4 +601,40 @@ Return a JSON object with this format: {"symbol": "SPY"} or {"symbol": null}`;
     console.error("Symbol detection error:", error);
     return null;
   }
+}
+
+function extractSymbolCandidates(question?: string | null): string[] {
+  if (!question) return [];
+  
+  const upper = question.toUpperCase();
+  // Match 1-5 letter uppercase words (ticker symbols)
+  // Also match common patterns like "COMM" from "about COMM"
+  const matches = upper.match(/\b[A-Z]{1,5}\b/g) || [];
+  // Filter out common words that aren't tickers
+  const commonWords = new Set(['THE', 'AND', 'FOR', 'WHAT', 'THIS', 'THAT', 'WITH', 'FROM', 'ABOUT', 'SHOULD', 'WOULD', 'COULD']);
+  return Array.from(new Set(matches.filter(m => !commonWords.has(m))));
+}
+
+async function resolveSymbolFromDatabase(client: any, candidates: string[]): Promise<string | null> {
+  if (candidates.length === 0) return null;
+  
+  // Check both gold_ohlcv_daily_metrics and custom_tickers
+  for (const candidate of candidates) {
+    try {
+      // Check in gold table (active data)
+      const goldRes = await client.query('SELECT 1 FROM gold_ohlcv_daily_metrics WHERE symbol = $1 LIMIT 1', [candidate]);
+      if (goldRes.rowCount > 0) {
+        return candidate;
+      }
+      
+      // Check in custom_tickers (pending addition)
+      const customRes = await client.query('SELECT 1 FROM custom_tickers WHERE symbol = $1 AND is_active = TRUE LIMIT 1', [candidate]);
+      if (customRes.rowCount > 0) {
+        return candidate; // Return it even if pending, so we can show appropriate message
+      }
+    } catch (error) {
+      console.warn(`⚠️ Error checking symbol ${candidate}:`, (error as Error).message);
+    }
+  }
+  return null;
 }

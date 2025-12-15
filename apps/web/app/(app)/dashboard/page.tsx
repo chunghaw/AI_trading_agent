@@ -4,6 +4,8 @@ import React, { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { TrendingUp, TrendingDown, Activity, AlertTriangle, BarChart3, Filter } from "lucide-react";
+import { TickerManagement } from "@/components/ticker/TickerManagement";
+import { AddTickerDialog } from "@/components/ticker/AddTickerDialog";
 
 interface MarketIndicator {
   symbol: string;
@@ -237,10 +239,21 @@ export default function DashboardPage() {
               Real-time stock screening and AI-powered market insights
             </p>
           </div>
-          <Button onClick={fetchDashboardData} variant="outline" size="sm">
-            <Activity className="w-4 h-4 mr-2" />
-            Refresh Data
-          </Button>
+          <div className="flex items-center gap-2">
+            <AddTickerDialog onTickerAdded={fetchDashboardData} />
+            <Button onClick={fetchDashboardData} variant="outline" size="sm">
+              <Activity className="w-4 h-4 mr-2" />
+              Refresh Data
+            </Button>
+          </div>
+        </div>
+
+        {/* Ticker Management Section */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-bold text-white">Ticker Management</h2>
+          </div>
+          <TickerManagement />
         </div>
 
         {/* Market Overview Cards */}

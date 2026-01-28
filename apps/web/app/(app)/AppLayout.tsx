@@ -44,6 +44,16 @@ export default function AppLayout({
               >
                 Dashboard
               </Link>
+              <Link
+                href="/screen"
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  pathname?.startsWith("/screen")
+                    ? "bg-white/10 text-white"
+                    : "text-gray-400 hover:text-white hover:bg-white/5"
+                }`}
+              >
+                Screener
+              </Link>
             </nav>
           </div>
         </div>

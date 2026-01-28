@@ -297,6 +297,15 @@ async function getRealNewsData(symbol: string, userQuery: string, sinceIso?: str
       
       console.log(`✅ Collections list:`, collections);
       
+      // Check if cluster is STOPPED (error code 90153)
+      if (collections?.code === 90153 || collections?.message?.includes('STOPPED')) {
+        console.error(`❌ MILVUS CLUSTER IS STOPPED!`);
+        console.error(`❌ Error: ${collections.message || 'Cluster status: STOPPED'}`);
+        console.error(`❌ Action required: Start your Milvus/Zilliz cluster in the cloud console`);
+        console.error(`❌ Cluster URI: ${MILVUS_CONFIG.uri}`);
+        throw new Error(`Milvus cluster is STOPPED. Please start the cluster in Zilliz Cloud console. Error: ${collections.message || 'Cluster status: STOPPED'}`);
+      }
+      
       // Latest Zilliz/Milvus serverless nests collections under data.collections.
       const availableCollections = (() => {
         const raw = collections?.data;
@@ -317,6 +326,7 @@ async function getRealNewsData(symbol: string, userQuery: string, sinceIso?: str
       if (!collectionExists) {
         console.warn(`⚠️ Collection '${MILVUS_CONFIG.collection}' not found in available collections`);
         console.log(`📋 Available collections:`, normalizedNames);
+        console.warn(`⚠️ This might mean the cluster is stopped or the collection doesn't exist`);
         return [];
       }
       
@@ -518,18 +528,36 @@ async function getRealNewsData(symbol: string, userQuery: string, sinceIso?: str
           relevance: 1 - (article.distance || 0)
         }));
         
-      } catch (searchError) {
+      } catch (searchError: any) {
         console.error(`❌ Milvus search error:`, searchError);
+        
+        // Check if error is due to stopped cluster
+        if (searchError?.message?.includes('STOPPED') || searchError?.code === 90153) {
+          throw searchError; // Re-throw to surface the error
+        }
+        
         return [];
       }
       
-    } catch (milvusError) {
+    } catch (milvusError: any) {
       console.error("❌ Milvus API error:", milvusError);
+      
+      // Check if cluster is stopped
+      if (milvusError?.message?.includes('STOPPED') || milvusError?.code === 90153) {
+        throw milvusError; // Re-throw to surface the error
+      }
+      
       return [];
     }
     
-  } catch (error) {
+  } catch (error: any) {
     console.error("❌ Error in getRealNewsData:", error);
+    
+    // If cluster is stopped, throw the error so it can be handled upstream
+    if (error?.message?.includes('STOPPED') || error?.code === 90153) {
+      throw error;
+    }
+    
     return [];
   }
 }

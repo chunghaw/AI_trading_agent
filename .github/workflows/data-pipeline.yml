@@ -1,0 +1,50 @@
+name: Data Pipeline
+
+on:
+  schedule:
+    - cron: '0 21 * * *'  # 5am SGT
+    - cron: '0 9 * * *'    # 5pm SGT
+  workflow_dispatch:
+
+env:
+  POLYGON_API_KEY: ${{ secrets.POLYGON_API_KEY }}
+  POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
+  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+jobs:
+  ohlcv_pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - run: |
+          pip install requests pandas numpy psycopg2-binary sqlalchemy tenacity apache-airflow==2.8.0
+      - name: Run OHLCV Pipeline
+        run: |
+          cd scripts
+          python run_ohlcv_pipeline.py
+        env:
+          POLYGON_API_KEY: ${{ secrets.POLYGON_API_KEY }}
+          POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
+
+  news_pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - run: |
+          pip install requests pandas psycopg2-binary sqlalchemy tenacity openai apache-airflow==2.8.0
+      - name: Run News Pipeline (pgvector)
+        run: |
+          cd scripts
+          python run_news_pipeline_pgvector.py
+        env:
+          POLYGON_API_KEY: ${{ secrets.POLYGON_API_KEY }}
+          POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}

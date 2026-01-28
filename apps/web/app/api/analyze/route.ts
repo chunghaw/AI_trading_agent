@@ -13,7 +13,7 @@ const Body = z.object({
   query: z.string().default("trading analysis"),
   prompt: z.string().optional(), // Support old frontend format
   timeframe: z.string().default("1d"),
-  since_days: z.number().default(7)
+  since_days: z.number().default(30) // Increased to 30 days to include older articles until DAG catches up with fresh news
 });
 
 export async function GET(req: NextRequest) {
@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
       symbol,
       query: "trading analysis",
       timeframe: "1d",
-      since_days: 7
+      since_days: 30 // Increased to 30 days to include older articles until DAG catches up
     })
   });
   

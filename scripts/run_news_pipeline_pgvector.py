@@ -237,67 +237,73 @@ def ingest_new_data(conn, client):
                         else:
                             logging.error(f"Error generating embedding for {ticker}: {embed_error}")
                             continue
-                        
-                        # Get sentiment
-                        sentiment = "neutral"
-                        for insight in article.get("insights", []):
-                            if insight.get("ticker") == ticker:
-                                sentiment = insight.get("sentiment", "neutral")
-                                break
-                        
-                        rec_id = stable_id(
-                            article.get("article_url", ""),
-                            article.get("published_utc", ""),
-                            ticker
-                        )
-                        
-                        # Parse published_utc to timestamp
-                        pub_utc = article.get("published_utc", "")
-                        try:
-                            pub_timestamp = datetime.fromisoformat(pub_utc.replace("Z", "+00:00"))
-                        except:
-                            pub_timestamp = datetime.now(timezone.utc)
-                        
-                        # Convert embedding to pgvector format string
-                        embedding_str = "[" + ",".join(map(str, embedding)) + "]"
-                        
-                        records.append((
-                            rec_id,
-                            article.get("title", "")[:1000],
-                            chunk,
-                            article.get("article_url", "")[:500],
-                            article.get("publisher", {}).get("name", "")[:200] if article.get("publisher") else None,
-                            ticker,
-                            ",".join(article.get("tickers", []))[:200] if article.get("tickers") else None,
-                            pub_timestamp,
-                            sentiment[:20] if sentiment else None,
-                            ",".join(article.get("keywords", []))[:500] if article.get("keywords") else None,
-                            str(article.get("id", ""))[:100] if article.get("id") else None,
-                            embedding_str  # pgvector format: '[0.1, 0.2, ...]'
-                        ))
-                    except Exception as e:
-                        logging.error(f"Error processing chunk for {ticker}: {e}")
-                        continue
+                    
+                    # Get sentiment
+                    sentiment = "neutral"
+                    for insight in article.get("insights", []):
+                        if insight.get("ticker") == ticker:
+                            sentiment = insight.get("sentiment", "neutral")
+                            break
+                    
+                    rec_id = stable_id(
+                        article.get("article_url", ""),
+                        article.get("published_utc", ""),
+                        ticker
+                    )
+                    
+                    # Parse published_utc to timestamp
+                    pub_utc = article.get("published_utc", "")
+                    try:
+                        pub_timestamp = datetime.fromisoformat(pub_utc.replace("Z", "+00:00"))
+                    except:
+                        pub_timestamp = datetime.now(timezone.utc)
+                    
+                    # Convert embedding to pgvector format string
+                    embedding_str = "[" + ",".join(map(str, embedding)) + "]"
+                    
+                    records.append((
+                        rec_id,
+                        article.get("title", "")[:1000],
+                        chunk,
+                        article.get("article_url", "")[:500],
+                        article.get("publisher", {}).get("name", "")[:200] if article.get("publisher") else None,
+                        ticker,
+                        ",".join(article.get("tickers", []))[:200] if article.get("tickers") else None,
+                        pub_timestamp,
+                        sentiment[:20] if sentiment else None,
+                        ",".join(article.get("keywords", []))[:500] if article.get("keywords") else None,
+                        str(article.get("id", ""))[:100] if article.get("id") else None,
+                        embedding_str  # pgvector format: '[0.1, 0.2, ...]'
+                    ))
+                except Exception as e:
+                    logging.error(f"Error processing chunk for {ticker}: {e}")
+                    continue
             
             if records:
                 # Insert records one by one to handle vector type properly
                 for record in records:
-                    cursor.execute("""
-                        INSERT INTO news_articles 
-                        (id, title, text, url, source, ticker, tickers, published_utc, sentiment, keywords, article_id, embedding)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::vector)
-                        ON CONFLICT (id) DO UPDATE SET
-                            updated_at = CURRENT_TIMESTAMP
-                    """, record)
-                inserted = cursor.rowcount
-                total_inserted += inserted
-                logging.info(f"✅ {ticker}: Inserted {inserted} news chunks")
+                    try:
+                        cursor.execute("""
+                            INSERT INTO news_articles 
+                            (id, title, text, url, source, ticker, tickers, published_utc, sentiment, keywords, article_id, embedding)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::vector)
+                            ON CONFLICT (id) DO UPDATE SET
+                                updated_at = CURRENT_TIMESTAMP
+                        """, record)
+                        total_inserted += 1
+                    except Exception as insert_error:
+                        logging.error(f"Error inserting record for {ticker}: {insert_error}")
+                        continue
+                
+                # Commit after each ticker to avoid long transactions
+                conn.commit()
+                logging.info(f"✅ {ticker}: Inserted {len(records)} news chunks")
             
         except Exception as e:
             logging.error(f"Error processing {ticker}: {e}")
+            conn.rollback()  # Rollback on error
             continue
     
-    conn.commit()
     cursor.close()
     logging.info(f"✅ Total inserted: {total_inserted} news chunks")
     return total_inserted
@@ -361,11 +367,15 @@ def main():
         
         # Ingest new data
         ingest_new_data(conn, client)
+        conn.close()  # Close connection after ingestion
         
-        # Get stats
-        get_stats(conn)
+        # Get stats with fresh connection (connection may have timed out)
+        stats_conn = psycopg2.connect(POSTGRES_URL, sslmode="require")
+        try:
+            get_stats(stats_conn)
+        finally:
+            stats_conn.close()
         
-        conn.close()
         logging.info("🎉 Pipeline completed!")
     except Exception as e:
         logging.error(f"❌ Pipeline failed: {e}")

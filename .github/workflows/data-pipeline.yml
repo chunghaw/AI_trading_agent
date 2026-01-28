@@ -39,7 +39,7 @@ jobs:
         with:
           python-version: '3.11'
       - run: |
-          pip install requests pandas psycopg2-binary sqlalchemy tenacity openai apache-airflow==2.8.0
+          pip install requests pandas psycopg2-binary sqlalchemy tenacity openai python-dotenv
       - name: Run News Pipeline (pgvector)
         run: |
           cd scripts

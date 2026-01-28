@@ -5,6 +5,7 @@ psycopg2-binary
 sqlalchemy
 tenacity
 # Apache Airflow - only needed for parsing DAGs
-# For Python 3.11: apache-airflow==2.8.0
-# For Python 3.12+: apache-airflow>=3.1.6
-# Install manually based on your Python version
+# Note: Requires Python 3.11 (GitHub Actions uses 3.11)
+# For Python 3.11: pip install apache-airflow==2.8.0
+# For Python 3.12+: pip install apache-airflow>=3.1.6
+# Install manually: pip install apache-airflow==2.8.0

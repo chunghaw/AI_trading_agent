@@ -27,7 +27,15 @@ def main():
     logging.info("🚀 Starting OHLCV Pipeline")
     try:
         from polygon_ohlcv_dag import polygon_ohlcv_dag
-        dag = polygon_ohlcv_dag()
+        
+        # polygon_ohlcv_dag might be a DAG instance or a function that returns a DAG
+        if hasattr(polygon_ohlcv_dag, 'task_dict'):
+            # It's already a DAG instance
+            dag = polygon_ohlcv_dag
+        else:
+            # It's a function, call it
+            dag = polygon_ohlcv_dag()
+        
         tasks = dag.task_dict
         
         # Verify all required tasks exist

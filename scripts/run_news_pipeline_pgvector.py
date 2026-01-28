@@ -10,6 +10,18 @@ import psycopg2
 from psycopg2.extras import execute_values
 from openai import OpenAI
 
+# Try to load .env file if python-dotenv is available
+try:
+    from dotenv import load_dotenv
+    # Try multiple locations for .env file (later files override earlier ones)
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    root_dir = os.path.dirname(script_dir)
+    load_dotenv(os.path.join(root_dir, '.env'), override=False)  # Root .env
+    load_dotenv(os.path.join(script_dir, '.env'), override=True)  # scripts/.env (override if exists)
+    load_dotenv(os.path.join(root_dir, 'apps', 'web', '.env.local'), override=True)  # apps/web/.env.local (override)
+except ImportError:
+    pass  # dotenv not installed, use environment variables directly
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Configuration
@@ -216,6 +228,15 @@ def ingest_new_data(conn, client):
                             input=chunk
                         )
                         embedding = response.data[0].embedding
+                    except Exception as embed_error:
+                        # If API key error, stop processing this ticker and log clearly
+                        if "401" in str(embed_error) or "invalid_api_key" in str(embed_error).lower():
+                            logging.error(f"❌ OpenAI API key error for {ticker}. Stopping processing.")
+                            logging.error(f"💡 Please check your OPENAI_API_KEY in .env file")
+                            raise  # Re-raise to stop the whole pipeline
+                        else:
+                            logging.error(f"Error generating embedding for {ticker}: {embed_error}")
+                            continue
                         
                         # Get sentiment
                         sentiment = "neutral"
@@ -297,12 +318,36 @@ def main():
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
     POLYGON_API_KEY = os.getenv("POLYGON_API_KEY")
     
+    # Debug: Show which POSTGRES_URL is being used (mask password)
+    if POSTGRES_URL:
+        masked_url = POSTGRES_URL.split('@')[1] if '@' in POSTGRES_URL else POSTGRES_URL[:50]
+        logging.info(f"🔍 Using POSTGRES_URL: ...@{masked_url}")
+    else:
+        logging.error("❌ POSTGRES_URL not found in environment")
+        logging.info("💡 Check if .env file exists and contains POSTGRES_URL")
+        logging.info("💡 Or export POSTGRES_URL in your shell")
+    
     if not POSTGRES_URL:
         raise ValueError("POSTGRES_URL not set")
     if not OPENAI_API_KEY:
         raise ValueError("OPENAI_API_KEY not set")
     if not POLYGON_API_KEY:
         raise ValueError("POLYGON_API_KEY not set")
+    
+    # Test OpenAI API key before starting
+    logging.info("🔍 Validating OpenAI API key...")
+    try:
+        test_client = OpenAI(api_key=OPENAI_API_KEY)
+        test_response = test_client.embeddings.create(
+            model=EMB_MODEL,
+            input="test"
+        )
+        logging.info("✅ OpenAI API key is valid")
+    except Exception as e:
+        logging.error(f"❌ OpenAI API key validation failed: {e}")
+        logging.error("💡 Please update OPENAI_API_KEY in your .env file")
+        logging.error("💡 Get a new key from: https://platform.openai.com/account/api-keys")
+        raise ValueError(f"Invalid OpenAI API key: {e}")
     
     try:
         conn = psycopg2.connect(POSTGRES_URL, sslmode="require")

@@ -1012,10 +1012,44 @@ def polygon_ohlcv_dag():
             chunk_size = 5000  # Process 5000 records at a time
             total_chunks = (len(bronze_data) + chunk_size - 1) // chunk_size
             
-            with engine.begin() as conn:
-                # Clear temp table first
-                conn.execute(text("DROP TABLE IF EXISTS bronze_ohlcv_temp"))
+            # Use psycopg2 directly for reliable bulk insert
+            conn = psycopg2.connect(POSTGRES_URL, sslmode="require")
+            try:
+                cursor = conn.cursor()
                 
+                # Clear temp table first
+                cursor.execute("DROP TABLE IF EXISTS bronze_ohlcv_temp")
+                
+                # Create temp table with same structure as bronze_ohlcv
+                cursor.execute("""
+                    CREATE TABLE bronze_ohlcv_temp (
+                        symbol VARCHAR(20) NOT NULL,
+                        timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
+                        date DATE NOT NULL,
+                        open DECIMAL(20, 8),
+                        high DECIMAL(20, 8),
+                        low DECIMAL(20, 8),
+                        close DECIMAL(20, 8),
+                        volume DECIMAL(20, 8),
+                        vwap DECIMAL(20, 8),
+                        transactions INTEGER,
+                        ingestion_time TIMESTAMP WITH TIME ZONE,
+                        company_name TEXT,
+                        market VARCHAR(50),
+                        stock_type VARCHAR(50),
+                        primary_exchange VARCHAR(50),
+                        currency VARCHAR(10),
+                        locale VARCHAR(10),
+                        list_date DATE,
+                        total_employees INTEGER,
+                        description TEXT,
+                        shares_outstanding BIGINT,
+                        market_cap BIGINT
+                    )
+                """)
+                conn.commit()
+                
+                # Prepare data for bulk insert
                 for chunk_num in range(total_chunks):
                     start_idx = chunk_num * chunk_size
                     end_idx = min((chunk_num + 1) * chunk_size, len(bronze_data))
@@ -1023,17 +1057,49 @@ def polygon_ohlcv_dag():
                     
                     logging.info(f"Processing chunk {chunk_num + 1}/{total_chunks}: {len(chunk_df)} records")
                     
-                    # Load chunk into temp table
-                    chunk_df.to_sql(
-                        'bronze_ohlcv_temp',
-                        conn,
-                        if_exists='append' if chunk_num > 0 else 'replace',
-                        index=False,
-                        method='multi'
+                    # Convert DataFrame to list of tuples for execute_values
+                    records = []
+                    for _, row in chunk_df.iterrows():
+                        records.append((
+                            str(row.get('symbol', '')),
+                            pd.Timestamp(row.get('timestamp')) if pd.notna(row.get('timestamp')) else None,
+                            pd.Timestamp(row.get('date')).date() if pd.notna(row.get('date')) else None,
+                            float(row.get('open', 0)) if pd.notna(row.get('open')) else None,
+                            float(row.get('high', 0)) if pd.notna(row.get('high')) else None,
+                            float(row.get('low', 0)) if pd.notna(row.get('low')) else None,
+                            float(row.get('close', 0)) if pd.notna(row.get('close')) else None,
+                            float(row.get('volume', 0)) if pd.notna(row.get('volume')) else None,
+                            float(row.get('vwap', 0)) if pd.notna(row.get('vwap')) else None,
+                            int(row.get('transactions', 0)) if pd.notna(row.get('transactions')) else None,
+                            pd.Timestamp(row.get('ingestion_time')) if pd.notna(row.get('ingestion_time')) else None,
+                            str(row.get('company_name', '')) if pd.notna(row.get('company_name')) else None,
+                            str(row.get('market', '')) if pd.notna(row.get('market')) else None,
+                            str(row.get('stock_type', '')) if pd.notna(row.get('stock_type')) else None,
+                            str(row.get('primary_exchange', '')) if pd.notna(row.get('primary_exchange')) else None,
+                            str(row.get('currency', '')) if pd.notna(row.get('currency')) else None,
+                            str(row.get('locale', '')) if pd.notna(row.get('locale')) else None,
+                            pd.Timestamp(row.get('list_date')).date() if pd.notna(row.get('list_date')) else None,
+                            int(row.get('total_employees', 0)) if pd.notna(row.get('total_employees')) else None,
+                            str(row.get('description', '')) if pd.notna(row.get('description')) else None,
+                            int(row.get('shares_outstanding', 0)) if pd.notna(row.get('shares_outstanding')) else None,
+                            int(row.get('market_cap', 0)) if pd.notna(row.get('market_cap')) else None,
+                        ))
+                    
+                    # Bulk insert using execute_values
+                    execute_values(
+                        cursor,
+                        """INSERT INTO bronze_ohlcv_temp 
+                        (symbol, timestamp, date, open, high, low, close, volume, vwap, transactions, ingestion_time,
+                         company_name, market, stock_type, primary_exchange, currency, locale, list_date, 
+                         total_employees, description, shares_outstanding, market_cap)
+                        VALUES %s""",
+                        records,
+                        page_size=1000
                     )
+                    conn.commit()
                 
                 # Merge data using SQL
-                conn.execute(text("""
+                cursor.execute("""
                     INSERT INTO bronze_ohlcv (symbol, timestamp, date, open, high, low, close, volume, vwap, transactions, ingestion_time,
                                             company_name, market, stock_type, primary_exchange, currency, locale, list_date, 
                                             total_employees, description, shares_outstanding, market_cap)
@@ -1063,11 +1129,15 @@ def polygon_ohlcv_dag():
                         description = EXCLUDED.description,
                         shares_outstanding = EXCLUDED.shares_outstanding,
                         market_cap = EXCLUDED.market_cap,
-                        created_at = CURRENT_TIMESTAMP;
-                """))
+                        created_at = CURRENT_TIMESTAMP
+                """)
                 
                 # Drop temp table
-                conn.execute(text("DROP TABLE IF EXISTS bronze_ohlcv_temp;"))
+                cursor.execute("DROP TABLE IF EXISTS bronze_ohlcv_temp")
+                conn.commit()
+                cursor.close()
+            finally:
+                conn.close()
             
             logging.info(f"✅ Loaded {len(bronze_data)} records into bronze_ohlcv")
             return f"Loaded {len(bronze_data)} bronze records"
@@ -1086,8 +1156,6 @@ def polygon_ohlcv_dag():
             return "No data loaded"
         
         try:
-            engine = create_engine(POSTGRES_URL)
-            
             # Prepare data for insertion
             silver_columns = [
                 'symbol', 'timestamp', 'date', 'open', 'high', 'low', 'close', 'volume', 'vwap', 'transactions',
@@ -1102,18 +1170,125 @@ def polygon_ohlcv_dag():
             available_columns = [col for col in silver_columns if col in df.columns]
             silver_data = df[available_columns].copy()
             
-            with engine.begin() as conn:
-                # Use pandas to_sql with if_exists='append' and handle duplicates
-                silver_data.to_sql(
-                    'silver_ohlcv_temp',
-                    conn,
-                    if_exists='replace',
-                    index=False,
-                    method='multi'
+            # Use psycopg2 directly for reliable bulk insert
+            conn = psycopg2.connect(POSTGRES_URL, sslmode="require")
+            try:
+                cursor = conn.cursor()
+                
+                # Clear temp table first
+                cursor.execute("DROP TABLE IF EXISTS silver_ohlcv_temp")
+                
+                # Create temp table with same structure as silver_ohlcv
+                cursor.execute("""
+                    CREATE TABLE silver_ohlcv_temp (
+                        symbol VARCHAR(20) NOT NULL,
+                        timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
+                        date DATE NOT NULL,
+                        open DECIMAL(20, 8),
+                        high DECIMAL(20, 8),
+                        low DECIMAL(20, 8),
+                        close DECIMAL(20, 8),
+                        volume DECIMAL(20, 8),
+                        vwap DECIMAL(20, 8),
+                        transactions INTEGER,
+                        daily_range DECIMAL(20, 8),
+                        daily_change DECIMAL(20, 8),
+                        daily_return_pct DECIMAL(20, 8),
+                        dollar_volume DECIMAL(20, 8),
+                        ma_5 DECIMAL(20, 8),
+                        ma_20 DECIMAL(20, 8),
+                        ma_50 DECIMAL(20, 8),
+                        ma_200 DECIMAL(20, 8),
+                        ema_20 DECIMAL(20, 8),
+                        ema_50 DECIMAL(20, 8),
+                        ema_200 DECIMAL(20, 8),
+                        macd_line DECIMAL(20, 8),
+                        macd_signal DECIMAL(20, 8),
+                        macd_histogram DECIMAL(20, 8),
+                        atr DECIMAL(20, 8),
+                        volatility_20 DECIMAL(20, 8),
+                        rsi DECIMAL(20, 8),
+                        is_valid BOOLEAN,
+                        ingestion_time TIMESTAMP WITH TIME ZONE,
+                        company_name TEXT,
+                        market VARCHAR(50),
+                        stock_type VARCHAR(50),
+                        primary_exchange VARCHAR(50),
+                        currency VARCHAR(10),
+                        locale VARCHAR(10),
+                        list_date DATE,
+                        total_employees INTEGER,
+                        description TEXT,
+                        shares_outstanding BIGINT,
+                        market_cap BIGINT
+                    )
+                """)
+                conn.commit()
+                
+                # Convert DataFrame to list of tuples for execute_values
+                records = []
+                for _, row in silver_data.iterrows():
+                    records.append((
+                        str(row.get('symbol', '')),
+                        pd.Timestamp(row.get('timestamp')) if pd.notna(row.get('timestamp')) else None,
+                        pd.Timestamp(row.get('date')).date() if pd.notna(row.get('date')) else None,
+                        float(row.get('open', 0)) if pd.notna(row.get('open')) else None,
+                        float(row.get('high', 0)) if pd.notna(row.get('high')) else None,
+                        float(row.get('low', 0)) if pd.notna(row.get('low')) else None,
+                        float(row.get('close', 0)) if pd.notna(row.get('close')) else None,
+                        float(row.get('volume', 0)) if pd.notna(row.get('volume')) else None,
+                        float(row.get('vwap', 0)) if pd.notna(row.get('vwap')) else None,
+                        int(row.get('transactions', 0)) if pd.notna(row.get('transactions')) else None,
+                        float(row.get('daily_range', 0)) if pd.notna(row.get('daily_range')) else None,
+                        float(row.get('daily_change', 0)) if pd.notna(row.get('daily_change')) else None,
+                        float(row.get('daily_return_pct', 0)) if pd.notna(row.get('daily_return_pct')) else None,
+                        float(row.get('dollar_volume', 0)) if pd.notna(row.get('dollar_volume')) else None,
+                        float(row.get('ma_5', 0)) if pd.notna(row.get('ma_5')) else None,
+                        float(row.get('ma_20', 0)) if pd.notna(row.get('ma_20')) else None,
+                        float(row.get('ma_50', 0)) if pd.notna(row.get('ma_50')) else None,
+                        float(row.get('ma_200', 0)) if pd.notna(row.get('ma_200')) else None,
+                        float(row.get('ema_20', 0)) if pd.notna(row.get('ema_20')) else None,
+                        float(row.get('ema_50', 0)) if pd.notna(row.get('ema_50')) else None,
+                        float(row.get('ema_200', 0)) if pd.notna(row.get('ema_200')) else None,
+                        float(row.get('macd_line', 0)) if pd.notna(row.get('macd_line')) else None,
+                        float(row.get('macd_signal', 0)) if pd.notna(row.get('macd_signal')) else None,
+                        float(row.get('macd_histogram', 0)) if pd.notna(row.get('macd_histogram')) else None,
+                        float(row.get('atr', 0)) if pd.notna(row.get('atr')) else None,
+                        float(row.get('volatility_20', 0)) if pd.notna(row.get('volatility_20')) else None,
+                        float(row.get('rsi', 0)) if pd.notna(row.get('rsi')) else None,
+                        bool(row.get('is_valid', False)) if pd.notna(row.get('is_valid')) else None,
+                        pd.Timestamp(row.get('ingestion_time')) if pd.notna(row.get('ingestion_time')) else None,
+                        str(row.get('company_name', '')) if pd.notna(row.get('company_name')) else None,
+                        str(row.get('market', '')) if pd.notna(row.get('market')) else None,
+                        str(row.get('stock_type', '')) if pd.notna(row.get('stock_type')) else None,
+                        str(row.get('primary_exchange', '')) if pd.notna(row.get('primary_exchange')) else None,
+                        str(row.get('currency', '')) if pd.notna(row.get('currency')) else None,
+                        str(row.get('locale', '')) if pd.notna(row.get('locale')) else None,
+                        pd.Timestamp(row.get('list_date')).date() if pd.notna(row.get('list_date')) else None,
+                        int(row.get('total_employees', 0)) if pd.notna(row.get('total_employees')) else None,
+                        str(row.get('description', '')) if pd.notna(row.get('description')) else None,
+                        int(row.get('shares_outstanding', 0)) if pd.notna(row.get('shares_outstanding')) else None,
+                        int(row.get('market_cap', 0)) if pd.notna(row.get('market_cap')) else None,
+                    ))
+                
+                # Bulk insert using execute_values
+                execute_values(
+                    cursor,
+                    """INSERT INTO silver_ohlcv_temp 
+                    (symbol, timestamp, date, open, high, low, close, volume, vwap, transactions,
+                     daily_range, daily_change, daily_return_pct, dollar_volume, ma_5, ma_20, ma_50, ma_200,
+                     ema_20, ema_50, ema_200, macd_line, macd_signal, macd_histogram, atr,
+                     volatility_20, rsi, is_valid, ingestion_time,
+                     company_name, market, stock_type, primary_exchange, currency, locale, list_date, 
+                     total_employees, description, shares_outstanding, market_cap)
+                    VALUES %s""",
+                    records,
+                    page_size=1000
                 )
+                conn.commit()
                 
                 # Merge data using SQL
-                conn.execute(text("""
+                cursor.execute("""
                     INSERT INTO silver_ohlcv (symbol, timestamp, date, open, high, low, close, volume, vwap, transactions,
                                             daily_range, daily_change, daily_return_pct, dollar_volume, ma_5, ma_20, ma_50, ma_200,
                                             ema_20, ema_50, ema_200, macd_line, macd_signal, macd_histogram, atr,
@@ -1167,11 +1342,15 @@ def polygon_ohlcv_dag():
                         description = EXCLUDED.description,
                         shares_outstanding = EXCLUDED.shares_outstanding,
                         market_cap = EXCLUDED.market_cap,
-                        updated_at = CURRENT_TIMESTAMP;
-                """))
+                        updated_at = CURRENT_TIMESTAMP
+                """)
                 
                 # Drop temp table
-                conn.execute(text("DROP TABLE IF EXISTS silver_ohlcv_temp;"))
+                cursor.execute("DROP TABLE IF EXISTS silver_ohlcv_temp")
+                conn.commit()
+                cursor.close()
+            finally:
+                conn.close()
             
             logging.info(f"✅ Loaded {len(silver_data)} records into silver_ohlcv")
             return f"Loaded {len(silver_data)} silver records"

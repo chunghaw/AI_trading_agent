@@ -228,6 +228,44 @@ def ingest_new_data(conn, client):
                             input=chunk
                         )
                         embedding = response.data[0].embedding
+
+                        # Get sentiment
+                        sentiment = "neutral"
+                        for insight in article.get("insights", []):
+                            if insight.get("ticker") == ticker:
+                                sentiment = insight.get("sentiment", "neutral")
+                                break
+                        
+                        rec_id = stable_id(
+                            article.get("article_url", ""),
+                            article.get("published_utc", ""),
+                            ticker
+                        )
+                        
+                        # Parse published_utc to timestamp
+                        pub_utc = article.get("published_utc", "")
+                        try:
+                            pub_timestamp = datetime.fromisoformat(pub_utc.replace("Z", "+00:00"))
+                        except:
+                            pub_timestamp = datetime.now(timezone.utc)
+                        
+                        # Convert embedding to pgvector format string
+                        embedding_str = "[" + ",".join(map(str, embedding)) + "]"
+                        
+                        records.append((
+                            rec_id,
+                            article.get("title", "")[:1000],
+                            chunk,
+                            article.get("article_url", "")[:500],
+                            article.get("publisher", {}).get("name", "")[:200] if article.get("publisher") else None,
+                            ticker,
+                            ",".join(article.get("tickers", []))[:200] if article.get("tickers") else None,
+                            pub_timestamp,
+                            sentiment[:20] if sentiment else None,
+                            ",".join(article.get("keywords", []))[:500] if article.get("keywords") else None,
+                            str(article.get("id", ""))[:100] if article.get("id") else None,
+                            embedding_str  # pgvector format: '[0.1, 0.2, ...]'
+                        ))
                     except Exception as embed_error:
                         # If API key error, stop processing this ticker and log clearly
                         if "401" in str(embed_error) or "invalid_api_key" in str(embed_error).lower():
@@ -235,49 +273,8 @@ def ingest_new_data(conn, client):
                             logging.error(f"💡 Please check your OPENAI_API_KEY in .env file")
                             raise  # Re-raise to stop the whole pipeline
                         else:
-                            logging.error(f"Error generating embedding for {ticker}: {embed_error}")
+                            logging.error(f"Error processing chunk for {ticker}: {embed_error}")
                             continue
-                    
-                    # Get sentiment
-                    sentiment = "neutral"
-                    for insight in article.get("insights", []):
-                        if insight.get("ticker") == ticker:
-                            sentiment = insight.get("sentiment", "neutral")
-                            break
-                    
-                    rec_id = stable_id(
-                        article.get("article_url", ""),
-                        article.get("published_utc", ""),
-                        ticker
-                    )
-                    
-                    # Parse published_utc to timestamp
-                    pub_utc = article.get("published_utc", "")
-                    try:
-                        pub_timestamp = datetime.fromisoformat(pub_utc.replace("Z", "+00:00"))
-                    except:
-                        pub_timestamp = datetime.now(timezone.utc)
-                    
-                    # Convert embedding to pgvector format string
-                    embedding_str = "[" + ",".join(map(str, embedding)) + "]"
-                    
-                    records.append((
-                        rec_id,
-                        article.get("title", "")[:1000],
-                        chunk,
-                        article.get("article_url", "")[:500],
-                        article.get("publisher", {}).get("name", "")[:200] if article.get("publisher") else None,
-                        ticker,
-                        ",".join(article.get("tickers", []))[:200] if article.get("tickers") else None,
-                        pub_timestamp,
-                        sentiment[:20] if sentiment else None,
-                        ",".join(article.get("keywords", []))[:500] if article.get("keywords") else None,
-                        str(article.get("id", ""))[:100] if article.get("id") else None,
-                        embedding_str  # pgvector format: '[0.1, 0.2, ...]'
-                    ))
-                except Exception as e:
-                    logging.error(f"Error processing chunk for {ticker}: {e}")
-                    continue
             
             if records:
                 # Insert records one by one to handle vector type properly

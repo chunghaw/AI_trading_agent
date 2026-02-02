@@ -1375,20 +1375,22 @@ def polygon_ohlcv_dag():
         """Recalculate technical indicators using SQL on existing silver data"""
         try:
             engine = create_engine(POSTGRES_URL)
-            
-            with engine.begin() as conn:
-                logging.info("🚀 Recalculating technical indicators using SQL window functions")
 
-                # Ensure ATR columns are wide enough for high-priced tickers
+            # Ensure ATR columns are wide enough for high-priced tickers.
+            # Run in a dedicated transaction so it persists even if recalculation fails.
+            with engine.begin() as conn:
+                logging.info("🔧 Ensuring ATR columns can store large values")
                 conn.execute(text("""
                     ALTER TABLE IF EXISTS silver_ohlcv
                     ALTER COLUMN atr TYPE DECIMAL(20, 8);
                 """))
-
                 conn.execute(text("""
                     ALTER TABLE IF EXISTS gold_ohlcv_daily_metrics
                     ALTER COLUMN atr_14 TYPE DECIMAL(20, 8);
                 """))
+
+            with engine.begin() as conn:
+                logging.info("🚀 Recalculating technical indicators using SQL window functions")
                 
                 # Update EMA20, EMA50, EMA200 using recursive calculation
                 logging.info("📊 Calculating EMAs (20, 50, 200)...")

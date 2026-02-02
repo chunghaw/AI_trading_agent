@@ -352,6 +352,10 @@ Observability
 
 Log (info): { ticker, gold_time, silver_last_time, source_count, used_sources, news_sentiment, tech_sentiment, statuses, duration_ms }.
 Log (warn): missing fields by stage. No secrets, no PII.
+
+## Debugging Workflow (Pipeline)
+- For pipeline failures, run schema + data exploration on the target DB before code changes.
+- Include test evidence (e.g., schema checks, max-range queries, or dry runs) before pushing fixes.
 Acceptance Criteria
 
 Company header renders from company_info_cache.

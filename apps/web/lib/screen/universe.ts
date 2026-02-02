@@ -40,14 +40,14 @@ export function buildUniverseSQL(filters: ScreenFilters, asOfDate?: string): { s
     paramIndex++;
   }
 
-  // Price > SMA200 gate (hard requirement)
-  // Note: If this is too restrictive, we can make it optional or use a percentage threshold
-  conditions.push(`g.close > g.ma_200`);
-  conditions.push(`g.ma_200 IS NOT NULL`);
-  conditions.push(`g.ma_200 > 0`);
-  
-  // Also ensure we have the required technical indicators
-  conditions.push(`g.ma_50 IS NOT NULL`);
+  // Price > SMA200 gate (optional - only apply if MA200 is available)
+  // Note: MA200 requires 200+ days of history
+  // For MVP / when MA200 not available, we'll score based on available indicators
+  // Uncomment when you have 200+ days of historical data:
+  // conditions.push(`g.close > g.ma_200`);
+  // conditions.push(`g.ma_200 IS NOT NULL`);
+  // conditions.push(`g.ma_200 > 0`);
+  // conditions.push(`g.ma_50 IS NOT NULL`);
 
   // DollarVolume1M filter - calculate as average over last 30 days
   // Note: We'll calculate the 30-day average in the app layer for accuracy
@@ -104,7 +104,8 @@ export function buildUniverseSQL(filters: ScreenFilters, asOfDate?: string): { s
   conditions.push(`g.close > 0`);
   conditions.push(`g.total_volume > 0`);
   conditions.push(`g.rsi_14 IS NOT NULL`);
-  conditions.push(`g.macd_line IS NOT NULL`);
+  // MACD requires 26+ days, make it optional:
+  // conditions.push(`g.macd_line IS NOT NULL`);
   
   // Only use recent data (last 30 days) to avoid stale data
   if (asOfDate) {

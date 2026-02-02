@@ -19,6 +19,15 @@ export async function POST(req: NextRequest) {
   let client: Client | null = null;
   let runId: number | null = null;
 
+  // When x-cron-secret is sent (e.g. by GitHub Actions), require it to match CRON_SECRET
+  const headerSecret = req.headers.get("x-cron-secret");
+  if (headerSecret != null && headerSecret !== "") {
+    const cronSecret = process.env.CRON_SECRET;
+    if (!cronSecret || headerSecret !== cronSecret) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+  }
+
   try {
     const body = await req.json();
     const request = RunScreenRequestSchema.parse(body);

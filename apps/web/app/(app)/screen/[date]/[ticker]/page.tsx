@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, ExternalLink, TrendingUp, TrendingDown, CheckCircle, XCircle } from "lucide-react";
 import Link from "next/link";
+import { StockChart } from "@/components/StockChart";
 
 interface TickerDetails {
   candidate: any;
@@ -15,6 +16,22 @@ interface TickerDetails {
   reasons: any[];
 }
 
+interface ChartData {
+  date: string;
+  open: number | null;
+  high: number | null;
+  low: number | null;
+  close: number | null;
+  volume: number | null;
+  ma_50: number | null;
+  ma_200: number | null;
+  ema_20: number | null;
+  rsi: number | null;
+  macd_line: number | null;
+  macd_signal: number | null;
+  macd_histogram: number | null;
+}
+
 export default function TickerDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -22,11 +39,14 @@ export default function TickerDetailPage() {
   const ticker = params.ticker as string;
 
   const [details, setDetails] = useState<TickerDetails | null>(null);
+  const [chartData, setChartData] = useState<ChartData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [chartLoading, setChartLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchDetails();
+    fetchChartData();
   }, [date, ticker]);
 
   const fetchDetails = async () => {
@@ -46,6 +66,22 @@ export default function TickerDetailPage() {
       setError(err.message || "Failed to fetch details");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchChartData = async () => {
+    try {
+      setChartLoading(true);
+      const response = await fetch(`/api/chart/${ticker}?days=90`);
+      const data = await response.json();
+
+      if (data.success) {
+        setChartData(data.data || []);
+      }
+    } catch (err: any) {
+      console.error("Failed to fetch chart data:", err);
+    } finally {
+      setChartLoading(false);
     }
   };
 
@@ -106,10 +142,26 @@ export default function TickerDetailPage() {
             rel="noopener noreferrer"
             className="text-[var(--accent)] hover:text-[var(--accent-600)] flex items-center gap-2"
           >
-            View Chart
+            View on TradingView
             <ExternalLink className="w-4 h-4" />
           </Link>
         </div>
+
+        {/* Price Chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Price Chart (90 Days)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {chartLoading ? (
+              <div className="flex items-center justify-center h-64">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--accent)]"></div>
+              </div>
+            ) : (
+              <StockChart data={chartData} ticker={ticker} height={300} />
+            )}
+          </CardContent>
+        </Card>
 
         {/* Score Overview */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

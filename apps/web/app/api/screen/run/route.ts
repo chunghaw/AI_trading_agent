@@ -131,8 +131,10 @@ export async function POST(req: NextRequest) {
     const universeSize = universe.length;
 
     console.log(`✅ Universe built: ${universeSize} tickers`);
+    console.log(`   Filters used:`, JSON.stringify(filters));
     
     if (universeSize === 0) {
+      console.log(`⚠️  ZERO TICKERS - Debugging universe query...`);
       // Debug: Check what data exists
       const debugQuery = `
         SELECT 

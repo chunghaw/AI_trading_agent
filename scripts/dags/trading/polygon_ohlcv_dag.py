@@ -14,6 +14,7 @@ import numpy as np
 from datetime import datetime, date, timedelta, timezone
 import json
 import hashlib
+from decimal import Decimal
 from tenacity import retry, stop_after_attempt, wait_exponential
 from typing import List, Dict, Any
 import psycopg2
@@ -1479,7 +1480,38 @@ def polygon_ohlcv_dag():
                 
                 # Update ATR (Average True Range)
                 logging.info("📊 Calculating ATR...")
-                conn.execute(text("""
+                atr_precision = None
+                atr_scale = None
+                atr_cap_literal = None
+                result = conn.execute(text("""
+                    SELECT numeric_precision, numeric_scale
+                    FROM information_schema.columns
+                    WHERE table_name = 'silver_ohlcv'
+                      AND column_name = 'atr'
+                      AND table_schema = ANY (current_schemas(true))
+                    LIMIT 1;
+                """))
+                row = result.fetchone()
+                if row:
+                    atr_precision, atr_scale = row
+
+                if atr_precision is not None and atr_scale is not None:
+                    integer_digits = atr_precision - atr_scale
+                    if integer_digits <= 4:
+                        cap_value = (Decimal(10) ** integer_digits) - (Decimal(1) / (Decimal(10) ** atr_scale))
+                        atr_cap_literal = format(cap_value, f".{atr_scale}f")
+                        logging.warning(
+                            "⚠️ ATR column precision %s,%s detected; capping ATR at %s to avoid overflow",
+                            atr_precision,
+                            atr_scale,
+                            atr_cap_literal
+                        )
+
+                atr_value_sql = "a.atr_14"
+                if atr_cap_literal is not None:
+                    atr_value_sql = f"LEAST(GREATEST(a.atr_14, -{atr_cap_literal}), {atr_cap_literal})"
+
+                conn.execute(text(f"""
                     WITH true_range AS (
                         SELECT 
                             symbol,
@@ -1505,7 +1537,7 @@ def polygon_ohlcv_dag():
                         WHERE tr IS NOT NULL
                     )
                     UPDATE silver_ohlcv s
-                    SET atr = a.atr_14
+                    SET atr = {atr_value_sql}
                     FROM atr_calc a
                     WHERE s.symbol = a.symbol AND s.date = a.date;
                 """))

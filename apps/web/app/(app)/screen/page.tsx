@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { TrendingUp, TrendingDown, Play, Calendar, Filter, ExternalLink } from "lucide-react";
+import { TrendingUp, TrendingDown, Play, Calendar, Filter, ExternalLink, ChevronDown, ChevronUp } from "lucide-react";
 import Link from "next/link";
 import dayjs from "dayjs";
 
@@ -27,6 +27,23 @@ interface ScreenRun {
   finished_at: string | null;
 }
 
+interface ScreenFilters {
+  market: "us" | "all";
+  minMarketCap: number;
+  minBeta1Y: number;
+  minPrice?: number;
+  minDollarVolume1M: number;
+  minRSI?: number;
+  maxRSI?: number;
+}
+
+const DEFAULT_FILTERS: ScreenFilters = {
+  market: "us",
+  minMarketCap: 100_000_000,
+  minBeta1Y: 0.5,
+  minDollarVolume1M: 100_000_000,
+};
+
 export default function ScreenPage() {
   const [runDate, setRunDate] = useState(dayjs().format("YYYY-MM-DD"));
   const [candidates, setCandidates] = useState<ScreenCandidate[]>([]);
@@ -34,6 +51,8 @@ export default function ScreenPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState<ScreenFilters>(DEFAULT_FILTERS);
 
   useEffect(() => {
     fetchCandidates();
@@ -71,6 +90,7 @@ export default function ScreenPage() {
         body: JSON.stringify({
           runDate,
           topK: 200,
+          filters,
         }),
       });
 
@@ -127,6 +147,10 @@ export default function ScreenPage() {
     return "bg-gray-900/20 text-gray-400 border-gray-700/30";
   };
 
+  const resetFilters = () => {
+    setFilters(DEFAULT_FILTERS);
+  };
+
   return (
     <div className="min-h-screen bg-[var(--bg)]">
       <div className="max-w-7xl mx-auto px-6 py-8 space-y-6">
@@ -146,7 +170,7 @@ export default function ScreenPage() {
             <CardTitle>Screen Configuration</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 flex-wrap">
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-gray-400" />
                 <label className="text-sm text-gray-300">Run Date:</label>
@@ -158,6 +182,16 @@ export default function ScreenPage() {
                   max={dayjs().format("YYYY-MM-DD")}
                 />
               </div>
+
+              <Button
+                onClick={() => setShowFilters(!showFilters)}
+                variant="outline"
+                size="sm"
+              >
+                <Filter className="w-4 h-4 mr-2" />
+                {showFilters ? "Hide" : "Show"} Filters
+                {showFilters ? <ChevronUp className="w-4 h-4 ml-1" /> : <ChevronDown className="w-4 h-4 ml-1" />}
+              </Button>
 
               <Button
                 onClick={runScreen}
@@ -204,6 +238,92 @@ export default function ScreenPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* Filters Panel */}
+        {showFilters && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Filter Settings</CardTitle>
+                <Button onClick={resetFilters} variant="outline" size="sm">
+                  Reset to Default
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div>
+                  <label className="text-sm text-gray-300 mb-2 block">Min Market Cap</label>
+                  <input
+                    type="number"
+                    value={filters.minMarketCap}
+                    onChange={(e) => setFilters({...filters, minMarketCap: parseFloat(e.target.value) || 0})}
+                    className="w-full px-3 py-2 bg-[#2a2a2a] border border-white/10 rounded text-white text-sm"
+                    step="100000000"
+                  />
+                  <div className="text-xs text-gray-500 mt-1">
+                    ${(filters.minMarketCap / 1_000_000_000).toFixed(1)}B
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm text-gray-300 mb-2 block">Min Beta 1Y</label>
+                  <input
+                    type="number"
+                    value={filters.minBeta1Y}
+                    onChange={(e) => setFilters({...filters, minBeta1Y: parseFloat(e.target.value) || 0})}
+                    className="w-full px-3 py-2 bg-[#2a2a2a] border border-white/10 rounded text-white text-sm"
+                    step="0.1"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm text-gray-300 mb-2 block">Min Dollar Volume 1M</label>
+                  <input
+                    type="number"
+                    value={filters.minDollarVolume1M}
+                    onChange={(e) => setFilters({...filters, minDollarVolume1M: parseFloat(e.target.value) || 0})}
+                    className="w-full px-3 py-2 bg-[#2a2a2a] border border-white/10 rounded text-white text-sm"
+                    step="100000000"
+                  />
+                  <div className="text-xs text-gray-500 mt-1">
+                    ${(filters.minDollarVolume1M / 1_000_000_000).toFixed(1)}B
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm text-gray-300 mb-2 block">Min Price (optional)</label>
+                  <input
+                    type="number"
+                    value={filters.minPrice || ""}
+                    onChange={(e) => setFilters({...filters, minPrice: e.target.value ? parseFloat(e.target.value) : undefined})}
+                    className="w-full px-3 py-2 bg-[#2a2a2a] border border-white/10 rounded text-white text-sm"
+                    step="1"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm text-gray-300 mb-2 block">Min RSI (optional)</label>
+                  <input
+                    type="number"
+                    value={filters.minRSI || ""}
+                    onChange={(e) => setFilters({...filters, minRSI: e.target.value ? parseFloat(e.target.value) : undefined})}
+                    className="w-full px-3 py-2 bg-[#2a2a2a] border border-white/10 rounded text-white text-sm"
+                    min="0"
+                    max="100"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm text-gray-300 mb-2 block">Max RSI (optional)</label>
+                  <input
+                    type="number"
+                    value={filters.maxRSI || ""}
+                    onChange={(e) => setFilters({...filters, maxRSI: e.target.value ? parseFloat(e.target.value) : undefined})}
+                    className="w-full px-3 py-2 bg-[#2a2a2a] border border-white/10 rounded text-white text-sm"
+                    min="0"
+                    max="100"
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Candidates Table */}
         <Card>

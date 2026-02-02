@@ -14,6 +14,7 @@ import numpy as np
 from datetime import datetime, date, timedelta, timezone
 import json
 import hashlib
+import re
 from decimal import Decimal
 from tenacity import retry, stop_after_attempt, wait_exponential
 from typing import List, Dict, Any
@@ -1483,6 +1484,8 @@ def polygon_ohlcv_dag():
                 atr_precision = None
                 atr_scale = None
                 atr_cap_literal = None
+                atr_type_found = False
+
                 result = conn.execute(text("""
                     SELECT numeric_precision, numeric_scale
                     FROM information_schema.columns
@@ -1494,6 +1497,28 @@ def polygon_ohlcv_dag():
                 row = result.fetchone()
                 if row:
                     atr_precision, atr_scale = row
+                    atr_type_found = True
+                else:
+                    result = conn.execute(text("""
+                        SELECT format_type(a.atttypid, a.atttypmod)
+                        FROM pg_attribute a
+                        JOIN pg_class c ON a.attrelid = c.oid
+                        JOIN pg_namespace n ON c.relnamespace = n.oid
+                        WHERE c.relname = 'silver_ohlcv'
+                          AND n.nspname = ANY (current_schemas(true))
+                          AND a.attname = 'atr'
+                          AND a.attnum > 0
+                          AND NOT a.attisdropped
+                        LIMIT 1;
+                    """))
+                    row = result.fetchone()
+                    if row:
+                        atr_type_found = True
+                        type_str = row[0]
+                        match = re.match(r"numeric\\((\\d+),(\\d+)\\)", type_str or "")
+                        if match:
+                            atr_precision = int(match.group(1))
+                            atr_scale = int(match.group(2))
 
                 if atr_precision is not None and atr_scale is not None:
                     integer_digits = atr_precision - atr_scale
@@ -1506,6 +1531,12 @@ def polygon_ohlcv_dag():
                             atr_scale,
                             atr_cap_literal
                         )
+                elif not atr_type_found:
+                    atr_cap_literal = "9999.999999"
+                    logging.warning(
+                        "⚠️ Unable to detect ATR column precision; capping ATR at %s to avoid overflow",
+                        atr_cap_literal
+                    )
 
                 atr_value_sql = "a.atr_14"
                 if atr_cap_literal is not None:

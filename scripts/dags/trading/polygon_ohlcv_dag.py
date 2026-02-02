@@ -1381,16 +1381,19 @@ def polygon_ohlcv_dag():
         try:
             engine = create_engine(POSTGRES_URL)
             
+            # Widen numeric columns in separate transactions (avoid transaction abort on error)
+            logging.info("🔧 Ensuring silver_ohlcv columns are wide enough...")
+            for col in ['atr', 'macd_line', 'macd_signal', 'macd_histogram', 'volatility_20', 'daily_return_pct']:
+                try:
+                    with engine.begin() as alter_conn:
+                        alter_conn.execute(text(f"ALTER TABLE silver_ohlcv ALTER COLUMN {col} TYPE DECIMAL(20, 8) USING {col}::DECIMAL(20, 8)"))
+                        logging.info(f"   Widened silver_ohlcv.{col} to DECIMAL(20, 8)")
+                except Exception as e:
+                    # Silently continue if ALTER fails (column may already be correct or doesn't exist)
+                    pass
+            
             with engine.begin() as conn:
                 logging.info("🚀 Recalculating technical indicators using SQL window functions")
-                
-                # Ensure silver_ohlcv numeric columns are wide enough (avoid overflow for ATR/MACD on high-priced symbols)
-                for col in ['atr', 'macd_line', 'macd_signal', 'macd_histogram', 'volatility_20', 'daily_return_pct']:
-                    try:
-                        conn.execute(text(f"ALTER TABLE silver_ohlcv ALTER COLUMN {col} TYPE DECIMAL(20, 8) USING {col}::DECIMAL(20, 8)"))
-                        logging.info(f"   Widened silver_ohlcv.{col} to DECIMAL(20, 8)")
-                    except Exception as e:
-                        logging.warning(f"   silver_ohlcv.{col} alter skipped: {e}")
                 
                 # Update EMA20, EMA50, EMA200 using recursive calculation
                 logging.info("📊 Calculating EMAs (20, 50, 200)...")

@@ -877,7 +877,7 @@ def polygon_ohlcv_dag():
                         macd_line DECIMAL(10, 6),
                         macd_signal DECIMAL(10, 6),
                         macd_histogram DECIMAL(10, 6),
-                        atr DECIMAL(10, 6),
+                        atr DECIMAL(20, 8),
                         volatility_20 DECIMAL(10, 6),
                         rsi DECIMAL(10, 6),
                         is_valid BOOLEAN,
@@ -932,7 +932,7 @@ def polygon_ohlcv_dag():
                         ma_20 DECIMAL(20, 8),
                         ma_50 DECIMAL(20, 8),
                         ma_200 DECIMAL(20, 8),
-                        atr_14 DECIMAL(10, 6),
+                        atr_14 DECIMAL(20, 8),
                         vwap DECIMAL(20, 8),
                         fibonacci_support_1 DECIMAL(20, 8),
                         fibonacci_support_2 DECIMAL(20, 8),
@@ -960,6 +960,17 @@ def polygon_ohlcv_dag():
                     );
                 """))
                 
+                # Ensure existing tables can store large ATR values
+                conn.execute(text("""
+                    ALTER TABLE IF EXISTS silver_ohlcv
+                    ALTER COLUMN atr TYPE DECIMAL(20, 8);
+                """))
+
+                conn.execute(text("""
+                    ALTER TABLE IF EXISTS gold_ohlcv_daily_metrics
+                    ALTER COLUMN atr_14 TYPE DECIMAL(20, 8);
+                """))
+
                 # Create indexes for better performance
                 conn.execute(text("""
                     CREATE INDEX IF NOT EXISTS idx_bronze_ohlcv_symbol_date 

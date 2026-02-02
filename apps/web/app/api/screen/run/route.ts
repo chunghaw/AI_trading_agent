@@ -64,33 +64,18 @@ export async function POST(req: NextRequest) {
     // Run migration if tables don't exist (idempotent)
     await ensureTablesExist(client);
 
-    // Check if run already exists (idempotency)
+    // Check if run already exists - DELETE and re-run to allow filter changes
     const existingRun = await client.query(
-      `SELECT id, status FROM screen_runs 
+      `SELECT id, status, universe_size FROM screen_runs 
        WHERE run_date = $1 AND (preset_id = $2 OR (preset_id IS NULL AND $2 IS NULL))`,
       [request.runDate, request.presetId || null]
     );
 
     if (existingRun.rows.length > 0) {
       const existing = existingRun.rows[0];
-      if (existing.status === "completed") {
-        // Return existing run
-        return NextResponse.json({
-          success: true,
-          run: {
-            id: existing.id,
-            run_date: request.runDate,
-            preset_id: request.presetId || null,
-            universe_size: 0,
-            status: "completed",
-            started_at: new Date().toISOString(),
-            finished_at: new Date().toISOString(),
-            error: null,
-          },
-          message: "Run already completed. Use candidates endpoint to retrieve results.",
-        } as RunScreenResponse);
-      }
-      // Delete incomplete run and start fresh
+      console.log(`Found existing run ${existing.id} with ${existing.universe_size} tickers, status: ${existing.status}`);
+      console.log(`Deleting and re-running to apply new filters...`);
+      // Delete existing run and start fresh (allows filter updates)
       runId = existing.id;
       await client.query("DELETE FROM screen_runs WHERE id = $1", [runId]);
     }

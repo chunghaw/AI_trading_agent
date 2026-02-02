@@ -865,7 +865,7 @@ def polygon_ohlcv_dag():
                         transactions INTEGER,
                         daily_range DECIMAL(20, 8),
                         daily_change DECIMAL(20, 8),
-                        daily_return_pct DECIMAL(10, 6),
+                        daily_return_pct DECIMAL(20, 8),
                         dollar_volume DECIMAL(20, 8),
                         ma_5 DECIMAL(20, 8),
                         ma_20 DECIMAL(20, 8),
@@ -874,11 +874,11 @@ def polygon_ohlcv_dag():
                         ema_20 DECIMAL(20, 8),
                         ema_50 DECIMAL(20, 8),
                         ema_200 DECIMAL(20, 8),
-                        macd_line DECIMAL(10, 6),
-                        macd_signal DECIMAL(10, 6),
-                        macd_histogram DECIMAL(10, 6),
-                        atr DECIMAL(10, 6),
-                        volatility_20 DECIMAL(10, 6),
+                        macd_line DECIMAL(20, 8),
+                        macd_signal DECIMAL(20, 8),
+                        macd_histogram DECIMAL(20, 8),
+                        atr DECIMAL(20, 8),
+                        volatility_20 DECIMAL(20, 8),
                         rsi DECIMAL(10, 6),
                         is_valid BOOLEAN,
                         ingestion_time TIMESTAMP WITH TIME ZONE,
@@ -922,9 +922,9 @@ def polygon_ohlcv_dag():
                         last_updated TIMESTAMP WITH TIME ZONE,
                         -- Technical Indicators
                         rsi_14 DECIMAL(10, 6),
-                        macd_line DECIMAL(10, 6),
-                        macd_signal DECIMAL(10, 6),
-                        macd_histogram DECIMAL(10, 6),
+                        macd_line DECIMAL(20, 8),
+                        macd_signal DECIMAL(20, 8),
+                        macd_histogram DECIMAL(20, 8),
                         ema_20 DECIMAL(20, 8),
                         ema_50 DECIMAL(20, 8),
                         ema_200 DECIMAL(20, 8),
@@ -932,7 +932,7 @@ def polygon_ohlcv_dag():
                         ma_20 DECIMAL(20, 8),
                         ma_50 DECIMAL(20, 8),
                         ma_200 DECIMAL(20, 8),
-                        atr_14 DECIMAL(10, 6),
+                        atr_14 DECIMAL(20, 8),
                         vwap DECIMAL(20, 8),
                         fibonacci_support_1 DECIMAL(20, 8),
                         fibonacci_support_2 DECIMAL(20, 8),
@@ -975,6 +975,22 @@ def polygon_ohlcv_dag():
                     CREATE INDEX IF NOT EXISTS idx_gold_ohlcv_symbol_date 
                     ON gold_ohlcv_daily_metrics(symbol, date);
                 """))
+                
+                # Widen numeric columns on existing tables to avoid ATR/indicator overflow (DECIMAL(10,6) max ~9999)
+                for col in ['atr', 'macd_line', 'macd_signal', 'macd_histogram', 'volatility_20', 'daily_return_pct']:
+                    try:
+                        conn.execute(text(f"ALTER TABLE silver_ohlcv ALTER COLUMN {col} TYPE DECIMAL(20, 8)"))
+                    except Exception:
+                        pass  # Column may not exist or already correct
+                try:
+                    conn.execute(text("ALTER TABLE gold_ohlcv_daily_metrics ALTER COLUMN atr_14 TYPE DECIMAL(20, 8)"))
+                except Exception:
+                    pass
+                for col in ['macd_line', 'macd_signal', 'macd_histogram']:
+                    try:
+                        conn.execute(text(f"ALTER TABLE gold_ohlcv_daily_metrics ALTER COLUMN {col} TYPE DECIMAL(20, 8)"))
+                    except Exception:
+                        pass
                 
             logging.info("✅ PostgreSQL tables created successfully")
             return "Tables created successfully"
@@ -1367,6 +1383,14 @@ def polygon_ohlcv_dag():
             
             with engine.begin() as conn:
                 logging.info("🚀 Recalculating technical indicators using SQL window functions")
+                
+                # Ensure silver_ohlcv numeric columns are wide enough (avoid overflow for ATR/MACD on high-priced symbols)
+                for col in ['atr', 'macd_line', 'macd_signal', 'macd_histogram', 'volatility_20', 'daily_return_pct']:
+                    try:
+                        conn.execute(text(f"ALTER TABLE silver_ohlcv ALTER COLUMN {col} TYPE DECIMAL(20, 8) USING {col}::DECIMAL(20, 8)"))
+                        logging.info(f"   Widened silver_ohlcv.{col} to DECIMAL(20, 8)")
+                    except Exception as e:
+                        logging.warning(f"   silver_ohlcv.{col} alter skipped: {e}")
                 
                 # Update EMA20, EMA50, EMA200 using recursive calculation
                 logging.info("📊 Calculating EMAs (20, 50, 200)...")

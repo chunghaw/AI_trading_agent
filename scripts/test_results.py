@@ -177,27 +177,33 @@ try:
 except Exception as e:
     print(f"   ❌ Error: {e}")
 
-# Check screener runs
+# Check screener runs (table created when Screener is run from app)
 print("\n🔍 Screener Runs:")
 try:
     conn = psycopg2.connect(POSTGRES_URL, sslmode="require")
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT id, run_date, status, universe_size, started_at, finished_at
-        FROM screen_runs 
-        ORDER BY run_date DESC 
-        LIMIT 5
+        SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'screen_runs')
     """)
-    runs = cursor.fetchall()
-    if runs:
-        print(f"   Found {len(runs)} recent runs:")
-        for run in runs:
-            duration = ""
-            if run[4] and run[5]:
-                duration = f" | Duration: {(run[5] - run[4]).total_seconds():.0f}s"
-            print(f"   - Run #{run[0]}: {run[1]} | Status: {run[2]} | Universe: {run[3]}{duration}")
+    if not cursor.fetchone()[0]:
+        print("   ⏳ Table not created yet (run Screener from app to create)")
     else:
-        print("   No screener runs found yet")
+        cursor.execute("""
+            SELECT id, run_date, status, universe_size, started_at, finished_at
+            FROM screen_runs 
+            ORDER BY run_date DESC 
+            LIMIT 5
+        """)
+        runs = cursor.fetchall()
+        if runs:
+            print(f"   Found {len(runs)} recent runs:")
+            for run in runs:
+                duration = ""
+                if run[4] and run[5]:
+                    duration = f" | Duration: {(run[5] - run[4]).total_seconds():.0f}s"
+                print(f"   - Run #{run[0]}: {run[1]} | Status: {run[2]} | Universe: {run[3]}{duration}")
+        else:
+            print("   No screener runs found yet")
     cursor.close()
     conn.close()
 except Exception as e:
@@ -208,20 +214,26 @@ print("\n🎯 Screen Candidates:")
 try:
     conn = psycopg2.connect(POSTGRES_URL, sslmode="require")
     cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) FROM screen_candidates")
-    candidate_count = cursor.fetchone()[0]
-    print(f"   ✅ Total candidates: {candidate_count:,}")
+    cursor.execute("""
+        SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'screen_candidates')
+    """)
+    if not cursor.fetchone()[0]:
+        print("   ⏳ Table not created yet (run Screener from app to create)")
+    else:
+        cursor.execute("SELECT COUNT(*) FROM screen_candidates")
+        candidate_count = cursor.fetchone()[0]
+        print(f"   ✅ Total candidates: {candidate_count:,}")
 
-    if candidate_count > 0:
-        cursor.execute("""
-            SELECT ticker, final_score, technical_score, news_score
-            FROM screen_candidates
-            ORDER BY final_score DESC
-            LIMIT 10
-        """)
-        print("\n   Top 10 candidates:")
-        for row in cursor.fetchall():
-            print(f"   - {row[0]}: Final={row[1]:.1f} | Tech={row[2]:.1f} | News={row[3]:.1f}")
+        if candidate_count > 0:
+            cursor.execute("""
+                SELECT ticker, final_score, technical_score, news_score
+                FROM screen_candidates
+                ORDER BY final_score DESC
+                LIMIT 10
+            """)
+            print("\n   Top 10 candidates:")
+            for row in cursor.fetchall():
+                print(f"   - {row[0]}: Final={row[1]:.1f} | Tech={row[2]:.1f} | News={row[3]:.1f}")
     cursor.close()
     conn.close()
 except Exception as e:

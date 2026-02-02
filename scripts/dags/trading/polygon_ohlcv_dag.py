@@ -14,6 +14,8 @@ import numpy as np
 from datetime import datetime, date, timedelta, timezone
 import json
 import hashlib
+import re
+from decimal import Decimal
 from tenacity import retry, stop_after_attempt, wait_exponential
 from typing import List, Dict, Any
 import psycopg2
@@ -877,7 +879,7 @@ def polygon_ohlcv_dag():
                         macd_line DECIMAL(10, 6),
                         macd_signal DECIMAL(10, 6),
                         macd_histogram DECIMAL(10, 6),
-                        atr DECIMAL(10, 6),
+                        atr DECIMAL(20, 8),
                         volatility_20 DECIMAL(10, 6),
                         rsi DECIMAL(10, 6),
                         is_valid BOOLEAN,
@@ -932,7 +934,7 @@ def polygon_ohlcv_dag():
                         ma_20 DECIMAL(20, 8),
                         ma_50 DECIMAL(20, 8),
                         ma_200 DECIMAL(20, 8),
-                        atr_14 DECIMAL(10, 6),
+                        atr_14 DECIMAL(20, 8),
                         vwap DECIMAL(20, 8),
                         fibonacci_support_1 DECIMAL(20, 8),
                         fibonacci_support_2 DECIMAL(20, 8),
@@ -960,6 +962,17 @@ def polygon_ohlcv_dag():
                     );
                 """))
                 
+                # Ensure existing tables can store large ATR values
+                conn.execute(text("""
+                    ALTER TABLE IF EXISTS silver_ohlcv
+                    ALTER COLUMN atr TYPE DECIMAL(20, 8);
+                """))
+
+                conn.execute(text("""
+                    ALTER TABLE IF EXISTS gold_ohlcv_daily_metrics
+                    ALTER COLUMN atr_14 TYPE DECIMAL(20, 8);
+                """))
+
                 # Create indexes for better performance
                 conn.execute(text("""
                     CREATE INDEX IF NOT EXISTS idx_bronze_ohlcv_symbol_date 
@@ -1364,7 +1377,20 @@ def polygon_ohlcv_dag():
         """Recalculate technical indicators using SQL on existing silver data"""
         try:
             engine = create_engine(POSTGRES_URL)
-            
+
+            # Ensure ATR columns are wide enough for high-priced tickers.
+            # Run in a dedicated transaction so it persists even if recalculation fails.
+            with engine.begin() as conn:
+                logging.info("🔧 Ensuring ATR columns can store large values")
+                conn.execute(text("""
+                    ALTER TABLE IF EXISTS silver_ohlcv
+                    ALTER COLUMN atr TYPE DECIMAL(20, 8);
+                """))
+                conn.execute(text("""
+                    ALTER TABLE IF EXISTS gold_ohlcv_daily_metrics
+                    ALTER COLUMN atr_14 TYPE DECIMAL(20, 8);
+                """))
+
             with engine.begin() as conn:
                 logging.info("🚀 Recalculating technical indicators using SQL window functions")
                 
@@ -1455,7 +1481,68 @@ def polygon_ohlcv_dag():
                 
                 # Update ATR (Average True Range)
                 logging.info("📊 Calculating ATR...")
-                conn.execute(text("""
+                atr_precision = None
+                atr_scale = None
+                atr_cap_literal = None
+                atr_type_found = False
+
+                result = conn.execute(text("""
+                    SELECT numeric_precision, numeric_scale
+                    FROM information_schema.columns
+                    WHERE table_name = 'silver_ohlcv'
+                      AND column_name = 'atr'
+                      AND table_schema = ANY (current_schemas(true))
+                    LIMIT 1;
+                """))
+                row = result.fetchone()
+                if row:
+                    atr_precision, atr_scale = row
+                    atr_type_found = True
+                else:
+                    result = conn.execute(text("""
+                        SELECT format_type(a.atttypid, a.atttypmod)
+                        FROM pg_attribute a
+                        JOIN pg_class c ON a.attrelid = c.oid
+                        JOIN pg_namespace n ON c.relnamespace = n.oid
+                        WHERE c.relname = 'silver_ohlcv'
+                          AND n.nspname = ANY (current_schemas(true))
+                          AND a.attname = 'atr'
+                          AND a.attnum > 0
+                          AND NOT a.attisdropped
+                        LIMIT 1;
+                    """))
+                    row = result.fetchone()
+                    if row:
+                        atr_type_found = True
+                        type_str = row[0]
+                        match = re.match(r"numeric\\((\\d+),(\\d+)\\)", type_str or "")
+                        if match:
+                            atr_precision = int(match.group(1))
+                            atr_scale = int(match.group(2))
+
+                if atr_precision is not None and atr_scale is not None:
+                    integer_digits = atr_precision - atr_scale
+                    if integer_digits <= 4:
+                        cap_value = (Decimal(10) ** integer_digits) - (Decimal(1) / (Decimal(10) ** atr_scale))
+                        atr_cap_literal = format(cap_value, f".{atr_scale}f")
+                        logging.warning(
+                            "⚠️ ATR column precision %s,%s detected; capping ATR at %s to avoid overflow",
+                            atr_precision,
+                            atr_scale,
+                            atr_cap_literal
+                        )
+                elif not atr_type_found:
+                    atr_cap_literal = "9999.999999"
+                    logging.warning(
+                        "⚠️ Unable to detect ATR column precision; capping ATR at %s to avoid overflow",
+                        atr_cap_literal
+                    )
+
+                atr_value_sql = "a.atr_14"
+                if atr_cap_literal is not None:
+                    atr_value_sql = f"LEAST(GREATEST(a.atr_14, -{atr_cap_literal}), {atr_cap_literal})"
+
+                conn.execute(text(f"""
                     WITH true_range AS (
                         SELECT 
                             symbol,
@@ -1481,7 +1568,7 @@ def polygon_ohlcv_dag():
                         WHERE tr IS NOT NULL
                     )
                     UPDATE silver_ohlcv s
-                    SET atr = a.atr_14
+                    SET atr = {atr_value_sql}
                     FROM atr_calc a
                     WHERE s.symbol = a.symbol AND s.date = a.date;
                 """))

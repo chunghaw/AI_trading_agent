@@ -37,11 +37,16 @@ interface ScreenFilters {
   maxRSI?: number;
 }
 
+const FILTER_PRESETS = {
+  conservative: { minMarketCap: 10_000_000_000, minBeta1Y: 1.2, minDollarVolume1M: 1_000_000_000 },
+  moderate: { minMarketCap: 1_000_000_000, minBeta1Y: 1.0, minDollarVolume1M: 500_000_000 },
+  aggressive: { minMarketCap: 100_000_000, minBeta1Y: 0.5, minDollarVolume1M: 50_000_000 },
+  minimal: { minMarketCap: 0, minBeta1Y: 0, minDollarVolume1M: 0 },
+};
+
 const DEFAULT_FILTERS: ScreenFilters = {
   market: "us",
-  minMarketCap: 100_000_000,
-  minBeta1Y: 0.5,
-  minDollarVolume1M: 100_000_000,
+  ...FILTER_PRESETS.minimal, // Start with minimal to ensure tickers show
 };
 
 export default function ScreenPage() {
@@ -151,6 +156,13 @@ export default function ScreenPage() {
     setFilters(DEFAULT_FILTERS);
   };
 
+  const applyPreset = (presetName: keyof typeof FILTER_PRESETS) => {
+    setFilters({
+      ...filters,
+      ...FILTER_PRESETS[presetName],
+    });
+  };
+
   return (
     <div className="min-h-screen bg-[var(--bg)]">
       <div className="max-w-7xl mx-auto px-6 py-8 space-y-6">
@@ -251,6 +263,20 @@ export default function ScreenPage() {
               </div>
             </CardHeader>
             <CardContent>
+              <div className="mb-4 flex gap-2">
+                <Button onClick={() => applyPreset('minimal')} variant="outline" size="sm">
+                  Minimal (All Tickers)
+                </Button>
+                <Button onClick={() => applyPreset('aggressive')} variant="outline" size="sm">
+                  Aggressive
+                </Button>
+                <Button onClick={() => applyPreset('moderate')} variant="outline" size="sm">
+                  Moderate
+                </Button>
+                <Button onClick={() => applyPreset('conservative')} variant="outline" size="sm">
+                  Conservative
+                </Button>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
                   <label className="text-sm text-gray-300 mb-2 block">Min Market Cap</label>

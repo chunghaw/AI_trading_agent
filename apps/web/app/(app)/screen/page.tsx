@@ -7,16 +7,7 @@ import { TrendingUp, TrendingDown, Play, Calendar, Filter, ExternalLink, Chevron
 import Link from "next/link";
 import dayjs from "dayjs";
 
-interface ScreenCandidate {
-  id: number;
-  ticker: string;
-  final_score: number;
-  technical_score: number;
-  news_score: number;
-  tags_json: string[];
-  news_count: number;
-  has_summary: boolean;
-}
+import { ScreenCandidate } from "@/lib/screen.schemas"; // Use shared type
 
 interface ScreenRun {
   id: number;
@@ -49,6 +40,8 @@ const DEFAULT_FILTERS: ScreenFilters = {
   ...FILTER_PRESETS.minimal, // Start with minimal to ensure tickers show
 };
 
+import { ScreenerDashboard } from "@/components/screen/ScreenerDashboard";
+
 export default function ScreenPage() {
   const [runDate, setRunDate] = useState(dayjs().format("YYYY-MM-DD"));
   const [candidates, setCandidates] = useState<ScreenCandidate[]>([]);
@@ -58,6 +51,7 @@ export default function ScreenPage() {
   const [running, setRunning] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<ScreenFilters>(DEFAULT_FILTERS);
+  // View mode state removed as dashboard unifies views
 
   useEffect(() => {
     fetchCandidates();
@@ -94,7 +88,7 @@ export default function ScreenPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           runDate,
-          topK: 200,
+          topK: 30,
           filters,
         }),
       });
@@ -242,8 +236,8 @@ export default function ScreenPage() {
             {run && (
               <div className="mt-4 p-3 bg-blue-900/20 border border-blue-700/30 rounded text-sm">
                 <div className="text-blue-400">
-                  <strong>Run Info:</strong> {run.universe_size} tickers screened | 
-                  Status: <span className="capitalize">{run.status}</span> | 
+                  <strong>Run Info:</strong> {run.universe_size} tickers screened |
+                  Status: <span className="capitalize">{run.status}</span> |
                   {run.finished_at && ` Completed: ${dayjs(run.finished_at).format("MMM D, YYYY h:mm A")}`}
                 </div>
               </div>
@@ -283,7 +277,7 @@ export default function ScreenPage() {
                   <input
                     type="number"
                     value={filters.minMarketCap}
-                    onChange={(e) => setFilters({...filters, minMarketCap: parseFloat(e.target.value) || 0})}
+                    onChange={(e) => setFilters({ ...filters, minMarketCap: parseFloat(e.target.value) || 0 })}
                     className="w-full px-3 py-2 bg-[#2a2a2a] border border-white/10 rounded text-white text-sm"
                     step="100000000"
                   />
@@ -296,7 +290,7 @@ export default function ScreenPage() {
                   <input
                     type="number"
                     value={filters.minBeta1Y}
-                    onChange={(e) => setFilters({...filters, minBeta1Y: parseFloat(e.target.value) || 0})}
+                    onChange={(e) => setFilters({ ...filters, minBeta1Y: parseFloat(e.target.value) || 0 })}
                     className="w-full px-3 py-2 bg-[#2a2a2a] border border-white/10 rounded text-white text-sm"
                     step="0.1"
                   />
@@ -306,7 +300,7 @@ export default function ScreenPage() {
                   <input
                     type="number"
                     value={filters.minDollarVolume1M}
-                    onChange={(e) => setFilters({...filters, minDollarVolume1M: parseFloat(e.target.value) || 0})}
+                    onChange={(e) => setFilters({ ...filters, minDollarVolume1M: parseFloat(e.target.value) || 0 })}
                     className="w-full px-3 py-2 bg-[#2a2a2a] border border-white/10 rounded text-white text-sm"
                     step="100000000"
                   />
@@ -319,7 +313,7 @@ export default function ScreenPage() {
                   <input
                     type="number"
                     value={filters.minPrice || ""}
-                    onChange={(e) => setFilters({...filters, minPrice: e.target.value ? parseFloat(e.target.value) : undefined})}
+                    onChange={(e) => setFilters({ ...filters, minPrice: e.target.value ? parseFloat(e.target.value) : undefined })}
                     className="w-full px-3 py-2 bg-[#2a2a2a] border border-white/10 rounded text-white text-sm"
                     step="1"
                   />
@@ -329,7 +323,7 @@ export default function ScreenPage() {
                   <input
                     type="number"
                     value={filters.minRSI || ""}
-                    onChange={(e) => setFilters({...filters, minRSI: e.target.value ? parseFloat(e.target.value) : undefined})}
+                    onChange={(e) => setFilters({ ...filters, minRSI: e.target.value ? parseFloat(e.target.value) : undefined })}
                     className="w-full px-3 py-2 bg-[#2a2a2a] border border-white/10 rounded text-white text-sm"
                     min="0"
                     max="100"
@@ -340,7 +334,7 @@ export default function ScreenPage() {
                   <input
                     type="number"
                     value={filters.maxRSI || ""}
-                    onChange={(e) => setFilters({...filters, maxRSI: e.target.value ? parseFloat(e.target.value) : undefined})}
+                    onChange={(e) => setFilters({ ...filters, maxRSI: e.target.value ? parseFloat(e.target.value) : undefined })}
                     className="w-full px-3 py-2 bg-[#2a2a2a] border border-white/10 rounded text-white text-sm"
                     min="0"
                     max="100"
@@ -351,110 +345,14 @@ export default function ScreenPage() {
           </Card>
         )}
 
-        {/* Candidates Table */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Screen Candidates ({candidates.length})</CardTitle>
-              <div className="text-sm text-gray-400">
-                Sorted by Final Score
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--accent)]"></div>
-              </div>
-            ) : candidates.length === 0 ? (
-              <div className="text-center py-12 text-gray-400">
-                {run ? "No candidates found for this run." : "Run a screen to see candidates."}
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="border-b border-white/10">
-                    <tr>
-                      <th className="text-left p-4 text-sm font-medium text-gray-400">Rank</th>
-                      <th className="text-left p-4 text-sm font-medium text-gray-400">Ticker</th>
-                      <th className="text-right p-4 text-sm font-medium text-gray-400">Final Score</th>
-                      <th className="text-right p-4 text-sm font-medium text-gray-400">Technical</th>
-                      <th className="text-right p-4 text-sm font-medium text-gray-400">News</th>
-                      <th className="text-left p-4 text-sm font-medium text-gray-400">Tags</th>
-                      <th className="text-center p-4 text-sm font-medium text-gray-400">News</th>
-                      <th className="text-center p-4 text-sm font-medium text-gray-400">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {candidates.map((candidate, index) => (
-                      <tr
-                        key={candidate.id}
-                        className="border-b border-white/5 hover:bg-white/5 transition-colors"
-                      >
-                        <td className="p-4">
-                          <span className="text-sm text-gray-300">#{index + 1}</span>
-                        </td>
-                        <td className="p-4">
-                          <span className="font-semibold text-white">{candidate.ticker}</span>
-                        </td>
-                        <td className="p-4 text-right">
-                          <span className={`text-lg font-bold ${getScoreColor(candidate.final_score)}`}>
-                            {formatScore(candidate.final_score)}
-                          </span>
-                        </td>
-                        <td className="p-4 text-right">
-                          <span className="text-sm text-gray-300">
-                            {formatScore(candidate.technical_score)}
-                          </span>
-                        </td>
-                        <td className="p-4 text-right">
-                          <span className={`text-sm ${
-                            candidate.news_score > 0 ? "text-green-400" :
-                            candidate.news_score < 0 ? "text-red-400" :
-                            "text-gray-400"
-                          }`}>
-                            {candidate.news_score > 0 ? "+" : ""}{formatScore(candidate.news_score)}
-                          </span>
-                        </td>
-                        <td className="p-4">
-                          <div className="flex flex-wrap gap-1">
-                            {candidate.tags_json.slice(0, 3).map((tag) => (
-                              <span
-                                key={tag}
-                                className={`px-2 py-1 rounded text-xs border ${getTagColor(tag)}`}
-                              >
-                                {tag}
-                              </span>
-                            ))}
-                            {candidate.tags_json.length > 3 && (
-                              <span className="text-xs text-gray-500">
-                                +{candidate.tags_json.length - 3}
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="p-4 text-center">
-                          <span className="text-sm text-gray-300">
-                            {candidate.news_count}
-                          </span>
-                        </td>
-                        <td className="p-4 text-center">
-                          <Link
-                            href={`/screen/${runDate}/${candidate.ticker}`}
-                            className="text-[var(--accent)] hover:text-[var(--accent-600)] text-sm flex items-center justify-center gap-1"
-                          >
-                            View
-                            <ExternalLink className="w-3 h-3" />
-                          </Link>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        {/* Dashboard Area */}
+        {loading ? (
+          <div className="flex items-center justify-center py-24">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--accent)]"></div>
+          </div>
+        ) : (
+          <ScreenerDashboard candidates={candidates} />
+        )}
       </div>
     </div>
   );

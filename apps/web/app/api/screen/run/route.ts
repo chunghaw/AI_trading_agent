@@ -2,17 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { Client } from "pg";
 import { RunScreenRequestSchema, RunScreenResponseSchema, RunScreenResponse } from "@/lib/screen.schemas";
 import { buildUniverseSQL } from "@/lib/screen/universe";
-import { computeFeaturesFromRow, calculateBeta1Y, calculateDollarVolume1M } from "@/lib/screen/features";
+import { computeFeaturesFromRow } from "@/lib/screen/features";
 import { scoreTechnical, calculateFinalScore, calculateLiquidityBonus, calculateRiskPenalty } from "@/lib/screen/scoring";
-import { queryMilvus, summarizeNews } from "@/lib/screen/news";
+import { queryMilvus } from "@/lib/screen/news";
+import { analyzeCandidate } from "@/lib/screen/agent";
 import { ScreenFiltersSchema, ScreenFilters } from "@/lib/screen.schemas";
 import { ensureTablesExist } from "@/lib/screen/db";
 
 const DEFAULT_FILTERS: ScreenFilters = {
   market: "us",
-  minMarketCap: 1_000_000_000, // 1B
-  minBeta1Y: 1.0,
-  minDollarVolume1M: 900_000_000, // 900M
+  minMarketCap: 0,
+  minBeta1Y: 0,
+  minDollarVolume1M: 0,
 };
 
 export async function POST(req: NextRequest) {
@@ -34,7 +35,7 @@ export async function POST(req: NextRequest) {
 
     // Get filters (from preset or request)
     let filters: ScreenFilters = request.filters || DEFAULT_FILTERS;
-    
+
     if (request.presetId) {
       // Load preset filters
       client = new Client({
@@ -95,14 +96,14 @@ export async function POST(req: NextRequest) {
     console.log("📊 Step 1: Building universe...");
     console.log(`   Filters:`, JSON.stringify(filters, null, 2));
     console.log(`   Run date: ${request.runDate}`);
-    
+
     const { sql: universeSQL, params: universeParams } = buildUniverseSQL(filters, request.runDate);
     console.log(`   SQL query length: ${universeSQL.length} chars`);
     console.log(`   Params: ${universeParams.length} parameters:`, universeParams);
-    
+
     // Log full SQL for debugging (first 1000 chars)
     console.log(`   Full SQL (first 1000 chars):\n${universeSQL.substring(0, 1000)}`);
-    
+
     let universeResult;
     try {
       universeResult = await client.query(universeSQL, universeParams);
@@ -117,7 +118,7 @@ export async function POST(req: NextRequest) {
 
     console.log(`✅ Universe built: ${universeSize} tickers`);
     console.log(`   Filters used:`, JSON.stringify(filters));
-    
+
     if (universeSize === 0) {
       console.log(`⚠️  ZERO TICKERS - Debugging universe query...`);
       // Debug: Check what data exists
@@ -128,24 +129,23 @@ export async function POST(req: NextRequest) {
           MAX(date) as latest_date,
           MIN(date) as earliest_date
         FROM gold_ohlcv_daily_metrics
-        WHERE date >= $1::date - INTERVAL '30 days'
+        WHERE date >= $1::date - INTERVAL '60 days'
           AND date <= $1::date
       `;
       const debugResult = await client.query(debugQuery, [request.runDate]);
       console.log(`   📊 Debug - Total rows in date range: ${JSON.stringify(debugResult.rows[0])}`);
-      
-      // Check how many pass basic filters (matching actual query logic)
+
+      // How many have RSI + close + volume (no MACD required)
       const basicQuery = `
         WITH latest_data AS (
           SELECT g.*,
             ROW_NUMBER() OVER (PARTITION BY g.symbol ORDER BY g.date DESC) as rn
           FROM gold_ohlcv_daily_metrics g
-          WHERE g.date >= $1::date - INTERVAL '30 days'
+          WHERE g.date >= $1::date - INTERVAL '60 days'
             AND g.date <= $1::date
             AND g.close > 0
             AND g.total_volume > 0
             AND g.rsi_14 IS NOT NULL
-            AND g.macd_line IS NOT NULL
             AND (g.market IS NULL OR g.market = 'stocks' OR g.market != 'etf')
         )
         SELECT COUNT(*) as count
@@ -153,15 +153,15 @@ export async function POST(req: NextRequest) {
         WHERE rn = 1
       `;
       const basicResult = await client.query(basicQuery, [request.runDate]);
-      console.log(`   📊 Basic filter count (latest per symbol): ${basicResult.rows[0].count}`);
-      
+      console.log(`   📊 Basic (RSI+close+vol, no MACD): ${basicResult.rows[0].count}`);
+
       // Check Price > SMA200
       const smaQuery = `
         WITH latest_data AS (
           SELECT g.*,
             ROW_NUMBER() OVER (PARTITION BY g.symbol ORDER BY g.date DESC) as rn
           FROM gold_ohlcv_daily_metrics g
-          WHERE g.date >= $1::date - INTERVAL '30 days'
+          WHERE g.date >= $1::date - INTERVAL '60 days'
             AND g.date <= $1::date
             AND g.close > 0
             AND g.total_volume > 0
@@ -179,14 +179,14 @@ export async function POST(req: NextRequest) {
       `;
       const smaResult = await client.query(smaQuery, [request.runDate]);
       console.log(`   📊 Price > SMA200 count: ${smaResult.rows[0].count}`);
-      
+
       // Check market cap filter
       const mcapQuery = `
         WITH latest_data AS (
           SELECT g.*,
             ROW_NUMBER() OVER (PARTITION BY g.symbol ORDER BY g.date DESC) as rn
           FROM gold_ohlcv_daily_metrics g
-          WHERE g.date >= $1::date - INTERVAL '30 days'
+          WHERE g.date >= $1::date - INTERVAL '60 days'
             AND g.date <= $1::date
             AND g.close > 0
             AND g.total_volume > 0
@@ -205,14 +205,14 @@ export async function POST(req: NextRequest) {
       `;
       const mcapResult = await client.query(mcapQuery, [request.runDate, filters.minMarketCap]);
       console.log(`   📊 With market cap >= ${filters.minMarketCap} filter: ${mcapResult.rows[0].count}`);
-      
+
       // Check dollar volume filter
       const dollarVolQuery = `
         WITH latest_data AS (
           SELECT g.*,
             ROW_NUMBER() OVER (PARTITION BY g.symbol ORDER BY g.date DESC) as rn
           FROM gold_ohlcv_daily_metrics g
-          WHERE g.date >= $1::date - INTERVAL '30 days'
+          WHERE g.date >= $1::date - INTERVAL '60 days'
             AND g.date <= $1::date
             AND g.close > 0
             AND g.total_volume > 0
@@ -233,12 +233,12 @@ export async function POST(req: NextRequest) {
       const minDailyDollarVolume = filters.minDollarVolume1M / 20;
       const dollarVolResult = await client.query(dollarVolQuery, [request.runDate, filters.minMarketCap, minDailyDollarVolume]);
       console.log(`   📊 With dollar volume >= ${minDailyDollarVolume} filter: ${dollarVolResult.rows[0].count}`);
-      
+
       // Also try a simpler query to see if ANY data exists with Price > SMA200
       const simpleTestQuery = `
         SELECT COUNT(*) as count, MAX(date) as max_date, MIN(date) as min_date
         FROM gold_ohlcv_daily_metrics
-        WHERE date >= $1::date - INTERVAL '30 days'
+        WHERE date >= $1::date - INTERVAL '60 days'
           AND date <= $1::date
           AND close > ma_200
           AND ma_200 IS NOT NULL
@@ -283,36 +283,15 @@ export async function POST(req: NextRequest) {
       newsScore?: number;
     }> = [];
 
+    // Skip per-ticker Beta/DollarVolume queries (N+1) — use NULL; filter only when we have values
     for (const row of universe) {
       try {
-        // Compute features
         let features = computeFeaturesFromRow(row, request.runDate);
+        // Beta/DollarVolume left as null for speed; app-layer filter only excludes when value present and below threshold
 
-        // Calculate Beta1Y if not present
-        if (!features.beta_1y) {
-          features.beta_1y = await calculateBeta1Y(client, features.ticker, request.runDate);
-        }
-
-        // Calculate DollarVolume1M if not present
-        if (!features.dollar_volume_1m) {
-          features.dollar_volume_1m = await calculateDollarVolume1M(client, features.ticker, request.runDate);
-        }
-
-        // Apply strict filters in app layer (after we have accurate calculations)
-        // Filter by market cap
-        if (filters.minMarketCap > 0 && features.market_cap !== null && features.market_cap < filters.minMarketCap) {
-          continue; // Skip this ticker
-        }
-
-        // Filter by dollar volume 1M (strict check)
-        if (filters.minDollarVolume1M > 0 && features.dollar_volume_1m !== null && features.dollar_volume_1m < filters.minDollarVolume1M) {
-          continue; // Skip this ticker
-        }
-
-        // Filter by Beta1Y (if we have it)
-        if (filters.minBeta1Y > 0 && features.beta_1y !== null && features.beta_1y < filters.minBeta1Y) {
-          continue; // Skip this ticker
-        }
+        if (filters.minMarketCap > 0 && features.market_cap != null && features.market_cap < filters.minMarketCap) continue;
+        if (filters.minDollarVolume1M > 0 && features.dollar_volume_1m != null && features.dollar_volume_1m < filters.minDollarVolume1M) continue;
+        if (filters.minBeta1Y > 0 && features.beta_1y != null && features.beta_1y < filters.minBeta1Y) continue;
 
         // Score technical
         const scoreResult = scoreTechnical(features);
@@ -339,12 +318,69 @@ export async function POST(req: NextRequest) {
 
     // Step 3: Retrieve news and summarize for top K candidates
     console.log("📰 Step 3: Retrieving news and generating summaries...");
-    
+
+    // OPTIMIZATION: Only analyze the top 10 candidates with expensive AI to keep run times fast (< 1 min)
+    // The rest will be returned with technical scores but without AI thesis.
+    const AI_ANALYSIS_LIMIT = 30;
+    const candidatesToAnalyze = topK.slice(0, AI_ANALYSIS_LIMIT);
+
+    // We iterate through all topK, but only fetch news/AI for the first 10
     for (let i = 0; i < topK.length; i++) {
       const candidate = topK[i];
+
+      // Skip AI for candidates beyond the limit to save time/cost
+      if (i >= AI_ANALYSIS_LIMIT) {
+        // Basic save without AI
+        await client.query(
+          `INSERT INTO screen_candidates (run_id, ticker, final_score, technical_score, news_score, tags_json)
+                VALUES ($1, $2, $3, $4, 0, $5)
+                ON CONFLICT (run_id, ticker) DO UPDATE SET
+                  final_score = EXCLUDED.final_score,
+                  technical_score = EXCLUDED.technical_score,
+                  news_score = 0,
+                  tags_json = EXCLUDED.tags_json`,
+          [runId, candidate.ticker, candidate.technicalScore, candidate.technicalScore, JSON.stringify(candidate.tags)]
+        );
+
+        /* We still need to save features for them to appear in the dashboard with stats */
+        const featuresWithReasons = { ...candidate.features, reasons: candidate.reasons };
+        await client.query(
+          `INSERT INTO candidate_features 
+                   (run_id, ticker, asof_date, sma50, sma200, macd, macd_signal, macd_hist, rvol, atrp, 
+                    breakout_flag, trend_flag, momentum_flag, volume_flag, beta_1y, dollar_volume_1m, market_cap, raw_json, security_type)
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+                   ON CONFLICT(run_id, ticker) DO UPDATE SET
+                      market_cap = EXCLUDED.market_cap,
+                      security_type = EXCLUDED.security_type,
+                      raw_json = EXCLUDED.raw_json`, /* Only updating key fields for speed on non-analyzed ones */
+          [
+            runId,
+            candidate.ticker,
+            request.runDate,
+            candidate.features.sma50,
+            candidate.features.sma200,
+            candidate.features.macd,
+            candidate.features.macd_signal,
+            candidate.features.macd_hist,
+            candidate.features.rvol,
+            candidate.features.atrp,
+            candidate.features.breakout_flag,
+            candidate.features.trend_flag,
+            candidate.features.momentum_flag,
+            candidate.features.volume_flag,
+            candidate.features.beta_1y,
+            candidate.features.dollar_volume_1m,
+            candidate.features.market_cap,
+            JSON.stringify(featuresWithReasons),
+            candidate.features.security_type,
+          ]
+        );
+        continue;
+      }
+
       try {
         // Query Milvus for news
-        const articles = await queryMilvus(candidate.ticker, 7, 20);
+        const articles = await queryMilvus(candidate.ticker, 7, 20, candidate.features.company_name);
 
         // Store news articles
         if (articles.length > 0) {
@@ -369,8 +405,9 @@ export async function POST(req: NextRequest) {
             );
           }
 
-          // Summarize news
-          const { summary, citations } = await summarizeNews(candidate.ticker, articles);
+          // Analyze with AI Agent (Technicals + News)
+          console.log(`   🤖 Analyzing ${candidate.ticker} with AI Agent...`);
+          const { summary, citations } = await analyzeCandidate(candidate.ticker, candidate.features, articles);
 
           // Store summary
           await client.query(
@@ -420,8 +457,8 @@ export async function POST(req: NextRequest) {
         await client.query(
           `INSERT INTO candidate_features 
            (run_id, ticker, asof_date, sma50, sma200, macd, macd_signal, macd_hist, rvol, atrp, 
-            breakout_flag, trend_flag, momentum_flag, volume_flag, beta_1y, dollar_volume_1m, raw_json)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+            breakout_flag, trend_flag, momentum_flag, volume_flag, beta_1y, dollar_volume_1m, market_cap, raw_json, security_type)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
            ON CONFLICT (run_id, ticker) DO UPDATE SET
              asof_date = EXCLUDED.asof_date,
              sma50 = EXCLUDED.sma50,
@@ -437,7 +474,9 @@ export async function POST(req: NextRequest) {
              volume_flag = EXCLUDED.volume_flag,
              beta_1y = EXCLUDED.beta_1y,
              dollar_volume_1m = EXCLUDED.dollar_volume_1m,
-             raw_json = EXCLUDED.raw_json`,
+             market_cap = EXCLUDED.market_cap,
+             raw_json = EXCLUDED.raw_json,
+             security_type = EXCLUDED.security_type`,
           [
             runId,
             candidate.ticker,
@@ -455,7 +494,9 @@ export async function POST(req: NextRequest) {
             candidate.features.volume_flag,
             candidate.features.beta_1y,
             candidate.features.dollar_volume_1m,
+            candidate.features.market_cap,
             JSON.stringify(featuresWithReasons),
+            candidate.features.security_type,
           ]
         );
 

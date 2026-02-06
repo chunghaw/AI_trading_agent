@@ -9,17 +9,37 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
  * Query Postgres (pgvector) for ticker-specific news
  * Reuses existing news.search.pgvector.ts implementation
  */
+const TICKER_TO_NAME: Record<string, string> = {
+  "AAPL": "Apple",
+  "MSFT": "Microsoft",
+  "NVDA": "Nvidia",
+  "GOOGL": "Alphabet",
+  "GOOG": "Alphabet",
+  "AMZN": "Amazon",
+  "META": "Meta",
+  "TSLA": "Tesla",
+  "AMD": "Advanced Micro Devices",
+  "SPY": "S&P 500",
+  "QQQ": "Nasdaq",
+  "IWM": "Russell 2000",
+  "NFLX": "Netflix",
+  "INTC": "Intel",
+  "BABA": "Alibaba",
+};
+
 export async function queryMilvus(
   ticker: string,
   daysBack: number = 7,
-  topK: number = 20
+  topK: number = 20,
+  companyName?: string
 ): Promise<NewsArticle[]> {
+  const resolvedCompanyName = companyName || TICKER_TO_NAME[ticker.toUpperCase()] || undefined;
   try {
     const sinceIso = dayjs().subtract(daysBack, "day").toISOString();
-    
+
     // Build query string for semantic search
     const query = `${ticker} stock news earnings guidance analyst`;
-    
+
     // Use existing search function
     const results = await searchAndRerankNewsStrict(
       ticker,
@@ -27,7 +47,7 @@ export async function queryMilvus(
       sinceIso,
       {
         originalQuery: query,
-        companyName: undefined, // Can be enriched later if needed
+        companyName: resolvedCompanyName,
       }
     );
 
@@ -173,22 +193,22 @@ Return ONLY valid JSON in this exact format (no markdown, no code blocks):
       newsScore: Math.max(-20, Math.min(20, Number(parsed.newsScore) || 0)),
       catalysts: Array.isArray(parsed.catalysts)
         ? parsed.catalysts.map((c: any) => ({
-            label: String(c.label || ""),
-            evidence_urls: Array.isArray(c.evidence_urls) ? c.evidence_urls.map(String) : [],
-          }))
+          label: String(c.label || ""),
+          evidence_urls: Array.isArray(c.evidence_urls) ? c.evidence_urls.map(String) : [],
+        }))
         : [],
       risks: Array.isArray(parsed.risks)
         ? parsed.risks.map((r: any) => ({
-            label: String(r.label || ""),
-            evidence_urls: Array.isArray(r.evidence_urls) ? r.evidence_urls.map(String) : [],
-          }))
+          label: String(r.label || ""),
+          evidence_urls: Array.isArray(r.evidence_urls) ? r.evidence_urls.map(String) : [],
+        }))
         : [],
       earnings_or_events: Array.isArray(parsed.earnings_or_events)
         ? parsed.earnings_or_events.map((e: any) => ({
-            label: String(e.label || ""),
-            date: e.date ? String(e.date) : undefined,
-            evidence_urls: Array.isArray(e.evidence_urls) ? e.evidence_urls.map(String) : [],
-          }))
+          label: String(e.label || ""),
+          date: e.date ? String(e.date) : undefined,
+          evidence_urls: Array.isArray(e.evidence_urls) ? e.evidence_urls.map(String) : [],
+        }))
         : [],
       one_sentence_thesis: String(parsed.one_sentence_thesis || `News analysis for ${ticker}`),
     };
@@ -196,7 +216,7 @@ Return ONLY valid JSON in this exact format (no markdown, no code blocks):
     return { summary, citations };
   } catch (error) {
     console.error(`Error summarizing news for ${ticker}:`, error);
-    
+
     // Fallback: return neutral summary
     return {
       summary: {

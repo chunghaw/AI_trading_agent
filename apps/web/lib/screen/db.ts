@@ -61,6 +61,7 @@ export async function ensureTablesExist(client: Client) {
         volume_flag BOOLEAN DEFAULT FALSE,
         beta_1y DECIMAL(10, 6),
         dollar_volume_1m DECIMAL(20, 8),
+        market_cap DECIMAL(30, 2),
         raw_json JSONB,
         PRIMARY KEY (run_id, ticker)
     );

@@ -1,6 +1,15 @@
 import { Client } from "pg";
 import { TechnicalFeatures } from "../screen.schemas";
 
+const ETFS = new Set(["SPY", "QQQ", "IWM", "DIA", "GLD", "SLV", "ARKK", "SMH", "XLF", "XLE", "XLK", "VTI", "VOO", "VEA", "VWO", "EFA", "IEFA", "AGG", "BND", "IVV"]);
+
+function determineSecurityType(ticker: string): string {
+  const t = ticker.toUpperCase();
+  if (t.includes("-") || t.includes("BTC") || t.includes("ETH")) return "Crypto";
+  if (ETFS.has(t)) return "ETF";
+  return "Stock";
+}
+
 /**
  * Compute technical features for a ticker from database row
  */
@@ -28,6 +37,9 @@ export function computeFeaturesFromRow(row: any, asOfDate: string): TechnicalFea
   const prev_macd_hist = safeParse(row.prev_macd_hist);
   const high_20d = safeParse(row.high_20d);
   const high_50d = safeParse(row.high_50d);
+  const market_cap = safeParse(row.market_cap);
+  const company_name = row.company_name || "";
+  const security_type = determineSecurityType(row.symbol || row.ticker || "");
 
   // Calculate dollar volume 1M (average over last 30 days)
   // This should be pre-calculated in the SQL, but we'll handle null case
@@ -69,6 +81,9 @@ export function computeFeaturesFromRow(row: any, asOfDate: string): TechnicalFea
     high_50d,
     prev_close,
     prev_macd_hist,
+    market_cap,
+    company_name,
+    security_type,
   };
 }
 
@@ -145,11 +160,11 @@ export async function calculateBeta1Y(
     `;
 
     const result = await client.query(query, [ticker, asOfDate]);
-    
+
     if (result.rows.length > 0 && result.rows[0].beta !== null) {
       return parseFloat(result.rows[0].beta);
     }
-    
+
     return null;
   } catch (error) {
     console.error(`Error calculating Beta1Y for ${ticker}:`, error);
@@ -177,11 +192,11 @@ export async function calculateDollarVolume1M(
     `;
 
     const result = await client.query(query, [ticker, asOfDate]);
-    
+
     if (result.rows.length > 0 && result.rows[0].avg_dollar_volume_1m !== null) {
       return parseFloat(result.rows[0].avg_dollar_volume_1m);
     }
-    
+
     return null;
   } catch (error) {
     console.error(`Error calculating DollarVolume1M for ${ticker}:`, error);
@@ -203,17 +218,17 @@ function determineBreakoutFlag(
 ): boolean {
   // Breakout: price closes above 20-day high with volume OR ATR compression
   if (!high_20d || price <= 0) return false;
-  
+
   // Price breakout above 20-day high with volume confirmation
   if (price > high_20d && rvol && rvol > 1.2) {
     return true;
   }
-  
+
   // ATR compression (low volatility before potential breakout)
   if (atrp && atrp < 2.0) { // ATR < 2% of price suggests compression
     return true;
   }
-  
+
   return false;
 }
 
@@ -235,10 +250,10 @@ function determineMomentumFlag(
 ): boolean {
   // Momentum: MACD line > signal AND histogram rising
   if (!macd || !macd_signal || macd_hist === null) return false;
-  
+
   const macd_bullish = macd > macd_signal;
   const histogram_rising = prev_macd_hist !== null && macd_hist > prev_macd_hist;
-  
+
   return macd_bullish && (histogram_rising || macd_hist > 0);
 }
 
@@ -249,9 +264,9 @@ function determineVolumeFlag(
 ): boolean {
   // Volume: relative volume > 1.5 OR high dollar volume
   if (rvol && rvol > 1.5) return true;
-  
+
   // High dollar volume (> 50M daily)
   if (dollar_volume && dollar_volume > 50_000_000) return true;
-  
+
   return false;
 }

@@ -11,13 +11,15 @@ export const ScreenFiltersSchema = z.object({
   minBeta1Y: z.number().min(0).default(1.0),
   minPrice: z.number().min(0).optional(),
   minDollarVolume1M: z.number().min(0).default(900_000_000), // 900M
-  
+
   // Technical filters (optional)
   minRSI: z.number().min(0).max(100).optional(),
   maxRSI: z.number().min(0).max(100).optional(),
   macdSignal: z.enum(["bullish", "bearish", "neutral"]).optional(),
   volumeTrend: z.enum(["rising", "falling", "flat"]).optional(),
-  
+  /** Only apply when we have 200+ days (ma_200 computed). Incremental until CI/CD runs daily. */
+  priceAboveSMA200: z.boolean().optional(),
+
   // Exchange filter
   exchanges: z.array(z.string()).optional(),
 });
@@ -42,7 +44,7 @@ export const RunScreenRequestSchema = z.object({
   runDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), // YYYY-MM-DD
   presetId: z.number().optional(),
   filters: ScreenFiltersSchema.optional(), // Override preset filters if provided
-  topK: z.number().min(1).max(500).default(200), // Top K candidates for news stage
+  topK: z.number().min(1).max(500).default(30), // Top K for news stage (30 = faster run)
 });
 
 export type RunScreenRequest = z.infer<typeof RunScreenRequestSchema>;
@@ -92,6 +94,9 @@ export const TechnicalFeaturesSchema = z.object({
   high_50d: z.number().nullable(),
   prev_close: z.number().nullable(),
   prev_macd_hist: z.number().nullable(),
+  market_cap: z.number().nullable().optional(),
+  company_name: z.string().optional(),
+  security_type: z.string().optional(),
 });
 
 export type TechnicalFeatures = z.infer<typeof TechnicalFeaturesSchema>;
@@ -133,6 +138,10 @@ export const NewsSummarySchema = z.object({
     evidence_urls: z.array(z.string()),
   })),
   one_sentence_thesis: z.string(),
+  // New AI fields
+  recommendation: z.enum(["Strong Buy", "Buy", "Hold", "Sell", "Strong Sell"]).optional(),
+  confidence: z.enum(["High", "Medium", "Low"]).optional(),
+  action_plan: z.string().optional(),
 });
 
 export type NewsSummary = z.infer<typeof NewsSummarySchema>;

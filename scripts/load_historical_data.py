@@ -153,11 +153,19 @@ def load_to_bronze(conn, df: pd.DataFrame):
         
         conn.commit()
         logging.info(f"✅ Loaded {len(records)} records to bronze_ohlcv")
+        
+        # Verify data was actually inserted
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM bronze_ohlcv WHERE symbol = %s", (records[0][0],))
+        count = cursor.fetchone()[0]
+        cursor.close()
+        logging.info(f"   Verified: {records[0][0]} now has {count} total records in bronze")
     except Exception as e:
         conn.rollback()
         raise e
     finally:
-        cursor.close()
+        if not cursor.closed:
+            cursor.close()
 
 def main():
     logging.info(f"🚀 Starting Historical Data Load ({HISTORICAL_DAYS} days)")
@@ -253,6 +261,9 @@ def main():
                     logging.warning(f"⚠️  No data for {ticker}")
                     failed.append(ticker)
                     continue
+                
+                # Debug: Show how many results we got
+                logging.info(f"   API returned {len(results)} days for {ticker}")
                 
                 # Convert to DataFrame
                 df = pd.DataFrame(results)

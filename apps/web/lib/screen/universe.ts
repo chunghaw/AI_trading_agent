@@ -40,14 +40,12 @@ export function buildUniverseSQL(filters: ScreenFilters, asOfDate?: string): { s
     paramIndex++;
   }
 
-  // Price > SMA200 gate (optional - only apply if MA200 is available)
-  // Note: MA200 requires 200+ days of history
-  // For MVP / when MA200 not available, we'll score based on available indicators
-  // Uncomment when you have 200+ days of historical data:
-  // conditions.push(`g.close > g.ma_200`);
-  // conditions.push(`g.ma_200 IS NOT NULL`);
-  // conditions.push(`g.ma_200 > 0`);
-  // conditions.push(`g.ma_50 IS NOT NULL`);
+  // Price > SMA200: only apply when we have 200+ days (ma_200 is computed)
+  // Data depth grows daily (138 → 200) until CI/CD has run enough days
+  if (filters.priceAboveSMA200) {
+    conditions.push(`g.ma_200 IS NOT NULL AND g.ma_200 > 0 AND g.close > g.ma_200`);
+    conditions.push(`g.ma_50 IS NOT NULL`);
+  }
 
   // DollarVolume1M filter - calculate as average over last 30 days
   // Note: We'll calculate the 30-day average in the app layer for accuracy
@@ -79,12 +77,14 @@ export function buildUniverseSQL(filters: ScreenFilters, asOfDate?: string): { s
     paramIndex++;
   }
 
+  // MACD filter: only apply when we have enough history (26+ days) — i.e. when MACD is computed
+  // With 138 days we have MACD; with daily CI/CD we accumulate until MA200 (200 days) is available
   if (filters.macdSignal === "bullish") {
-    conditions.push(`g.macd_line > g.macd_signal`);
+    conditions.push(`g.macd_line IS NOT NULL AND g.macd_signal IS NOT NULL AND g.macd_line > g.macd_signal`);
   } else if (filters.macdSignal === "bearish") {
-    conditions.push(`g.macd_line < g.macd_signal`);
+    conditions.push(`g.macd_line IS NOT NULL AND g.macd_signal IS NOT NULL AND g.macd_line < g.macd_signal`);
   } else if (filters.macdSignal === "neutral") {
-    conditions.push(`g.macd_line = g.macd_signal`);
+    conditions.push(`g.macd_line IS NOT NULL AND g.macd_signal IS NOT NULL AND g.macd_line = g.macd_signal`);
   }
 
   if (filters.volumeTrend) {
@@ -107,14 +107,14 @@ export function buildUniverseSQL(filters: ScreenFilters, asOfDate?: string): { s
   // MACD requires 26+ days, make it optional:
   // conditions.push(`g.macd_line IS NOT NULL`);
   
-  // Only use recent data (last 30 days) to avoid stale data
+  // Latest data on or before asOfDate; 60-day lookback so we get tickers even if pipeline ran yesterday
   if (asOfDate) {
-    conditions.push(`g.date >= $${paramIndex}::date - INTERVAL '30 days'`);
+    conditions.push(`g.date >= $${paramIndex}::date - INTERVAL '60 days'`);
     conditions.push(`g.date <= $${paramIndex}::date`);
     params.push(asOfDate);
     paramIndex++;
   } else {
-    conditions.push(`g.date >= CURRENT_DATE - INTERVAL '30 days'`);
+    conditions.push(`g.date >= CURRENT_DATE - INTERVAL '60 days'`);
   }
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";

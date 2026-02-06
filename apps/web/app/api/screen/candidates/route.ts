@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const { searchParams } = new URL(req.url);
-    
+
     const request = GetCandidatesRequestSchema.parse({
       runDate: searchParams.get("runDate") || undefined,
       runId: searchParams.get("runId") ? parseInt(searchParams.get("runId")!) : undefined,
@@ -93,10 +93,12 @@ export async function GET(req: NextRequest) {
         f.atrp,
         f.beta_1y,
         f.dollar_volume_1m,
+        f.market_cap,
+        f.security_type,
         -- News count
         (SELECT COUNT(*) FROM candidate_news WHERE run_id = c.run_id AND ticker = c.ticker) as news_count,
         -- Summary exists
-        CASE WHEN s.summary_json IS NOT NULL THEN true ELSE false END as has_summary
+        s.summary_json
       FROM screen_candidates c
       LEFT JOIN candidate_features f ON c.run_id = f.run_id AND c.ticker = f.ticker
       LEFT JOIN candidate_summary s ON c.run_id = s.run_id AND c.ticker = s.ticker
@@ -159,9 +161,12 @@ export async function GET(req: NextRequest) {
         high_50d: null,
         prev_close: null,
         prev_macd_hist: null,
+        market_cap: row.market_cap ? parseFloat(row.market_cap) : null,
+        security_type: row.security_type || "Stock",
       },
       news_count: parseInt(row.news_count || 0),
-      has_summary: row.has_summary || false,
+      has_summary: !!row.summary_json,
+      summary: row.summary_json ? (typeof row.summary_json === 'string' ? JSON.parse(row.summary_json) : row.summary_json) : undefined,
     }));
 
     const response: GetCandidatesResponse = {
@@ -179,7 +184,7 @@ export async function GET(req: NextRequest) {
         error: run.error,
       },
     };
-    
+
     return NextResponse.json(response);
   } catch (error: any) {
     console.error("Get candidates error:", error);

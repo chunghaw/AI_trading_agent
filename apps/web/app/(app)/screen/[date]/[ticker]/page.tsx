@@ -85,7 +85,8 @@ export default function TickerDetailPage() {
     }
   };
 
-  const formatScore = (score: number): string => {
+  const formatScore = (score: number | undefined | null): string => {
+    if (score === undefined || score === null || isNaN(score)) return "N/A";
     return score.toFixed(1);
   };
 
@@ -190,11 +191,10 @@ export default function TickerDetailPage() {
               <CardTitle className="text-sm text-gray-400">News Score</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className={`text-2xl font-bold ${
-                candidate.news_score > 0 ? "text-green-400" :
-                candidate.news_score < 0 ? "text-red-400" :
-                "text-gray-400"
-              }`}>
+              <div className={`text-2xl font-bold ${candidate.news_score > 0 ? "text-green-400" :
+                  candidate.news_score < 0 ? "text-red-400" :
+                    "text-gray-400"
+                }`}>
                 {candidate.news_score > 0 ? "+" : ""}{formatScore(candidate.news_score)}
               </div>
             </CardContent>
@@ -273,9 +273,8 @@ export default function TickerDetailPage() {
                 </div>
                 <div>
                   <div className="text-sm text-gray-400 mb-1">MACD Histogram</div>
-                  <div className={`font-medium ${
-                    features.macd_hist > 0 ? "text-green-400" : "text-red-400"
-                  }`}>
+                  <div className={`font-medium ${features.macd_hist > 0 ? "text-green-400" : "text-red-400"
+                    }`}>
                     {features.macd_hist ? parseFloat(features.macd_hist).toFixed(4) : "N/A"}
                   </div>
                 </div>
@@ -347,21 +346,19 @@ export default function TickerDetailPage() {
                 <div className="flex items-center gap-4">
                   <div>
                     <div className="text-sm text-gray-400 mb-1">Tone</div>
-                    <span className={`px-3 py-1 rounded text-sm font-medium ${
-                      summary.summary_json.tone === "positive" ? "bg-green-900/20 text-green-400 border border-green-700/30" :
-                      summary.summary_json.tone === "negative" ? "bg-red-900/20 text-red-400 border border-red-700/30" :
-                      "bg-gray-900/20 text-gray-400 border border-gray-700/30"
-                    }`}>
+                    <span className={`px-3 py-1 rounded text-sm font-medium ${summary.summary_json.tone === "positive" ? "bg-green-900/20 text-green-400 border border-green-700/30" :
+                        summary.summary_json.tone === "negative" ? "bg-red-900/20 text-red-400 border border-red-700/30" :
+                          "bg-gray-900/20 text-gray-400 border border-gray-700/30"
+                      }`}>
                       {summary.summary_json.tone.toUpperCase()}
                     </span>
                   </div>
                   <div>
                     <div className="text-sm text-gray-400 mb-1">News Score</div>
-                    <span className={`text-lg font-bold ${
-                      summary.summary_json.newsScore > 0 ? "text-green-400" :
-                      summary.summary_json.newsScore < 0 ? "text-red-400" :
-                      "text-gray-400"
-                    }`}>
+                    <span className={`text-lg font-bold ${summary.summary_json.newsScore > 0 ? "text-green-400" :
+                        summary.summary_json.newsScore < 0 ? "text-red-400" :
+                          "text-gray-400"
+                      }`}>
                       {summary.summary_json.newsScore > 0 ? "+" : ""}{summary.summary_json.newsScore}
                     </span>
                   </div>

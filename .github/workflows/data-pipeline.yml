@@ -54,11 +54,13 @@ jobs:
         continue-on-error: false
 
   # Run screener daily after data pipelines (calls Vercel app API)
+  # Run screener daily after data pipelines (calls Vercel app API)
   screener_run:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: [ohlcv_pipeline, news_pipeline]
     if: always() && (needs.ohlcv_pipeline.result == 'success' && needs.news_pipeline.result == 'success')
+    continue-on-error: true
     steps:
       - name: Trigger daily screener
         run: |
@@ -71,7 +73,10 @@ jobs:
             -d "{\"runDate\": \"$RUN_DATE\"}")
           echo "Response HTTP $HTTP"
           cat /tmp/screener.json
-          if [ "$HTTP" != "200" ]; then exit 1; fi
+          if [ "$HTTP" != "200" ]; then 
+            echo "Screener API returned $HTTP. Ignoring failure for decoupled workflow."
+            exit 1
+          fi
         env:
           VERCEL_APP_URL: ${{ secrets.VERCEL_APP_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}

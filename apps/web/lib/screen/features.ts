@@ -54,6 +54,7 @@ export function computeFeaturesFromRow(row: any, asOfDate: string): TechnicalFea
   const trend_flag = determineTrendFlag(price, sma50, sma200);
   const momentum_flag = determineMomentumFlag(macd, macd_signal, macd_hist, prev_macd_hist);
   const volume_flag = determineVolumeFlag(rvol, volume, dollar_volume);
+  const vcp_flag = determineVCPFlag(price, sma50, atrp, volume, rvol);
 
   return {
     ticker: row.symbol,
@@ -84,6 +85,7 @@ export function computeFeaturesFromRow(row: any, asOfDate: string): TechnicalFea
     market_cap,
     company_name,
     security_type,
+    vcp_flag,
   };
 }
 
@@ -207,6 +209,26 @@ export async function calculateDollarVolume1M(
 // ============================================================================
 // Helper Functions for Flag Determination
 // ============================================================================
+
+function determineVCPFlag(
+  price: number,
+  sma50: number | null,
+  atrp: number | null,
+  volume: number | null,
+  rvol: number | null
+): boolean {
+  // VCP (Volatility Contraction Pattern):
+  // 1. Price is generally above SMA50 (uptrend context)
+  // 2. Volatility is very tight (e.g., ATR% < 3%)
+  // 3. Volume is drying up (e.g., Relative Volume < 0.8)
+  if (!sma50 || price <= 0 || !atrp || !rvol) return false;
+
+  const isAboveSMA50 = price > sma50;
+  const isTight = atrp < 3.0; // ATR is less than 3% of price
+  const isVolumeDrying = rvol < 0.8; // Volume is below 30-day average
+
+  return isAboveSMA50 && isTight && isVolumeDrying;
+}
 
 function determineBreakoutFlag(
   price: number,

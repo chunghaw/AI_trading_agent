@@ -30,7 +30,7 @@ export function scoreTechnical(features: TechnicalFeatures): TechnicalScore {
   // ========================================================================
   // TREND POINTS (Max 20 points)
   // ========================================================================
-  
+
   // Rule 1: SMA50 > SMA200 (+10 points)
   if (features.sma50 && features.sma200 && features.sma50 > features.sma200) {
     const points = 10;
@@ -70,7 +70,7 @@ export function scoreTechnical(features: TechnicalFeatures): TechnicalScore {
   // ========================================================================
   // MOMENTUM POINTS (Max 18 points)
   // ========================================================================
-  
+
   // Rule 4: MACD histogram rising (+8 points)
   if (
     features.macd_hist !== null &&
@@ -110,7 +110,7 @@ export function scoreTechnical(features: TechnicalFeatures): TechnicalScore {
   // ========================================================================
   // VOLUME POINTS (Max 10 points)
   // ========================================================================
-  
+
   // Rule 6: Relative volume > 1.5 (+5 points)
   if (features.rvol !== null && features.rvol > 1.5) {
     const points = 5;
@@ -138,7 +138,7 @@ export function scoreTechnical(features: TechnicalFeatures): TechnicalScore {
   // ========================================================================
   // BREAKOUT POINTS (Max 15 points)
   // ========================================================================
-  
+
   // Rule 8: Price breakout above 20-day high with volume (+15 points)
   if (
     features.high_20d !== null &&
@@ -168,10 +168,22 @@ export function scoreTechnical(features: TechnicalFeatures): TechnicalScore {
     tags.push("compression");
   }
 
+  // Rule 9b: Volatility Contraction Pattern (VCP) (+15 points)
+  if (features.vcp_flag) {
+    const points = 15;
+    totalScore += points;
+    reasons.push({
+      rule: "vcp_pattern",
+      points,
+      description: `Volatility Contraction Pattern observed - highly coiled setup`,
+    });
+    tags.push("VCP");
+  }
+
   // ========================================================================
   // ADDITIONAL FACTORS (Bonus points, Max 12 points)
   // ========================================================================
-  
+
   // Rule 10: RSI in healthy range (40-70) (+5 points)
   if (features.rsi !== null && features.rsi >= 40 && features.rsi <= 70) {
     const points = 5;
@@ -240,13 +252,13 @@ export function calculateFinalScore(
   // News score: -20 to +20 (weight: 20%)
   // Liquidity bonus: 0-10 (weight: 10%)
   // Risk penalty: 0-10 (subtracted)
-  
+
   const weightedTechnical = technicalScore * 0.7;
   const weightedNews = (newsScore + 20) * 0.5; // Normalize -20..20 to 0..20, then scale to 0-10
   const weightedLiquidity = liquidityBonus * 0.1;
-  
+
   const finalScore = weightedTechnical + weightedNews + weightedLiquidity - riskPenalty;
-  
+
   return Math.max(0, Math.min(100, Math.round(finalScore * 100) / 100));
 }
 
@@ -255,20 +267,20 @@ export function calculateFinalScore(
  */
 export function calculateLiquidityBonus(dollarVolume1M: number | null): number {
   if (!dollarVolume1M) return 0;
-  
+
   // Bonus scale:
   // > 2B: +10 points
   // > 1B: +7 points
   // > 500M: +5 points
   // > 200M: +3 points
   // > 100M: +1 point
-  
+
   if (dollarVolume1M >= 2_000_000_000) return 10;
   if (dollarVolume1M >= 1_000_000_000) return 7;
   if (dollarVolume1M >= 500_000_000) return 5;
   if (dollarVolume1M >= 200_000_000) return 3;
   if (dollarVolume1M >= 100_000_000) return 1;
-  
+
   return 0;
 }
 
@@ -277,21 +289,21 @@ export function calculateLiquidityBonus(dollarVolume1M: number | null): number {
  */
 export function calculateRiskPenalty(rsi: number | null, atrp: number | null): number {
   let penalty = 0;
-  
+
   // Overbought RSI (> 80): +5 penalty
   if (rsi !== null && rsi > 80) {
     penalty += 5;
   }
-  
+
   // High volatility (ATR > 5%): +3 penalty
   if (atrp !== null && atrp > 5.0) {
     penalty += 3;
   }
-  
+
   // Oversold RSI (< 20): +2 penalty (contrarian risk)
   if (rsi !== null && rsi < 20) {
     penalty += 2;
   }
-  
+
   return Math.min(10, penalty);
 }

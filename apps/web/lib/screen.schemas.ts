@@ -97,6 +97,7 @@ export const TechnicalFeaturesSchema = z.object({
   market_cap: z.number().nullable().optional(),
   company_name: z.string().optional(),
   security_type: z.string().optional(),
+  vcp_flag: z.boolean().optional(),
 });
 
 export type TechnicalFeatures = z.infer<typeof TechnicalFeaturesSchema>;

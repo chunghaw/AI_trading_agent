@@ -23,6 +23,20 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
                 hide_side_toolbar={false}
                 allow_symbol_change={true}
                 interval="D"
+                timezone="Etc/UTC"
+                style="1"
+                locale="en"
+                enable_publishing={false}
+                withdateranges={true}
+                studies={[
+                    "MASimple@tv-basicstudies",
+                    "MASimple@tv-basicstudies",
+                    "MASimple@tv-basicstudies",
+                    "MACD@tv-basicstudies"
+                ]}
+                show_popup_button={true}
+                popup_width="1000"
+                popup_height="650"
             />
         </div>
     );

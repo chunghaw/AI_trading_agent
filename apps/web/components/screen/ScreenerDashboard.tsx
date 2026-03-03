@@ -21,6 +21,26 @@ export function ScreenerDashboard({ candidates }: ScreenerDashboardProps) {
         }
     }, [candidates, selectedTicker]);
 
+    // Keyboard navigation
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                e.preventDefault();
+                const currentIndex = candidates.findIndex(c => c.ticker === selectedTicker);
+                if (currentIndex === -1) return;
+
+                if (e.key === 'ArrowUp' && currentIndex > 0) {
+                    setSelectedTicker(candidates[currentIndex - 1].ticker);
+                } else if (e.key === 'ArrowDown' && currentIndex < candidates.length - 1) {
+                    setSelectedTicker(candidates[currentIndex + 1].ticker);
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [candidates, selectedTicker]);
+
     const selectedCandidate = candidates.find((c) => c.ticker === selectedTicker);
 
     // Helpers for scoring & colors
@@ -137,6 +157,20 @@ export function ScreenerDashboard({ candidates }: ScreenerDashboardProps) {
                                                 {!selectedCandidate.summary?.risks?.length && <li className="text-xs text-gray-500">None detected</li>}
                                             </ul>
                                         </div>
+
+                                        {/* Events / Earnings */}
+                                        {selectedCandidate.summary?.earnings_or_events && selectedCandidate.summary.earnings_or_events.length > 0 && (
+                                            <div className="col-span-2 mt-2 border-t border-white/5 pt-3">
+                                                <h4 className="text-xs font-semibold text-yellow-500/80 uppercase mb-2">Earnings & Events</h4>
+                                                <ul className="space-y-1">
+                                                    {selectedCandidate.summary.earnings_or_events.map((e, i) => (
+                                                        <li key={i} className="text-xs text-gray-300 flex items-start gap-1.5">
+                                                            <span className="text-yellow-500">📅</span> {e.date && <span className="text-gray-400">[{e.date}]</span>} {e.label}
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
                                     </div>
                                 </>
                             ) : (
@@ -174,11 +208,14 @@ export function ScreenerDashboard({ candidates }: ScreenerDashboardProps) {
                                             </span>
                                         )}
                                     </div>
-                                    <div className="text-right">
-                                        <div className={`font-bold ${getScoreColor(candidate.final_score)}`}>
+                                    <div className="text-right flex flex-col items-end">
+                                        <div className={`font-bold ${getScoreColor(candidate.final_score)}`} title={`Technical: ${candidate.technical_score.toFixed(1)} | News: ${candidate.news_score.toFixed(1)}`}>
                                             {candidate.final_score.toFixed(1)}
                                         </div>
                                         <div className="text-[10px] text-gray-500 uppercase">Score</div>
+                                        <div className="text-[9px] text-gray-600 mt-0.5" title="Technical / News Score Breakdown">
+                                            {candidate.technical_score.toFixed(0)} T / {candidate.news_score.toFixed(0)} N
+                                        </div>
                                     </div>
                                 </div>
 
@@ -190,6 +227,11 @@ export function ScreenerDashboard({ candidates }: ScreenerDashboardProps) {
                                     )}
                                     {candidate.features?.trend_flag && (
                                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">Trend</span>
+                                    )}
+                                    {candidate.tags_json?.includes("VCP") && (
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 border border-purple-500/30 font-bold flex items-center gap-1">
+                                            <Zap className="w-2 h-2" /> VCP
+                                        </span>
                                     )}
                                 </div>
                             </div>

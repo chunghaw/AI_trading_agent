@@ -379,8 +379,14 @@ export async function POST(req: NextRequest) {
       }
 
       try {
-        // Query Milvus for news
-        const articles = await queryMilvus(candidate.ticker, 7, 20, candidate.features.company_name);
+        // Query Milvus for news, anchoring the 7-day lookback to the historical run date, not the current clock.
+        const articles = await queryMilvus(
+          candidate.ticker,
+          7,
+          20,
+          candidate.features.company_name,
+          request.runDate // Important: anchor to historical run date
+        );
 
         // Store news articles
         if (articles.length > 0) {

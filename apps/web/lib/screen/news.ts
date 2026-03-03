@@ -31,11 +31,14 @@ export async function queryMilvus(
   ticker: string,
   daysBack: number = 7,
   topK: number = 20,
-  companyName?: string
+  companyName?: string,
+  anchorDateStr?: string
 ): Promise<NewsArticle[]> {
   const resolvedCompanyName = companyName || TICKER_TO_NAME[ticker.toUpperCase()] || undefined;
   try {
-    const sinceIso = dayjs().subtract(daysBack, "day").toISOString();
+    // If testing historical data, we MUST anchor the lookback to the run date, not 'today', or else 0 news will be found.
+    const anchorDate = anchorDateStr ? dayjs(anchorDateStr) : dayjs();
+    const sinceIso = anchorDate.subtract(daysBack, "day").toISOString();
 
     // Build query string for semantic search
     const query = `${ticker} stock news earnings guidance analyst`;

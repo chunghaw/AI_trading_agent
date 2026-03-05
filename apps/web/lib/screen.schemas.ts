@@ -41,7 +41,7 @@ export type ScreenPreset = z.infer<typeof ScreenPresetSchema>;
 // ============================================================================
 
 export const RunScreenRequestSchema = z.object({
-  runDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), // YYYY-MM-DD
+  runDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).default(() => new Date().toISOString().split('T')[0]), // YYYY-MM-DD
   presetId: z.number().optional(),
   filters: ScreenFiltersSchema.optional(), // Override preset filters if provided
   topK: z.number().min(1).max(500).default(30), // Top K for news stage (30 = faster run)
@@ -139,7 +139,10 @@ export const NewsSummarySchema = z.object({
     evidence_urls: z.array(z.string()),
   })),
   one_sentence_thesis: z.string(),
+  detailed_thesis: z.string().optional(),
   // New AI fields
+  company_description: z.string().optional(),
+  industry: z.string().optional(),
   recommendation: z.enum(["Strong Buy", "Buy", "Hold", "Sell", "Strong Sell"]).optional(),
   confidence: z.enum(["High", "Medium", "Low"]).optional(),
   action_plan: z.string().optional(),
@@ -192,8 +195,10 @@ export const RunScreenResponseSchema = z.object({
 
 export type RunScreenResponse = z.infer<typeof RunScreenResponseSchema>;
 
+
+
 export const GetCandidatesRequestSchema = z.object({
-  runDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  runDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).default(() => new Date().toISOString().split('T')[0]),
   runId: z.number().optional(),
   limit: z.number().min(1).max(500).default(50),
   offset: z.number().min(0).default(0),

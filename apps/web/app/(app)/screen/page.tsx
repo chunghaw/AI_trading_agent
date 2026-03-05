@@ -43,7 +43,7 @@ const DEFAULT_FILTERS: ScreenFilters = {
 import { ScreenerDashboard } from "@/components/screen/ScreenerDashboard";
 
 export default function ScreenPage() {
-  const [runDate, setRunDate] = useState("2026-02-04"); // Default to latest available DB data date
+  const [runDate, setRunDate] = useState(dayjs().format("YYYY-MM-DD"));
   const [candidates, setCandidates] = useState<ScreenCandidate[]>([]);
   const [run, setRun] = useState<ScreenRun | null>(null);
   const [loading, setLoading] = useState(false);

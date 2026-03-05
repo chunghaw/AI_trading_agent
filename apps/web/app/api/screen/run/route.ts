@@ -310,209 +310,216 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Sort by technical score and take top K
-    candidatesWithScores.sort((a, b) => b.technicalScore - a.technicalScore);
-    const topK = candidatesWithScores.slice(0, request.topK || 200);
+    // Split by security type to process Top 30 Stocks AND Top 30 ETFs independently
+    const stockCandidates = candidatesWithScores.filter(c => c.features.security_type !== 'ETF').sort((a, b) => b.technicalScore - a.technicalScore);
+    const etfCandidates = candidatesWithScores.filter(c => c.features.security_type === 'ETF').sort((a, b) => b.technicalScore - a.technicalScore);
 
-    console.log(`✅ Computed scores for ${candidatesWithScores.length} tickers, top ${topK.length} selected for news analysis`);
+    // Take Top X of each (defaulting to 30)
+    const AI_ANALYSIS_LIMIT = 30; // Per category
+    const topStocks = stockCandidates.slice(0, AI_ANALYSIS_LIMIT);
+    const topETFs = etfCandidates.slice(0, AI_ANALYSIS_LIMIT);
 
-    // Step 3: Retrieve news and summarize for top K candidates
+    // Merge them back together for processing
+    const candidatesToProcess = [...topStocks, ...topETFs];
+
+    // Create a set of tickers that actually get AI analysis so we can efficiently skip the rest
+    const aiAnalyzedTickers = new Set(candidatesToProcess.map(c => c.ticker));
+
+    console.log(`✅ Computed scores. Selected Top ${topStocks.length} Stocks and Top ${topETFs.length} ETFs for AI analysis (${candidatesToProcess.length} total)`);
+
+    // Step 3: Retrieve news and summarize for top candidates
     console.log("📰 Step 3: Retrieving news and generating summaries...");
 
-    // OPTIMIZATION: Only analyze the top 10 candidates with expensive AI to keep run times fast (< 1 min)
-    // The rest will be returned with technical scores but without AI thesis.
-    const AI_ANALYSIS_LIMIT = 30;
-    const candidatesToAnalyze = topK.slice(0, AI_ANALYSIS_LIMIT);
+    const BATCH_SIZE = 10;
 
-    // We iterate through all topK, but only fetch news/AI for the first 10
-    for (let i = 0; i < topK.length; i++) {
-      const candidate = topK[i];
+    // We process candidates in batches to achieve parallel speedup without overloading the connection pool or rate limits
+    for (let i = 0; i < candidatesWithScores.length; i += BATCH_SIZE) {
+      const batch = candidatesWithScores.slice(i, i + BATCH_SIZE);
 
-      // Skip AI for candidates beyond the limit to save time/cost
-      if (i >= AI_ANALYSIS_LIMIT) {
-        // Basic save without AI
-        await client.query(
-          `INSERT INTO screen_candidates (run_id, ticker, final_score, technical_score, news_score, tags_json)
-                VALUES ($1, $2, $3, $4, 0, $5)
-                ON CONFLICT (run_id, ticker) DO UPDATE SET
-                  final_score = EXCLUDED.final_score,
-                  technical_score = EXCLUDED.technical_score,
-                  news_score = 0,
-                  tags_json = EXCLUDED.tags_json`,
-          [runId, candidate.ticker, candidate.technicalScore, candidate.technicalScore, JSON.stringify(candidate.tags)]
-        );
-
-        /* We still need to save features for them to appear in the dashboard with stats */
-        const featuresWithReasons = { ...candidate.features, reasons: candidate.reasons };
-        await client.query(
-          `INSERT INTO candidate_features 
-                   (run_id, ticker, asof_date, sma50, sma200, macd, macd_signal, macd_hist, rvol, atrp, 
-                    breakout_flag, trend_flag, momentum_flag, volume_flag, beta_1y, dollar_volume_1m, market_cap, raw_json, security_type)
-                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
-                   ON CONFLICT(run_id, ticker) DO UPDATE SET
-                      market_cap = EXCLUDED.market_cap,
-                      security_type = EXCLUDED.security_type,
-                      raw_json = EXCLUDED.raw_json`, /* Only updating key fields for speed on non-analyzed ones */
-          [
-            runId,
-            candidate.ticker,
-            request.runDate,
-            candidate.features.sma50,
-            candidate.features.sma200,
-            candidate.features.macd,
-            candidate.features.macd_signal,
-            candidate.features.macd_hist,
-            candidate.features.rvol,
-            candidate.features.atrp,
-            candidate.features.breakout_flag,
-            candidate.features.trend_flag,
-            candidate.features.momentum_flag,
-            candidate.features.volume_flag,
-            candidate.features.beta_1y,
-            candidate.features.dollar_volume_1m,
-            candidate.features.market_cap,
-            JSON.stringify(featuresWithReasons),
-            candidate.features.security_type,
-          ]
-        );
-        continue;
-      }
-
-      try {
-        // Query Milvus for news, anchoring the 7-day lookback to the historical run date, not the current clock.
-        const articles = await queryMilvus(
-          candidate.ticker,
-          7,
-          20,
-          candidate.features.company_name,
-          request.runDate // Important: anchor to historical run date
-        );
-
-        // Store news articles
-        if (articles.length > 0) {
-          // Insert news articles one by one (simpler and more reliable)
-          for (const article of articles) {
-            await client.query(
-              `INSERT INTO candidate_news 
-               (run_id, ticker, published_at, title, url, source, sentiment_label, sentiment_score, milvus_ids_json)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-               ON CONFLICT DO NOTHING`,
-              [
-                runId,
-                candidate.ticker,
-                article.published_utc,
-                article.title,
-                article.url,
-                article.source || null,
-                null, // sentiment_label
-                null, // sentiment_score
-                JSON.stringify([article.id]), // milvus_ids_json
-              ]
-            );
-          }
-
-          // Analyze with AI Agent (Technicals + News)
-          console.log(`   🤖 Analyzing ${candidate.ticker} with AI Agent...`);
-          const { summary, citations } = await analyzeCandidate(candidate.ticker, candidate.features, articles);
-
-          // Store summary
-          await client.query(
-            `INSERT INTO candidate_summary (run_id, ticker, summary_json, citations_json, model)
-             VALUES ($1, $2, $3, $4, 'gpt-4o-mini')
-             ON CONFLICT (run_id, ticker) DO UPDATE SET
-               summary_json = EXCLUDED.summary_json,
-               citations_json = EXCLUDED.citations_json,
-               created_at = CURRENT_TIMESTAMP`,
-            [runId, candidate.ticker, JSON.stringify(summary), JSON.stringify(citations)]
+      await Promise.all(batch.map(async (candidate) => {
+        // Skip AI for candidates not in the Top 30 Stocks or Top 30 ETFs
+        if (!aiAnalyzedTickers.has(candidate.ticker)) {
+          // Basic save without AI
+          await client!.query(
+            `INSERT INTO screen_candidates (run_id, ticker, final_score, technical_score, news_score, tags_json)
+                  VALUES ($1, $2, $3, $4, 0, $5)
+                  ON CONFLICT (run_id, ticker) DO UPDATE SET
+                    final_score = EXCLUDED.final_score,
+                    technical_score = EXCLUDED.technical_score,
+                    news_score = 0,
+                    tags_json = EXCLUDED.tags_json`,
+            [runId, candidate.ticker, candidate.technicalScore, candidate.technicalScore, JSON.stringify(candidate.tags)]
           );
 
-          // Update candidate with news score
-          candidate.newsScore = summary.newsScore;
-        } else {
-          candidate.newsScore = 0;
+          /* We still need to save features for them to appear in the dashboard with stats */
+          const featuresWithReasons = { ...candidate.features, reasons: candidate.reasons };
+          await client!.query(
+            `INSERT INTO candidate_features 
+                     (run_id, ticker, asof_date, sma50, sma200, macd, macd_signal, macd_hist, rvol, atrp, 
+                      breakout_flag, trend_flag, momentum_flag, volume_flag, beta_1y, dollar_volume_1m, market_cap, raw_json, security_type)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+                     ON CONFLICT(run_id, ticker) DO UPDATE SET
+                        market_cap = EXCLUDED.market_cap,
+                        security_type = EXCLUDED.security_type,
+                        raw_json = EXCLUDED.raw_json`, /* Only updating key fields for speed on non-analyzed ones */
+            [
+              runId,
+              candidate.ticker,
+              request.runDate,
+              candidate.features.sma50,
+              candidate.features.sma200,
+              candidate.features.macd,
+              candidate.features.macd_signal,
+              candidate.features.macd_hist,
+              candidate.features.rvol,
+              candidate.features.atrp,
+              candidate.features.breakout_flag,
+              candidate.features.trend_flag,
+              candidate.features.momentum_flag,
+              candidate.features.volume_flag,
+              candidate.features.beta_1y,
+              candidate.features.dollar_volume_1m,
+              candidate.features.market_cap,
+              JSON.stringify(featuresWithReasons),
+              candidate.features.security_type,
+            ]
+          );
+          return;
         }
 
-        // Calculate final score
-        const liquidityBonus = calculateLiquidityBonus(candidate.features.dollar_volume_1m);
-        const riskPenalty = calculateRiskPenalty(candidate.features.rsi, candidate.features.atrp);
-        const finalScore = calculateFinalScore(
-          candidate.technicalScore,
-          candidate.newsScore || 0,
-          liquidityBonus,
-          riskPenalty
-        );
-
-        // Store candidate
-        await client.query(
-          `INSERT INTO screen_candidates (run_id, ticker, final_score, technical_score, news_score, tags_json)
-           VALUES ($1, $2, $3, $4, $5, $6)
-           ON CONFLICT (run_id, ticker) DO UPDATE SET
-             final_score = EXCLUDED.final_score,
-             technical_score = EXCLUDED.technical_score,
-             news_score = EXCLUDED.news_score,
-             tags_json = EXCLUDED.tags_json`,
-          [runId, candidate.ticker, finalScore, candidate.technicalScore, candidate.newsScore || 0, JSON.stringify(candidate.tags)]
-        );
-
-        // Store features with reasons
-        const featuresWithReasons = {
-          ...candidate.features,
-          reasons: candidate.reasons, // Store scoring reasons
-        };
-
-        await client.query(
-          `INSERT INTO candidate_features 
-           (run_id, ticker, asof_date, sma50, sma200, macd, macd_signal, macd_hist, rvol, atrp, 
-            breakout_flag, trend_flag, momentum_flag, volume_flag, beta_1y, dollar_volume_1m, market_cap, raw_json, security_type)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
-           ON CONFLICT (run_id, ticker) DO UPDATE SET
-             asof_date = EXCLUDED.asof_date,
-             sma50 = EXCLUDED.sma50,
-             sma200 = EXCLUDED.sma200,
-             macd = EXCLUDED.macd,
-             macd_signal = EXCLUDED.macd_signal,
-             macd_hist = EXCLUDED.macd_hist,
-             rvol = EXCLUDED.rvol,
-             atrp = EXCLUDED.atrp,
-             breakout_flag = EXCLUDED.breakout_flag,
-             trend_flag = EXCLUDED.trend_flag,
-             momentum_flag = EXCLUDED.momentum_flag,
-             volume_flag = EXCLUDED.volume_flag,
-             beta_1y = EXCLUDED.beta_1y,
-             dollar_volume_1m = EXCLUDED.dollar_volume_1m,
-             market_cap = EXCLUDED.market_cap,
-             raw_json = EXCLUDED.raw_json,
-             security_type = EXCLUDED.security_type`,
-          [
-            runId,
+        try {
+          // Query Milvus for news, anchoring the 7-day lookback to the historical run date, not the current clock.
+          const articles = await queryMilvus(
             candidate.ticker,
-            request.runDate,
-            candidate.features.sma50,
-            candidate.features.sma200,
-            candidate.features.macd,
-            candidate.features.macd_signal,
-            candidate.features.macd_hist,
-            candidate.features.rvol,
-            candidate.features.atrp,
-            candidate.features.breakout_flag,
-            candidate.features.trend_flag,
-            candidate.features.momentum_flag,
-            candidate.features.volume_flag,
-            candidate.features.beta_1y,
-            candidate.features.dollar_volume_1m,
-            candidate.features.market_cap,
-            JSON.stringify(featuresWithReasons),
-            candidate.features.security_type,
-          ]
-        );
+            7,
+            20,
+            candidate.features.company_name,
+            request.runDate // Important: anchor to historical run date
+          );
 
-        if ((i + 1) % 10 === 0) {
-          console.log(`  Processed ${i + 1}/${topK.length} candidates...`);
+          // Store news articles
+          if (articles.length > 0) {
+            // Insert news articles one by one (simpler and more reliable)
+            for (const article of articles) {
+              await client!.query(
+                `INSERT INTO candidate_news 
+                 (run_id, ticker, published_at, title, url, source, sentiment_label, sentiment_score, milvus_ids_json)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                 ON CONFLICT DO NOTHING`,
+                [
+                  runId,
+                  candidate.ticker,
+                  article.published_utc,
+                  article.title,
+                  article.url,
+                  article.source || null,
+                  null, // sentiment_label
+                  null, // sentiment_score
+                  JSON.stringify([article.id]), // milvus_ids_json
+                ]
+              );
+            }
+
+            // Analyze with AI Agent (Technicals + News)
+            console.log(`   🤖 Analyzing ${candidate.ticker} with AI Agent...`);
+            const { summary, citations } = await analyzeCandidate(candidate.ticker, candidate.features, articles);
+
+            // Store summary
+            await client!.query(
+              `INSERT INTO candidate_summary (run_id, ticker, summary_json, citations_json, model)
+               VALUES ($1, $2, $3, $4, 'gpt-4o-mini')
+               ON CONFLICT (run_id, ticker) DO UPDATE SET
+                 summary_json = EXCLUDED.summary_json,
+                 citations_json = EXCLUDED.citations_json,
+                 created_at = CURRENT_TIMESTAMP`,
+              [runId, candidate.ticker, JSON.stringify(summary), JSON.stringify(citations)]
+            );
+
+            // Update candidate with news score
+            candidate.newsScore = summary.newsScore;
+          } else {
+            candidate.newsScore = 0;
+          }
+
+          // Calculate final score
+          const liquidityBonus = calculateLiquidityBonus(candidate.features.dollar_volume_1m);
+          const riskPenalty = calculateRiskPenalty(candidate.features.rsi, candidate.features.atrp);
+          const finalScore = calculateFinalScore(
+            candidate.technicalScore,
+            candidate.newsScore || 0,
+            liquidityBonus,
+            riskPenalty
+          );
+
+          // Store candidate
+          await client!.query(
+            `INSERT INTO screen_candidates (run_id, ticker, final_score, technical_score, news_score, tags_json)
+             VALUES ($1, $2, $3, $4, $5, $6)
+             ON CONFLICT (run_id, ticker) DO UPDATE SET
+               final_score = EXCLUDED.final_score,
+               technical_score = EXCLUDED.technical_score,
+               news_score = EXCLUDED.news_score,
+               tags_json = EXCLUDED.tags_json`,
+            [runId, candidate.ticker, finalScore, candidate.technicalScore, candidate.newsScore || 0, JSON.stringify(candidate.tags)]
+          );
+
+          // Store features with reasons
+          const featuresWithReasons = {
+            ...candidate.features,
+            reasons: candidate.reasons, // Store scoring reasons
+          };
+
+          await client!.query(
+            `INSERT INTO candidate_features 
+             (run_id, ticker, asof_date, sma50, sma200, macd, macd_signal, macd_hist, rvol, atrp, 
+              breakout_flag, trend_flag, momentum_flag, volume_flag, beta_1y, dollar_volume_1m, market_cap, raw_json, security_type)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+             ON CONFLICT (run_id, ticker) DO UPDATE SET
+               asof_date = EXCLUDED.asof_date,
+               sma50 = EXCLUDED.sma50,
+               sma200 = EXCLUDED.sma200,
+               macd = EXCLUDED.macd,
+               macd_signal = EXCLUDED.macd_signal,
+               macd_hist = EXCLUDED.macd_hist,
+               rvol = EXCLUDED.rvol,
+               atrp = EXCLUDED.atrp,
+               breakout_flag = EXCLUDED.breakout_flag,
+               trend_flag = EXCLUDED.trend_flag,
+               momentum_flag = EXCLUDED.momentum_flag,
+               volume_flag = EXCLUDED.volume_flag,
+               beta_1y = EXCLUDED.beta_1y,
+               dollar_volume_1m = EXCLUDED.dollar_volume_1m,
+               market_cap = EXCLUDED.market_cap,
+               raw_json = EXCLUDED.raw_json,
+               security_type = EXCLUDED.security_type`,
+            [
+              runId,
+              candidate.ticker,
+              request.runDate,
+              candidate.features.sma50,
+              candidate.features.sma200,
+              candidate.features.macd,
+              candidate.features.macd_signal,
+              candidate.features.macd_hist,
+              candidate.features.rvol,
+              candidate.features.atrp,
+              candidate.features.breakout_flag,
+              candidate.features.trend_flag,
+              candidate.features.momentum_flag,
+              candidate.features.volume_flag,
+              candidate.features.beta_1y,
+              candidate.features.dollar_volume_1m,
+              candidate.features.market_cap,
+              JSON.stringify(featuresWithReasons),
+              candidate.features.security_type,
+            ]
+          );
+        } catch (error) {
+          console.error(`Error processing news for ${candidate.ticker}:`, error);
+          // Continue with next candidate
         }
-      } catch (error) {
-        console.error(`Error processing news for ${candidate.ticker}:`, error);
-        // Continue with next candidate
-      }
+      }));
+      console.log(`  Processed batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(candidatesWithScores.length / BATCH_SIZE)}...`);
     }
 
     // Step 4: Mark run as completed
@@ -538,7 +545,7 @@ export async function POST(req: NextRequest) {
         finished_at: finalRun.rows[0].finished_at?.toISOString() || null,
         error: finalRun.rows[0].error,
       },
-      message: `Screen run completed. ${topK.length} candidates analyzed.`,
+      message: `Screen run completed. ${candidatesToProcess.length} candidates analyzed.`,
     } as RunScreenResponse);
   } catch (error: any) {
     console.error("Screen run error:", error);

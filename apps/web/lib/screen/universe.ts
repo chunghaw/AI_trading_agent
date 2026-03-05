@@ -11,19 +11,15 @@ export function buildUniverseSQL(filters: ScreenFilters, asOfDate?: string): { s
 
   // Base query: Get latest data per symbol from gold table
   // We need to calculate Beta1Y and DollarVolume1M on the fly
-  
+
   // Date filter - use latest available date (don't filter by exact date in WHERE clause)
   // We'll get the latest row per symbol in the CTE, which handles missing dates gracefully
   // The asOfDate is just for reference, we'll use the latest available data
 
-  // Market filter: US stocks only (exclude ETFs)
+  // Market filter: US stocks and ETFs
   if (filters.market === "us") {
-    // Match dashboard query behavior - don't filter by market/stock_type (they may be NULL)
-    // ETFs typically have 3-4 letter symbols, but so do some stocks
-    // Better approach: Filter by exchange if available, otherwise allow all
-    // For now, just exclude if market column explicitly says it's not stocks
-    // (Most rows will have NULL market, so this won't exclude them)
-    conditions.push(`(g.market IS NULL OR g.market = 'stocks' OR g.market != 'etf')`);
+    // We want to explicitly allow 'stocks', explicit 'etf', and NULLs
+    conditions.push(`(g.market IS NULL OR g.market = '' OR g.market = 'stocks' OR g.market = 'etf')`);
   }
 
   // Market cap filter (allow NULL - will filter in app layer if needed)
@@ -106,7 +102,7 @@ export function buildUniverseSQL(filters: ScreenFilters, asOfDate?: string): { s
   conditions.push(`g.rsi_14 IS NOT NULL`);
   // MACD requires 26+ days, make it optional:
   // conditions.push(`g.macd_line IS NOT NULL`);
-  
+
   // Latest data on or before asOfDate; 60-day lookback so we get tickers even if pipeline ran yesterday
   if (asOfDate) {
     conditions.push(`g.date >= $${paramIndex}::date - INTERVAL '60 days'`);

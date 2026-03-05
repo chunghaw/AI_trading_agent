@@ -55,7 +55,7 @@ export async function queryMilvus(
     );
 
     // Transform to NewsArticle format
-    const articles: NewsArticle[] = results.slice(0, topK).map((hit, index) => ({
+    let articles: NewsArticle[] = results.slice(0, topK).map((hit, index) => ({
       id: `milvus_${index}_${hit.url}`,
       title: hit.title || "News article",
       url: hit.url || "",
@@ -64,6 +64,31 @@ export async function queryMilvus(
       source: extractSource(hit.url),
       score: hit.score || 0,
     }));
+
+    // Fallback: If Milvus has 0 articles, hit Polygon API live
+    if (articles.length === 0 && process.env.POLYGON_API_KEY) {
+      console.log(`[News] 0 articles in Milvus for ${ticker}. Falling back to Polygon API...`);
+      try {
+        const polyUrl = `https://api.polygon.io/v2/reference/news?ticker=${ticker}&order=desc&limit=${topK}&published_utc.gte=${sinceIso}&apiKey=${process.env.POLYGON_API_KEY}`;
+        const polyRes = await fetch(polyUrl);
+        const polyData = await polyRes.json();
+
+        if (polyData.results && polyData.results.length > 0) {
+          articles = polyData.results.map((item: any, idx: number) => ({
+            id: `poly_${idx}_${item.id}`,
+            title: item.title || "Polygon News",
+            url: item.article_url || "",
+            text: item.description || item.title || "",
+            published_utc: item.published_utc || dayjs().toISOString(),
+            source: item.publisher?.name || extractSource(item.article_url),
+            score: 1.0, // Default score for live fetched news
+          }));
+          console.log(`[News] Fallback successful: Found ${articles.length} live articles for ${ticker}.`);
+        }
+      } catch (polyErr) {
+        console.error(`[News] Polygon fallback error for ${ticker}:`, polyErr);
+      }
+    }
 
     return articles;
   } catch (error: any) {

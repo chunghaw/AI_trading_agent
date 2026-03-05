@@ -67,11 +67,13 @@ Snippet: ${snippet}...`;
   ${articleTexts}
 
   TASK:
-  1. Analyze the Technical Structure first (Trend, Momentum, Moving Averages).
-  2. Use News to Identify Catalysts/Risks that support or contradict the technicals.
-  3. Determine a recommendation (Strong Buy, Buy, Hold, Sell, Strong Sell).
-  4. Write a 3-sentence technical thesis.
-  5. Provide a specific action plan (e.g., "Buy on pullback to moving average").
+  1. Generate a brief 1-sentence descriptor (company_description) explaining what ${ticker} does, and identify its broad Industry.
+  2. Analyze the Technical Structure first (Trend, Momentum, Moving Averages).
+  3. Use News to Identify Catalysts/Risks that support or contradict the technicals.
+  4. Determine a recommendation (Strong Buy, Buy, Hold, Sell, Strong Sell).
+  5. Write a 1-sentence quick thesis.
+  6. Write a highly sophisticated, detailed thesis (3-4 clear paragraphs). Structure it as a deep-dive combining Technical Structure, News sentiment, and Catalyst/Risk impacts. Use professional financial analyst tone.
+  7. Provide a specific action plan (e.g., "Buy on pullback to moving average").
 
   LOGIC RULES:
   - STRONG BUY: Strong Uptrend + Breakout + Positive/Neutral News.
@@ -84,12 +86,15 @@ Snippet: ${snippet}...`;
   
   OUTPUT FORMAT:
   {
+    "company_description": "A 1-sentence outline of the company's core business.",
+    "industry": "e.g., Software Infrastructure",
     "tone": "positive" | "neutral" | "negative",
     "newsScore": -20 to 20,
     "catalysts": [{"label": "...", "evidence_urls": ["..."]}],
     "risks": [{"label": "...", "evidence_urls": ["..."]}],
     "earnings_or_events": [{"label": "...", "date": "YYYY-MM-DD", "evidence_urls": ["..."]}],
     "one_sentence_thesis": "Concise thesis.",
+    "detailed_thesis": "Multi-paragraph deep dive using \n\n to separate paragraphs.",
     "recommendation": "Strong Buy" | "Buy" | "Hold" | "Sell" | "Strong Sell",
     "confidence": "High" | "Medium" | "Low",
     "action_plan": "Short actionable advice."
@@ -119,12 +124,15 @@ Snippet: ${snippet}...`;
 
         return {
             summary: {
+                company_description: parsed.company_description || "",
+                industry: parsed.industry || "Unknown",
                 tone: ["positive", "neutral", "negative"].includes(parsed.tone) ? parsed.tone : "neutral",
                 newsScore: Math.min(20, Math.max(-20, Number(parsed.newsScore) || 0)),
                 catalysts: Array.isArray(parsed.catalysts) ? parsed.catalysts : [],
                 risks: Array.isArray(parsed.risks) ? parsed.risks : [],
                 earnings_or_events: Array.isArray(parsed.earnings_or_events) ? parsed.earnings_or_events : [],
                 one_sentence_thesis: parsed.one_sentence_thesis || "Analysis complete.",
+                detailed_thesis: parsed.detailed_thesis || parsed.one_sentence_thesis || "Analysis complete.",
                 recommendation: parsed.recommendation || "Hold",
                 confidence: parsed.confidence || "Medium",
                 action_plan: parsed.action_plan || "Monitor for setup.",
@@ -135,6 +143,8 @@ Snippet: ${snippet}...`;
         console.error(`Error analyzing candidate ${ticker}:`, error);
         return {
             summary: {
+                company_description: "",
+                industry: "Unknown",
                 tone: "neutral",
                 newsScore: 0,
                 catalysts: [],

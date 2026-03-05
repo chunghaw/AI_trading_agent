@@ -42,15 +42,23 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
                     hide_side_toolbar: false,
                     container_id: containerId,
                     withdateranges: true,
+                    show_events: true, // Enables Earnings and Dividend markers on chart axis
                     show_popup_button: true,
                     popup_width: "1000",
                     popup_height: "650",
                     studies: [
-                        { id: "MASimple@tv-basicstudies", inputs: { length: 20 } },
-                        { id: "MASimple@tv-basicstudies", inputs: { length: 50 } },
-                        { id: "MASimple@tv-basicstudies", inputs: { length: 200 } },
+                        { id: "MAWeighted@tv-basicstudies", inputs: { length: 20 } }, // For Orange
+                        { id: "MAExp@tv-basicstudies", inputs: { length: 50 } },      // For Blue
+                        { id: "MASimple@tv-basicstudies", inputs: { length: 200 } },  // For Red
                         { id: "MACD@tv-basicstudies" }
                     ],
+                    studies_overrides: {
+                        "MAWeighted@tv-basicstudies.plot.color": "#FFEB3B", // Yellow MA 20
+                        "MAExp@tv-basicstudies.plot.color": "#2196F3",      // Blue MA 50
+                        "MASimple@tv-basicstudies.plot.color": "#F44336",   // Red MA 200
+                        "MACD@tv-basicstudies.MACD.color": "#2196F3",
+                        "MACD@tv-basicstudies.Signal.color": "#FFEB3B",
+                    },
                 });
             }
         };

@@ -21,25 +21,34 @@ export function ScreenerDashboard({ candidates }: ScreenerDashboardProps) {
         }
     }, [candidates, selectedTicker]);
 
-    // Keyboard navigation
+    // State for toggling between Stocks and ETFs result lists
+    const [viewMode, setViewMode] = useState<"Stocks" | "ETFs">("Stocks");
+
+    // Filter candidates based on current view mode
+    const filteredCandidates = candidates.filter((c) => {
+        const isETF = c.features?.security_type === "ETF";
+        return viewMode === "ETFs" ? isETF : !isETF;
+    });
+
+    // Keyboard navigation based on *filtered* candidates
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
                 e.preventDefault();
-                const currentIndex = candidates.findIndex(c => c.ticker === selectedTicker);
+                const currentIndex = filteredCandidates.findIndex(c => c.ticker === selectedTicker);
                 if (currentIndex === -1) return;
 
                 if (e.key === 'ArrowUp' && currentIndex > 0) {
-                    setSelectedTicker(candidates[currentIndex - 1].ticker);
-                } else if (e.key === 'ArrowDown' && currentIndex < candidates.length - 1) {
-                    setSelectedTicker(candidates[currentIndex + 1].ticker);
+                    setSelectedTicker(filteredCandidates[currentIndex - 1].ticker);
+                } else if (e.key === 'ArrowDown' && currentIndex < filteredCandidates.length - 1) {
+                    setSelectedTicker(filteredCandidates[currentIndex + 1].ticker);
                 }
             }
         };
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [candidates, selectedTicker]);
+    }, [filteredCandidates, selectedTicker]);
 
     const selectedCandidate = candidates.find((c) => c.ticker === selectedTicker);
 
@@ -112,14 +121,36 @@ export function ScreenerDashboard({ candidates }: ScreenerDashboardProps) {
                         <CardContent className="p-4 space-y-4">
                             {selectedCandidate ? (
                                 <>
+                                    {/* Company Info */}
+                                    {(selectedCandidate.summary?.company_description || selectedCandidate.summary?.industry) && (
+                                        <div className="bg-[#1e1e1e] border-l-2 border-blue-500 pl-3 py-1 mb-4">
+                                            {selectedCandidate.summary?.industry && (
+                                                <span className="text-[10px] uppercase font-bold text-blue-400 tracking-wider">
+                                                    {selectedCandidate.summary.industry}
+                                                </span>
+                                            )}
+                                            {selectedCandidate.summary?.company_description && (
+                                                <p className="text-xs text-gray-400 mt-1 italic">
+                                                    {selectedCandidate.summary.company_description}
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
+
                                     {/* Thesis */}
                                     <div>
                                         <h4 className="text-xs font-semibold text-gray-500 uppercase mb-1 flex items-center gap-1">
                                             <Info className="w-3 h-3" /> Thesis
                                         </h4>
-                                        <p className="text-sm text-gray-200 leading-relaxed">
-                                            {selectedCandidate.summary?.one_sentence_thesis || "No thesis available."}
-                                        </p>
+                                        <div className="text-sm text-gray-200 leading-relaxed space-y-2">
+                                            {selectedCandidate.summary?.detailed_thesis ? (
+                                                selectedCandidate.summary.detailed_thesis.split('\n\n').map((paragraph, idx) => (
+                                                    <p key={idx}>{paragraph}</p>
+                                                ))
+                                            ) : (
+                                                <p>{selectedCandidate.summary?.one_sentence_thesis || "No thesis available."}</p>
+                                            )}
+                                        </div>
                                     </div>
 
                                     {/* Action Plan */}
@@ -183,14 +214,28 @@ export function ScreenerDashboard({ candidates }: ScreenerDashboardProps) {
 
             {/* RIGHT PANEL: Screener List (Fixed Width) */}
             <Card className="w-full lg:w-[350px] border-white/10 bg-[#1e1e1e] flex flex-col h-full">
-                <CardHeader className="py-3 px-4 border-b border-white/5">
+                <CardHeader className="py-3 px-4 border-b border-white/5 flex flex-col gap-3">
                     <CardTitle className="text-sm font-medium text-gray-300">
-                        Results ({candidates.length})
+                        Results
                     </CardTitle>
+                    <div className="flex bg-black/50 p-1 rounded-md">
+                        <button
+                            className={`flex-1 text-xs py-1.5 rounded-sm transition-colors ${viewMode === 'Stocks' ? 'bg-white/10 text-white font-medium shadow-sm' : 'text-gray-400 hover:text-gray-200'}`}
+                            onClick={() => setViewMode('Stocks')}
+                        >
+                            Top Stocks
+                        </button>
+                        <button
+                            className={`flex-1 text-xs py-1.5 rounded-sm transition-colors ${viewMode === 'ETFs' ? 'bg-white/10 text-white font-medium shadow-sm' : 'text-gray-400 hover:text-gray-200'}`}
+                            onClick={() => setViewMode('ETFs')}
+                        >
+                            Top ETFs
+                        </button>
+                    </div>
                 </CardHeader>
                 <ScrollArea className="flex-1">
                     <div className="divide-y divide-white/5">
-                        {candidates.map((candidate) => (
+                        {filteredCandidates.map((candidate) => (
                             <div
                                 key={candidate.id}
                                 onClick={() => setSelectedTicker(candidate.ticker)}

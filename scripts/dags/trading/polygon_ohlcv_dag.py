@@ -118,10 +118,9 @@ def polygon_ohlcv_dag():
                     # Sort by volume (descending) - volume is a good proxy for market cap
                     results_sorted = sorted(results, key=lambda x: x.get('v', 0), reverse=True)
                     
-                    # Extract symbols and take top stocks (leave room for ETFs)
-                    # Since we have ~60 popular ETFs, get top 940 stocks to stay under 1000 total
+                    # Extract symbols for all active stocks from the grouped aggs
                     top_symbols = []
-                    for stock in results_sorted[:940]:  # Reduced from 1000 to make room for ETFs
+                    for stock in results_sorted:
                         symbol = stock.get('T', '')
                         if symbol and len(symbol) <= 10:  # Reasonable symbol length
                             top_symbols.append(symbol)
@@ -619,10 +618,10 @@ def polygon_ohlcv_dag():
                     us_stock_data = us_stock_data.sort_values('volume', ascending=False)
                     logging.info("Ranking by volume (market cap not available)")
                 
-                # Take top 1000 US stocks
-                top_us_stocks = us_stock_data.head(TOP_STOCKS_COUNT)
+                # Take all ranked US stocks
+                top_us_stocks = us_stock_data
                 selected_symbols = set(top_us_stocks['symbol'].tolist())
-                logging.info(f"Selected top {len(top_us_stocks)} US stocks")
+                logging.info(f"Selected all {len(top_us_stocks)} ranked US stocks")
             else:
                 selected_symbols = set()
                 logging.warning("No US stock data available for ranking")

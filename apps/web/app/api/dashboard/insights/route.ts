@@ -80,10 +80,10 @@ export async function GET() {
     const positiveStocks = marketData.market_stats?.positive_stocks || 0;
     const negativeStocks = marketData.market_stats?.negative_stocks || 0;
     const neutralStocks = totalStocks - positiveStocks - negativeStocks;
-    
+
     let marketSentiment: 'bullish' | 'neutral' | 'bearish';
     const bullishRatio = totalStocks > 0 ? positiveStocks / totalStocks : 0;
-    
+
     if (bullishRatio > 0.6) {
       marketSentiment = 'bullish';
     } else if (bullishRatio < 0.4) {
@@ -101,18 +101,18 @@ export async function GET() {
         neutralPercentage: totalStocks > 0 ? Math.round((neutralStocks / totalStocks) * 100) : 0,
         totalStocks: totalStocks
       },
-      
+
       topRecommendations: await generateTopRecommendations(client),
-      
+
       breakoutDetection: {
         candidates: marketData.breakout_candidates || [],
         totalDetected: marketData.breakout_candidates?.length || 0
       },
-      
+
       riskAlerts: await generateRiskAlerts(client),
-      
+
       sectorRotation: await analyzeSectorRotation(client),
-      
+
       marketOverview: {
         totalStocks: totalStocks,
         averagePrice: safeParseFloat(marketData.market_stats?.avg_price),
@@ -133,8 +133,8 @@ export async function GET() {
   } catch (error) {
     console.error('Dashboard insights API error:', error);
     return NextResponse.json(
-      { 
-        success: false, 
+      {
+        success: false,
         error: 'Failed to generate market insights',
         details: error instanceof Error ? error.message : 'Unknown error'
       },
@@ -150,65 +150,44 @@ export async function GET() {
 async function generateTopRecommendations(client: Client) {
   try {
     const query = `
-      WITH latest_data AS (
+      WITH latest_evals AS (
         SELECT 
-          g.*,
-          ROW_NUMBER() OVER (PARTITION BY g.symbol ORDER BY g.date DESC) as rn
-        FROM gold_ohlcv_daily_metrics g
-        WHERE g.date >= CURRENT_DATE - INTERVAL '7 days'
-          AND g.close > 0
-          AND g.rsi_14 IS NOT NULL
-      ),
-      avg_volume_calc AS (
-        SELECT AVG(total_volume) as avg_volume
-        FROM latest_data 
-        WHERE rn = 1
-      ),
-      strong_performers AS (
-        SELECT 
-          symbol,
-          close,
-          daily_return_pct,
-          rsi_14,
-          macd_line,
-          macd_signal,
-          total_volume,
-          market_cap,
-          -- Scoring algorithm (simplified for better results)
-          (
-            CASE WHEN daily_return_pct > 0 THEN 1 ELSE 0 END * 0.4 +
-            CASE WHEN rsi_14 BETWEEN 30 AND 70 THEN 1 ELSE 0 END * 0.3 +
-            CASE WHEN macd_line > macd_signal THEN 1 ELSE 0 END * 0.3
-          ) as score
-        FROM latest_data, avg_volume_calc
-        WHERE rn = 1 
-          AND close > 1  -- Minimum price (lowered)
-          AND market_cap > 10000000  -- Minimum market cap (lowered)
-          AND rsi_14 IS NOT NULL  -- Must have RSI data
-        ORDER BY score DESC, daily_return_pct DESC
-        LIMIT 3
+          e.*,
+          m.close as price,
+          m.daily_return_pct,
+          m.rsi_14,
+          m.market_cap,
+          ROW_NUMBER() OVER (PARTITION BY e.ticker ORDER BY e.evaluation_date DESC) as rn
+        FROM gold_ai_evaluations e
+        JOIN gold_ohlcv_daily_metrics m ON e.ticker = m.symbol AND m.date = (SELECT MAX(date) FROM gold_ohlcv_daily_metrics)
+        WHERE e.evaluation_date >= CURRENT_DATE - INTERVAL '7 days'
+          AND (e.recommendation = 'Strong Buy' OR e.recommendation = 'Buy')
       )
       SELECT 
-        symbol,
-        close as price,
+        ticker as symbol,
+        price,
         daily_return_pct as dailyReturn,
         rsi_14 as rsi,
-        score,
-        market_cap as marketCap
-      FROM strong_performers
+        final_score as score,
+        market_cap as marketCap,
+        investment_thesis as reasoning
+      FROM latest_evals
+      WHERE rn = 1
+      ORDER BY final_score DESC
+      LIMIT 3
     `;
 
     const result = await client.query(query);
-    
+
     const recommendations = result.rows.map((row, index) => ({
       rank: index + 1,
       symbol: row.symbol,
       price: safeParseFloat(row.price),
-      dailyReturn: safeParseFloat(row.daily_return),
+      dailyReturn: safeParseFloat(row.dailyreturn),
       rsi: safeParseFloat(row.rsi),
-      confidence: Math.round((row.score || 0) * 100),
+      confidence: Math.round((safeParseFloat(row.score) || 0)),
       marketCap: safeParseFloat(row.marketcap),
-      reasoning: generateReasoning(row.symbol, row.score, row.daily_return, row.rsi)
+      reasoning: row.reasoning || `${row.symbol} was highly rated by the AI models.`
     }));
 
     // If no recommendations found, return some fallback recommendations
@@ -227,21 +206,21 @@ async function generateTopRecommendations(client: Client) {
           AND rsi_14 IS NOT NULL
         LIMIT 3
       `;
-      
+
       const fallbackResult = await client.query(fallbackQuery);
-      
+
       return fallbackResult.rows.map((row, index) => ({
         rank: index + 1,
         symbol: row.symbol,
         price: safeParseFloat(row.price),
-        dailyReturn: safeParseFloat(row.daily_return),
+        dailyReturn: safeParseFloat(row.dailyreturn),
         rsi: safeParseFloat(row.rsi),
         confidence: Math.round(Math.random() * 30 + 50), // Random confidence 50-80%
         marketCap: safeParseFloat(row.marketcap),
-        reasoning: `${row.symbol} shows strong momentum with ${safeParseFloat(row.daily_return)?.toFixed(2)}% daily return`
+        reasoning: `${row.symbol} shows strong volume momentum with ${safeParseFloat(row.dailyreturn)?.toFixed(2)}% daily return`
       }));
     }
-    
+
     return recommendations;
   } catch (error) {
     console.error('Error generating recommendations:', error);
@@ -280,8 +259,8 @@ async function generateRiskAlerts(client: Client) {
     `;
 
     const result = await client.query(query);
-    
-    return result.rows.map(row => ({
+
+    return result.rows.map((row: any) => ({
       symbol: row.symbol,
       price: safeParseFloat(row.close),
       severity: getRiskSeverity(row.rsi_14, row.daily_return_pct),
@@ -301,27 +280,30 @@ async function generateRiskAlerts(client: Client) {
 
 async function analyzeSectorRotation(client: Client) {
   try {
-    // Simplified sector analysis - in a real implementation, you'd have sector data
     const query = `
       WITH latest_data AS (
         SELECT 
-          g.*,
-          ROW_NUMBER() OVER (PARTITION BY g.symbol ORDER BY g.date DESC) as rn
-        FROM gold_ohlcv_daily_metrics g
-        WHERE g.date >= CURRENT_DATE - INTERVAL '7 days'
+          m.symbol,
+          m.daily_return_pct,
+          m.rsi_14,
+          COALESCE(t.industry, t.sector, 'Market ETF') as industry_group
+        FROM gold_ohlcv_daily_metrics m
+        LEFT JOIN silver_tickers t ON m.symbol = t.ticker
+        WHERE m.date = (SELECT MAX(date) FROM gold_ohlcv_daily_metrics)
       ),
-      exchange_performance AS (
+      sector_performance AS (
         SELECT 
-          primary_exchange,
+          industry_group,
           COUNT(*) as stock_count,
           AVG(daily_return_pct) as avg_return,
           AVG(rsi_14) as avg_rsi
         FROM latest_data 
-        WHERE rn = 1 AND primary_exchange IS NOT NULL
-        GROUP BY primary_exchange
+        WHERE industry_group IS NOT NULL
+        GROUP BY industry_group
+        HAVING COUNT(*) > 5  -- Only robust sectors
       )
       SELECT 
-        primary_exchange as exchange,
+        industry_group as exchange,
         stock_count,
         avg_return,
         avg_rsi,
@@ -331,21 +313,22 @@ async function analyzeSectorRotation(client: Client) {
           WHEN avg_return > -2 THEN 'hold'
           ELSE 'sell'
         END as signal
-      FROM exchange_performance
+      FROM sector_performance
       ORDER BY avg_return DESC
+      LIMIT 10
     `;
 
     const result = await client.query(query);
-    
+
     return {
-      exchanges: result.rows.map(row => ({
+      exchanges: result.rows.map((row: any) => ({
         exchange: row.exchange,
         stockCount: row.stock_count,
         averageReturn: safeParseFloat(row.avg_return),
         averageRSI: safeParseFloat(row.avg_rsi),
         signal: row.signal
       })),
-      overallTrend: result.rows.length > 0 ? 
+      overallTrend: result.rows.length > 0 ?
         (result.rows[0].avg_return > 0 ? 'positive' : 'negative') : 'neutral'
     };
   } catch (error) {
@@ -356,11 +339,11 @@ async function analyzeSectorRotation(client: Client) {
 
 function generateReasoning(symbol: string, score: number, dailyReturn: number, rsi: number): string {
   const reasons = [];
-  
+
   if (dailyReturn > 0) reasons.push('positive momentum');
   if (rsi && rsi > 40 && rsi < 70) reasons.push('healthy RSI levels');
   if (score > 0.7) reasons.push('strong technical indicators');
-  
+
   return `${symbol} shows ${reasons.join(', ')} with ${Math.round((score || 0) * 100)}% confidence.`;
 }
 

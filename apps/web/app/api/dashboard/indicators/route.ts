@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Client } from "pg";
 
 // Market indices symbols - using available ETFs (VIXY instead of VIX since VIX is not available)
 const MARKET_INDICES = ['SPY', 'QQQ', 'DIA', 'VIXY'];
@@ -11,53 +12,49 @@ const safeParseFloat = (value: any): number | null => {
 };
 
 export async function GET() {
+  let client: Client | null = null;
+
   try {
-    // Temporary hardcoded data to test frontend
-    const indices = [
-      {
-        symbol: 'SPY',
-        name: 'SPDR S&P 500 ETF Trust',
-        price: 671.16,
-        change: -1.95,
-        changePercent: -0.29,
-        lastUpdated: '2025-10-09',
-        description: 'Tracks the S&P 500 index, representing 500 largest US companies'
-      },
-      {
-        symbol: 'QQQ',
-        name: 'Invesco QQQ Trust',
-        price: 610.70,
-        change: -0.74,
-        changePercent: -0.12,
-        lastUpdated: '2025-10-09',
-        description: 'Tracks the NASDAQ-100 index, focused on technology and growth stocks'
-      },
-      {
-        symbol: 'DIA',
-        name: 'SPDR Dow Jones Industrial Average ETF',
-        price: 463.50,
-        change: -2.57,
-        changePercent: -0.55,
-        lastUpdated: '2025-10-09',
-        description: 'Tracks the Dow Jones Industrial Average, representing 30 blue-chip stocks'
-      },
-      {
-        symbol: 'VIXY',
-        name: 'ProShares VIX Short-Term Futures ETF',
-        price: 33.25,
-        change: 0.37,
-        changePercent: 1.13,
-        lastUpdated: '2025-09-23',
-        description: 'Tracks VIX futures, measures market volatility and investor fear'
-      }
-    ];
+    // Database connection
+    client = new Client({
+      connectionString: process.env.POSTGRES_URL || 'postgresql://neondb_owner:npg_GhSFKa2wf8vb@ep-billowing-waterfall-a76q5go4-pooler.ap-southeast-2.aws.neon.tech/neondb?sslmode=require',
+      ssl: { rejectUnauthorized: false }
+    });
+    await client.connect();
+
+    // Query latest index data from DB
+    const query = `
+      WITH latest_dates AS (
+        SELECT symbol, MAX(date) as max_date
+        FROM gold_ohlcv_daily_metrics
+        WHERE symbol IN ('SPY', 'QQQ', 'DIA', 'IWM')
+        GROUP BY symbol
+      )
+      SELECT g.symbol, g.close as price, g.daily_return_pct as change_percent, 
+             (g.close - (g.close / (1 + (g.daily_return_pct / 100)))) as change,
+             g.date as last_updated
+      FROM gold_ohlcv_daily_metrics g
+      JOIN latest_dates ld ON g.symbol = ld.symbol AND g.date = ld.max_date
+    `;
+
+    const result = await client.query(query);
+
+    const indices = result.rows.map((row: any) => ({
+      symbol: row.symbol,
+      name: getIndexName(row.symbol),
+      price: safeParseFloat(row.price),
+      change: safeParseFloat(row.change),
+      changePercent: safeParseFloat(row.change_percent),
+      lastUpdated: row.last_updated.toISOString().split('T')[0],
+      description: getIndexDescription(row.symbol)
+    }));
 
     // Calculate market summary
     const marketSummary = {
       totalIndices: indices.length,
-      positiveIndices: indices.filter(idx => idx.changePercent && idx.changePercent > 0).length,
-      negativeIndices: indices.filter(idx => idx.changePercent && idx.changePercent < 0).length,
-      averageChange: indices.reduce((sum, idx) => sum + (idx.changePercent || 0), 0) / indices.length,
+      positiveIndices: indices.filter((idx: any) => idx.changePercent && idx.changePercent > 0).length,
+      negativeIndices: indices.filter((idx: any) => idx.changePercent && idx.changePercent < 0).length,
+      averageChange: indices.length > 0 ? indices.reduce((sum: number, idx: any) => sum + (idx.changePercent || 0), 0) / indices.length : 0,
       lastUpdated: new Date().toISOString()
     };
 
@@ -72,13 +69,17 @@ export async function GET() {
   } catch (error) {
     console.error('Dashboard indicators API error:', error);
     return NextResponse.json(
-      { 
-        success: false, 
+      {
+        success: false,
         error: 'Failed to fetch market indicators',
         details: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
     );
+  } finally {
+    if (client) {
+      await client.end();
+    }
   }
 }
 

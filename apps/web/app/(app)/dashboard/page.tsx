@@ -36,6 +36,7 @@ interface Stock {
     volumeTrend: string;
     dailyReturn: number | null;
   };
+  prevClose?: number | null;
   lastUpdated: string;
 }
 
@@ -74,6 +75,16 @@ interface MarketInsights {
     dailyReturn: number | null;
     message: string;
   }>;
+  sectorRotation: {
+    exchanges: Array<{
+      exchange: string;
+      stockCount: number;
+      averageReturn: number | null;
+      averageRSI: number | null;
+      signal: 'strong_buy' | 'buy' | 'hold' | 'sell';
+    }>;
+    overallTrend: 'positive' | 'negative' | 'neutral';
+  };
   marketOverview: {
     totalStocks: number;
     averagePrice: number | null;
@@ -144,11 +155,11 @@ export default function DashboardPage() {
       if (indicatorsData.success) {
         setMarketIndicators(indicatorsData.data.indices);
       }
-      
+
       if (stocksData.success) {
         setStocks(stocksData.data.stocks);
       }
-      
+
       if (insightsData.success) {
         setInsights(insightsData.data);
       }
@@ -302,7 +313,7 @@ export default function DashboardPage() {
                   {insights.marketSentiment.sentiment.toUpperCase()}
                 </span>
               </div>
-              
+
               {/* Visual Sentiment Bar */}
               <div className="mb-4">
                 <div className="flex items-center justify-between text-xs text-gray-400 mb-2">
@@ -310,20 +321,20 @@ export default function DashboardPage() {
                   <span>{insights.marketSentiment.totalStocks} stocks analyzed</span>
                 </div>
                 <div className="relative h-8 bg-gray-700 rounded-full overflow-hidden">
-                  <div 
+                  <div
                     className="absolute top-0 left-0 h-full bg-green-500 transition-all duration-500"
                     style={{ width: `${insights.marketSentiment.bullishPercentage}%` }}
                   />
-                  <div 
+                  <div
                     className="absolute top-0 h-full bg-yellow-500 transition-all duration-500"
-                    style={{ 
+                    style={{
                       left: `${insights.marketSentiment.bullishPercentage}%`,
                       width: `${insights.marketSentiment.neutralPercentage}%`
                     }}
                   />
-                  <div 
+                  <div
                     className="absolute top-0 h-full bg-red-500 transition-all duration-500"
-                    style={{ 
+                    style={{
                       left: `${insights.marketSentiment.bullishPercentage + insights.marketSentiment.neutralPercentage}%`,
                       width: `${insights.marketSentiment.bearishPercentage}%`
                     }}
@@ -354,7 +365,7 @@ export default function DashboardPage() {
             <Card className="border-white/10 bg-[#2a2a2a] p-6">
               <div className="flex items-center space-x-2 mb-4">
                 <TrendingUp className="w-5 h-5 text-[var(--accent)]" />
-                <h3 className="text-lg font-semibold text-white">AI Recommendations</h3>
+                <h3 className="text-lg font-semibold text-white">Top AI Recommendations</h3>
               </div>
               <div className="space-y-3">
                 {insights.topRecommendations.map((rec) => (
@@ -377,20 +388,53 @@ export default function DashboardPage() {
                 ))}
               </div>
             </Card>
+
+            {/* Sector Rotation Tracker */}
+            <Card className="border-white/10 bg-[#2a2a2a] p-6 lg:col-span-2">
+              <div className="flex items-center space-x-2 mb-4">
+                <Activity className="w-5 h-5 text-[var(--accent)]" />
+                <h3 className="text-lg font-semibold text-white">Sector Momentum</h3>
+                <span className={`px-2 py-1 rounded-full text-xs font-medium border ${insights.sectorRotation.overallTrend === 'positive' ? 'text-green-400 bg-green-900/20 border-green-700/30' : insights.sectorRotation.overallTrend === 'negative' ? 'text-red-400 bg-red-900/20 border-red-700/30' : 'text-gray-400 bg-gray-900/20 border-gray-700/30'}`}>
+                  {insights.sectorRotation.overallTrend.toUpperCase() + " TREND"}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+                {insights.sectorRotation.exchanges.map((sector) => (
+                  <div key={sector.exchange} className="p-3 bg-white/5 rounded-lg border border-transparent hover:border-white/10 transition-colors">
+                    <div className="flex justify-between items-start mb-2">
+                      <span className="font-semibold text-white text-sm truncate pr-2" title={sector.exchange}>{sector.exchange}</span>
+                      <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${sector.signal === 'strong_buy' ? 'bg-green-500/20 text-green-400' :
+                          sector.signal === 'buy' ? 'bg-green-900/20 text-green-400' :
+                            sector.signal === 'sell' ? 'bg-red-900/20 text-red-400' :
+                              'bg-gray-800 text-gray-400'
+                        }`}>
+                        {sector.signal === 'strong_buy' ? 'STRONG' : sector.signal.toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-end mt-1">
+                      <div className="text-xs text-gray-500">{sector.stockCount} assets</div>
+                      <div className={`font-medium ${sector.averageReturn && sector.averageReturn >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                        {sector.averageReturn && sector.averageReturn >= 0 ? '+' : ''}{formatNumber(sector.averageReturn, 1)}%
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
           </div>
         )}
 
-        {/* Stock Screening Table */}
+        {/* Market Watch Table */}
         <Card className="border-white/10 bg-[#2a2a2a]">
           <div className="p-6 border-b border-white/10">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <Filter className="w-5 h-5 text-[var(--accent)]" />
-                <h3 className="text-lg font-semibold text-white">Stock Screener</h3>
-                <span className="text-sm text-gray-400">({stocks.length} stocks)</span>
+                <h3 className="text-lg font-semibold text-white">Market Watch Movers</h3>
+                <span className="text-sm text-gray-400">({stocks.length} tracked assets)</span>
               </div>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 size="sm"
                 onClick={() => setShowFilters(!showFilters)}
               >
@@ -398,7 +442,7 @@ export default function DashboardPage() {
               </Button>
             </div>
           </div>
-          
+
           {/* Advanced Filters */}
           {showFilters && (
             <div className="p-6 border-b border-white/10 bg-white/5">
@@ -410,19 +454,19 @@ export default function DashboardPage() {
                       type="number"
                       placeholder="Min"
                       value={filters.minPrice}
-                      onChange={(e) => setFilters({...filters, minPrice: e.target.value})}
+                      onChange={(e) => setFilters({ ...filters, minPrice: e.target.value })}
                       className="w-full px-3 py-2 bg-[#2a2a2a] border border-white/10 rounded text-white text-sm"
                     />
                     <input
                       type="number"
                       placeholder="Max"
                       value={filters.maxPrice}
-                      onChange={(e) => setFilters({...filters, maxPrice: e.target.value})}
+                      onChange={(e) => setFilters({ ...filters, maxPrice: e.target.value })}
                       className="w-full px-3 py-2 bg-[#2a2a2a] border border-white/10 rounded text-white text-sm"
                     />
                   </div>
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">Market Cap Range</label>
                   <div className="flex space-x-2">
@@ -430,19 +474,19 @@ export default function DashboardPage() {
                       type="number"
                       placeholder="Min (M)"
                       value={filters.minMarketCap}
-                      onChange={(e) => setFilters({...filters, minMarketCap: e.target.value})}
+                      onChange={(e) => setFilters({ ...filters, minMarketCap: e.target.value })}
                       className="w-full px-3 py-2 bg-[#2a2a2a] border border-white/10 rounded text-white text-sm"
                     />
                     <input
                       type="number"
                       placeholder="Max (M)"
                       value={filters.maxMarketCap}
-                      onChange={(e) => setFilters({...filters, maxMarketCap: e.target.value})}
+                      onChange={(e) => setFilters({ ...filters, maxMarketCap: e.target.value })}
                       className="w-full px-3 py-2 bg-[#2a2a2a] border border-white/10 rounded text-white text-sm"
                     />
                   </div>
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">RSI Range</label>
                   <div className="flex space-x-2">
@@ -452,7 +496,7 @@ export default function DashboardPage() {
                       min="0"
                       max="100"
                       value={filters.minRsi}
-                      onChange={(e) => setFilters({...filters, minRsi: e.target.value})}
+                      onChange={(e) => setFilters({ ...filters, minRsi: e.target.value })}
                       className="w-full px-3 py-2 bg-[#2a2a2a] border border-white/10 rounded text-white text-sm"
                     />
                     <input
@@ -461,17 +505,17 @@ export default function DashboardPage() {
                       min="0"
                       max="100"
                       value={filters.maxRsi}
-                      onChange={(e) => setFilters({...filters, maxRsi: e.target.value})}
+                      onChange={(e) => setFilters({ ...filters, maxRsi: e.target.value })}
                       className="w-full px-3 py-2 bg-[#2a2a2a] border border-white/10 rounded text-white text-sm"
                     />
                   </div>
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">Volume Trend</label>
                   <select
                     value={filters.volumeTrend}
-                    onChange={(e) => setFilters({...filters, volumeTrend: e.target.value})}
+                    onChange={(e) => setFilters({ ...filters, volumeTrend: e.target.value })}
                     className="w-full px-3 py-2 bg-[#2a2a2a] border border-white/10 rounded text-white text-sm"
                   >
                     <option value="">All</option>
@@ -481,7 +525,7 @@ export default function DashboardPage() {
                   </select>
                 </div>
               </div>
-              
+
               <div className="flex justify-end space-x-2 mt-4">
                 <Button
                   variant="outline"
@@ -502,24 +546,24 @@ export default function DashboardPage() {
               </div>
             </div>
           )}
-          
+
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="border-b border-white/10">
                 <tr>
-                  <th 
+                  <th
                     className="text-left p-4 text-sm font-medium text-gray-400 cursor-pointer hover:text-white transition-colors"
                     onClick={() => handleSort('symbol')}
                   >
                     Symbol {getSortIcon('symbol')}
                   </th>
-                  <th 
+                  <th
                     className="text-left p-4 text-sm font-medium text-gray-400 cursor-pointer hover:text-white transition-colors"
                     onClick={() => handleSort('company_name')}
                   >
                     Company {getSortIcon('company_name')}
                   </th>
-                  <th 
+                  <th
                     className="text-right p-4 text-sm font-medium text-gray-400 cursor-pointer hover:text-white transition-colors"
                     onClick={() => handleSort('price')}
                   >
@@ -528,25 +572,25 @@ export default function DashboardPage() {
                   <th className="text-right p-4 text-sm font-medium text-gray-400">
                     Last
                   </th>
-                  <th 
+                  <th
                     className="text-right p-4 text-sm font-medium text-gray-400 cursor-pointer hover:text-white transition-colors"
                     onClick={() => handleSort('daily_return_pct')}
                   >
                     Change {getSortIcon('daily_return_pct')}
                   </th>
-                  <th 
+                  <th
                     className="text-right p-4 text-sm font-medium text-gray-400 cursor-pointer hover:text-white transition-colors"
                     onClick={() => handleSort('rsi')}
                   >
                     RSI {getSortIcon('rsi')}
                   </th>
-                  <th 
+                  <th
                     className="text-right p-4 text-sm font-medium text-gray-400 cursor-pointer hover:text-white transition-colors"
                     onClick={() => handleSort('market_cap')}
                   >
                     Market Cap {getSortIcon('market_cap')}
                   </th>
-                  <th 
+                  <th
                     className="text-right p-4 text-sm font-medium text-gray-400 cursor-pointer hover:text-white transition-colors"
                     onClick={() => handleSort('volume')}
                   >
@@ -589,11 +633,10 @@ export default function DashboardPage() {
                       </div>
                     </td>
                     <td className="p-4 text-right">
-                      <span className={`text-sm font-medium ${
-                        stock.technical.rsi && stock.technical.rsi > 70 ? 'text-red-400' :
+                      <span className={`text-sm font-medium ${stock.technical.rsi && stock.technical.rsi > 70 ? 'text-red-400' :
                         stock.technical.rsi && stock.technical.rsi < 30 ? 'text-green-400' :
-                        'text-gray-300'
-                      }`}>
+                          'text-gray-300'
+                        }`}>
                         {formatNumber(stock.technical.rsi, 1)}
                       </span>
                     </td>
@@ -624,18 +667,16 @@ export default function DashboardPage() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {insights.riskAlerts.slice(0, 6).map((alert, index) => (
-                <div key={index} className={`p-4 rounded-lg border ${
-                  alert.severity === 'high' ? 'border-red-500/30 bg-red-900/10' :
+                <div key={index} className={`p-4 rounded-lg border ${alert.severity === 'high' ? 'border-red-500/30 bg-red-900/10' :
                   alert.severity === 'medium' ? 'border-yellow-500/30 bg-yellow-900/10' :
-                  'border-gray-500/30 bg-gray-900/10'
-                }`}>
+                    'border-gray-500/30 bg-gray-900/10'
+                  }`}>
                   <div className="flex items-center justify-between mb-2">
                     <span className="font-semibold text-white">{alert.symbol}</span>
-                    <span className={`text-xs px-2 py-1 rounded ${
-                      alert.severity === 'high' ? 'bg-red-900/20 text-red-400' :
+                    <span className={`text-xs px-2 py-1 rounded ${alert.severity === 'high' ? 'bg-red-900/20 text-red-400' :
                       alert.severity === 'medium' ? 'bg-yellow-900/20 text-yellow-400' :
-                      'bg-gray-900/20 text-gray-400'
-                    }`}>
+                        'bg-gray-900/20 text-gray-400'
+                      }`}>
                       {alert.severity}
                     </span>
                   </div>

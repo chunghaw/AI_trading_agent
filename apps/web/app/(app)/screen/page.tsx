@@ -43,7 +43,7 @@ const DEFAULT_FILTERS: ScreenFilters = {
 import { ScreenerDashboard } from "@/components/screen/ScreenerDashboard";
 
 export default function ScreenPage() {
-  const [runDate, setRunDate] = useState(dayjs().format("YYYY-MM-DD"));
+  const [runDate, setRunDate] = useState("");
   const [candidates, setCandidates] = useState<ScreenCandidate[]>([]);
   const [run, setRun] = useState<ScreenRun | null>(null);
   const [loading, setLoading] = useState(false);
@@ -62,7 +62,12 @@ export default function ScreenPage() {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(`/api/screen/candidates?runDate=${runDate}&limit=100`);
+      const queryParams = new URLSearchParams({ limit: "100" });
+      if (runDate) {
+        queryParams.append("runDate", runDate);
+      }
+
+      const response = await fetch(`/api/screen/candidates?${queryParams.toString()}`);
       const data = await response.json();
 
       if (data.success) {
@@ -182,7 +187,7 @@ export default function ScreenPage() {
                 <label className="text-sm text-gray-300">Run Date:</label>
                 <input
                   type="date"
-                  value={runDate}
+                  value={runDate || (run?.run_date ? dayjs(run.run_date).format("YYYY-MM-DD") : "")}
                   onChange={(e) => setRunDate(e.target.value)}
                   className="px-3 py-2 bg-[#2a2a2a] border border-white/10 rounded text-white text-sm"
                   max={dayjs().format("YYYY-MM-DD")}

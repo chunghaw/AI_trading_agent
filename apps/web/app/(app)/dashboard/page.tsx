@@ -259,14 +259,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Ticker Management Section */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold text-white">Ticker Management</h2>
-          </div>
-          <TickerManagement />
-        </div>
-
         {/* Market Overview Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {marketIndicators.map((indicator) => (
@@ -404,9 +396,9 @@ export default function DashboardPage() {
                     <div className="flex justify-between items-start mb-2">
                       <span className="font-semibold text-white text-sm truncate pr-2" title={sector.exchange}>{sector.exchange}</span>
                       <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${sector.signal === 'strong_buy' ? 'bg-green-500/20 text-green-400' :
-                          sector.signal === 'buy' ? 'bg-green-900/20 text-green-400' :
-                            sector.signal === 'sell' ? 'bg-red-900/20 text-red-400' :
-                              'bg-gray-800 text-gray-400'
+                        sector.signal === 'buy' ? 'bg-green-900/20 text-green-400' :
+                          sector.signal === 'sell' ? 'bg-red-900/20 text-red-400' :
+                            'bg-gray-800 text-gray-400'
                         }`}>
                         {sector.signal === 'strong_buy' ? 'STRONG' : sector.signal.toUpperCase()}
                       </span>
@@ -690,6 +682,17 @@ export default function DashboardPage() {
             </div>
           </Card>
         )}
+
+        {/* Ticker Management Section */}
+        <div className="space-y-4 pt-8 mt-8 border-t border-white/10">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-2xl font-bold text-white mb-1">Ticker Management</h2>
+              <p className="text-sm text-gray-400">Manage your watchlisted assets and data ingestion queue.</p>
+            </div>
+          </div>
+          <TickerManagement />
+        </div>
       </div>
     </div>
   );

@@ -26,7 +26,7 @@ export async function GET() {
           g.*,
           ROW_NUMBER() OVER (PARTITION BY g.symbol ORDER BY g.date DESC) as rn
         FROM gold_ohlcv_daily_metrics g
-        WHERE g.date >= CURRENT_DATE - INTERVAL '7 days'
+        WHERE g.date >= (SELECT MAX(date) FROM gold_ohlcv_daily_metrics) - INTERVAL '7 days'
       ),
       market_stats AS (
         SELECT 
@@ -160,7 +160,7 @@ async function generateTopRecommendations(client: Client) {
           ROW_NUMBER() OVER (PARTITION BY e.ticker ORDER BY e.evaluation_date DESC) as rn
         FROM gold_ai_evaluations e
         JOIN gold_ohlcv_daily_metrics m ON e.ticker = m.symbol AND m.date = (SELECT MAX(date) FROM gold_ohlcv_daily_metrics)
-        WHERE e.evaluation_date >= CURRENT_DATE - INTERVAL '7 days'
+        WHERE e.evaluation_date >= (SELECT MAX(evaluation_date) FROM gold_ai_evaluations) - INTERVAL '7 days'
           AND (e.recommendation = 'Strong Buy' OR e.recommendation = 'Buy')
       )
       SELECT 
@@ -236,7 +236,7 @@ async function generateRiskAlerts(client: Client) {
           g.*,
           ROW_NUMBER() OVER (PARTITION BY g.symbol ORDER BY g.date DESC) as rn
         FROM gold_ohlcv_daily_metrics g
-        WHERE g.date >= CURRENT_DATE - INTERVAL '7 days'
+        WHERE g.date >= (SELECT MAX(date) FROM gold_ohlcv_daily_metrics) - INTERVAL '7 days'
       )
       SELECT 
         symbol,

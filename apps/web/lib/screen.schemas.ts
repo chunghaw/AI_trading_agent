@@ -41,7 +41,18 @@ export type ScreenPreset = z.infer<typeof ScreenPresetSchema>;
 // ============================================================================
 
 export const RunScreenRequestSchema = z.object({
-  runDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).default(() => new Date().toISOString().split('T')[0]), // YYYY-MM-DD
+  runDate: z
+    .string()
+    .optional()
+    .transform((val) => {
+      if (!val || val.trim() === "") {
+        return new Date().toISOString().split('T')[0];
+      }
+      return val;
+    })
+    .refine((val) => /^\d{4}-\d{2}-\d{2}$/.test(val), {
+      message: "runDate must be in YYYY-MM-DD format",
+    }),
   presetId: z.number().optional(),
   filters: ScreenFiltersSchema.optional(), // Override preset filters if provided
   topK: z.number().min(1).max(500).default(30), // Top K for news stage (30 = faster run)

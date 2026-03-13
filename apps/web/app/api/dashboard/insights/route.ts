@@ -150,18 +150,25 @@ export async function GET() {
 async function generateTopRecommendations(client: Client) {
   try {
     const query = `
-      WITH latest_evals AS (
+      WITH latest_run AS (
+        SELECT id FROM screen_runs ORDER BY id DESC LIMIT 1
+      ),
+      latest_evals AS (
         SELECT 
-          e.*,
+          c.ticker,
+          c.final_score,
+          s.summary_json->>'recommendation' as recommendation,
+          s.summary_json->>'one_sentence_thesis' as investment_thesis,
           m.close as price,
           m.daily_return_pct,
           m.rsi_14,
           m.market_cap,
-          ROW_NUMBER() OVER (PARTITION BY e.ticker ORDER BY e.evaluation_date DESC) as rn
-        FROM gold_ai_evaluations e
-        JOIN gold_ohlcv_daily_metrics m ON e.ticker = m.symbol AND m.date = (SELECT MAX(date) FROM gold_ohlcv_daily_metrics)
-        WHERE e.evaluation_date >= (SELECT MAX(evaluation_date) FROM gold_ai_evaluations) - INTERVAL '7 days'
-          AND (e.recommendation = 'Strong Buy' OR e.recommendation = 'Buy')
+          ROW_NUMBER() OVER (PARTITION BY c.ticker ORDER BY c.final_score DESC) as rn
+        FROM screen_candidates c
+        JOIN latest_run lr ON c.run_id = lr.id
+        LEFT JOIN candidate_summary s ON c.ticker = s.ticker AND c.run_id = s.run_id
+        JOIN gold_ohlcv_daily_metrics m ON c.ticker = m.symbol AND m.date = (SELECT MAX(date) FROM gold_ohlcv_daily_metrics)
+        WHERE s.summary_json->>'recommendation' IN ('Strong Buy', 'Buy')
       )
       SELECT 
         ticker as symbol,

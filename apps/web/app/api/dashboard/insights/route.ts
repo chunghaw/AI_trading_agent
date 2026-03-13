@@ -293,9 +293,8 @@ async function analyzeSectorRotation(client: Client) {
           m.symbol,
           m.daily_return_pct,
           m.rsi_14,
-          COALESCE(t.industry, t.sector, 'Market ETF') as industry_group
+          COALESCE(m.stock_type, m.market, 'Market ETF') as industry_group
         FROM gold_ohlcv_daily_metrics m
-        LEFT JOIN silver_tickers t ON m.symbol = t.ticker
         WHERE m.date = (SELECT MAX(date) FROM gold_ohlcv_daily_metrics)
       ),
       sector_performance AS (

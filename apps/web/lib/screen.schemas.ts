@@ -95,6 +95,8 @@ export const TechnicalFeaturesSchema = z.object({
   dollar_volume: z.number().nullable(),
   beta_1y: z.number().nullable(),
   dollar_volume_1m: z.number().nullable(),
+  order_flow: z.string().nullable().optional(),
+  volume_trend: z.string().nullable().optional(),
   // Flags
   breakout_flag: z.boolean(),
   trend_flag: z.boolean(),

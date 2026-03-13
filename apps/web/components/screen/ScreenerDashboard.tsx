@@ -123,9 +123,34 @@ export function ScreenerDashboard({ candidates }: ScreenerDashboardProps) {
     const indexTickers = ["SPY", "QQQ", "DIA", "IWM"];
     const marketIndices = candidates.filter(c => indexTickers.includes(c.ticker));
 
-    // Extract Watchlist Alerts (e.g. MACD Crossover or Volatility Breakout)
+    // Extract Watchlist Alerts (Order Flow, Volume Profile, Anchored VWAP, Liquidity)
     const activeAlerts = candidates
-        .filter(c => c.features?.macd_hist && c.features.macd_hist > 0 && c.summary?.recommendation === 'Strong Buy')
+        .filter(c => c.summary?.recommendation === 'Strong Buy' || c.summary?.recommendation === 'Buy')
+        .map(c => {
+            let alertLabel = "";
+            let alertColor = "text-blue-400";
+
+            if (c.features?.order_flow === "Accumulation" || c.features?.volume_trend === "Rising") {
+                alertLabel = "Strong Order Flow";
+                alertColor = "text-green-400";
+            } else if (c.features?.price && c.features?.vwap && c.features.price > c.features.vwap * 1.01) {
+                alertLabel = "Above VWAP";
+                alertColor = "text-blue-400";
+            } else if (c.features?.volume && c.features.volume > 5000000) {
+                alertLabel = "High Liquidity";
+                alertColor = "text-purple-400";
+            } else if (c.features?.rsi && c.features.rsi < 40) {
+                alertLabel = "Oversold Bounce";
+                alertColor = "text-yellow-400";
+            }
+
+            return {
+                ticker: c.ticker,
+                label: alertLabel,
+                color: alertColor
+            };
+        })
+        .filter(a => a.label !== "")
         .slice(0, 4);
 
     return (
@@ -163,7 +188,7 @@ export function ScreenerDashboard({ candidates }: ScreenerDashboardProps) {
                         {activeAlerts.map(alert => (
                             <div key={alert.ticker} className="text-xs flex justify-between items-center text-gray-300 bg-white/5 p-2 rounded">
                                 <span className="font-bold text-white">{alert.ticker}</span>
-                                <span className="text-blue-400 text-[10px] uppercase">MACD Bullish</span>
+                                <span className={`${alert.color} text-[10px] uppercase font-semibold`}>{alert.label}</span>
                             </div>
                         ))}
                         {activeAlerts.length === 0 && <span className="text-xs text-gray-500">No active alerts.</span>}

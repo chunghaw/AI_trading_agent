@@ -74,6 +74,11 @@ export async function GET(req: NextRequest) {
 
     // Get candidates with enriched data
     const candidatesQuery = `
+      WITH latest_gold AS (
+        SELECT symbol, close, last_close, rsi_14 as rsi, vwap, total_volume as volume, volume_price_relationship as order_flow, volume_trend,
+               ROW_NUMBER() OVER(PARTITION BY symbol ORDER BY date DESC) as rn
+        FROM gold_ohlcv_daily_metrics
+      )
       SELECT 
         c.id,
         c.run_id,
@@ -83,6 +88,13 @@ export async function GET(req: NextRequest) {
         c.news_score,
         c.tags_json,
         c.created_at,
+        g.close as price,
+        g.last_close as prev_close,
+        g.rsi,
+        g.vwap,
+        g.volume,
+        g.order_flow,
+        g.volume_trend,
         -- Features
         f.sma50,
         f.sma200,
@@ -102,6 +114,7 @@ export async function GET(req: NextRequest) {
       FROM screen_candidates c
       LEFT JOIN candidate_features f ON c.run_id = f.run_id AND c.ticker = f.ticker
       LEFT JOIN candidate_summary s ON c.run_id = s.run_id AND c.ticker = s.ticker
+      LEFT JOIN latest_gold g ON c.ticker = g.symbol AND g.rn = 1
       ${whereClause}
       ORDER BY c.final_score DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
@@ -138,18 +151,20 @@ export async function GET(req: NextRequest) {
       features: {
         ticker: row.ticker,
         asof_date: run.run_date,
-        price: null, // Can be enriched from gold table if needed
+        price: row.price ? parseFloat(row.price) : null,
         sma50: row.sma50 ? parseFloat(row.sma50) : null,
         sma200: row.sma200 ? parseFloat(row.sma200) : null,
         macd: row.macd ? parseFloat(row.macd) : null,
         macd_signal: row.macd_signal ? parseFloat(row.macd_signal) : null,
         macd_hist: row.macd_hist ? parseFloat(row.macd_hist) : null,
-        rsi: null, // Can be enriched
+        rsi: row.rsi ? parseFloat(row.rsi) : null,
         rvol: row.rvol ? parseFloat(row.rvol) : null,
         atrp: row.atrp ? parseFloat(row.atrp) : null,
         atr: null,
-        vwap: null,
-        volume: null,
+        vwap: row.vwap ? parseFloat(row.vwap) : null,
+        volume: row.volume ? parseFloat(row.volume) : null,
+        order_flow: row.order_flow || null,
+        volume_trend: row.volume_trend || null,
         dollar_volume: null,
         beta_1y: row.beta_1y ? parseFloat(row.beta_1y) : null,
         dollar_volume_1m: row.dollar_volume_1m ? parseFloat(row.dollar_volume_1m) : null,
@@ -159,7 +174,7 @@ export async function GET(req: NextRequest) {
         volume_flag: row.volume_flag || false,
         high_20d: null,
         high_50d: null,
-        prev_close: null,
+        prev_close: row.prev_close ? parseFloat(row.prev_close) : null,
         prev_macd_hist: null,
         market_cap: row.market_cap ? parseFloat(row.market_cap) : null,
         security_type: row.security_type || "Stock",

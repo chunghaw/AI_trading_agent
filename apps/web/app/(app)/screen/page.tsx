@@ -230,7 +230,7 @@ export default function ScreenPage() {
                 size="sm"
                 title="Force a complete re-calculation using OpenAI. Takes 2-3 minutes."
               >
-                {running ? "Running AI Pipeline..." : "Force New AI Run (2 mins)"}
+                {running ? "Refreshing AI Analysis..." : "Refresh AI Analysis"}
               </Button>
             </div>
 

@@ -205,30 +205,32 @@ export default function ScreenPage() {
               </Button>
 
               <Button
-                onClick={runScreen}
-                disabled={running || loading}
+                onClick={fetchCandidates}
+                disabled={loading || running}
                 className="bg-[var(--accent)] hover:bg-[var(--accent-600)] text-white"
               >
-                {running ? (
+                {loading ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Running...
+                    Loading...
                   </>
                 ) : (
                   <>
                     <Play className="w-4 h-4 mr-2" />
-                    Run Screen
+                    Load Screen Data
                   </>
                 )}
               </Button>
 
               <Button
-                onClick={fetchCandidates}
-                disabled={loading || running}
+                onClick={runScreen}
+                disabled={running || loading}
                 variant="outline"
+                className="text-gray-400 border-gray-600 hover:text-white"
                 size="sm"
+                title="Force a complete re-calculation using OpenAI. Takes 2-3 minutes."
               >
-                Refresh
+                {running ? "Running AI Pipeline..." : "Force New AI Run (2 mins)"}
               </Button>
             </div>
 

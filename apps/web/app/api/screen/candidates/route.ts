@@ -75,7 +75,7 @@ export async function GET(req: NextRequest) {
     // Get candidates with enriched data
     const candidatesQuery = `
       WITH latest_gold AS (
-        SELECT symbol, close, last_close, rsi_14 as rsi, vwap, total_volume as volume, volume_price_relationship as order_flow, volume_trend,
+        SELECT symbol, close, open, last_close, rsi_14 as rsi, vwap, total_volume as volume, volume_price_relationship as order_flow, volume_trend,
                ROW_NUMBER() OVER(PARTITION BY symbol ORDER BY date DESC) as rn
         FROM gold_ohlcv_daily_metrics
       )
@@ -89,7 +89,7 @@ export async function GET(req: NextRequest) {
         c.tags_json,
         c.created_at,
         g.close as price,
-        g.last_close as prev_close,
+        COALESCE(g.last_close, g.open) as prev_close,
         g.rsi,
         g.vwap,
         g.volume,

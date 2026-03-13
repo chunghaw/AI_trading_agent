@@ -50,14 +50,14 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
                         { id: "MAWeighted@tv-basicstudies", inputs: { length: 20 } }, // For Orange
                         { id: "MAExp@tv-basicstudies", inputs: { length: 50 } },      // For Blue
                         { id: "MASimple@tv-basicstudies", inputs: { length: 200 } },  // For Red
-                        { id: "MACD@tv-basicstudies" }
+                        { id: "VWAP@tv-basicstudies" },
+                        { id: "Volume@tv-basicstudies" },
+                        { id: "RSI@tv-basicstudies" }
                     ],
                     studies_overrides: {
                         "MAWeighted@tv-basicstudies.plot.color": "#FFEB3B", // Yellow MA 20
                         "MAExp@tv-basicstudies.plot.color": "#2196F3",      // Blue MA 50
                         "MASimple@tv-basicstudies.plot.color": "#F44336",   // Red MA 200
-                        "MACD@tv-basicstudies.MACD.color": "#2196F3",
-                        "MACD@tv-basicstudies.Signal.color": "#FFEB3B",
                     },
                 });
             }

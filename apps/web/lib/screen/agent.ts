@@ -34,14 +34,16 @@ export async function analyzeCandidate(
 
     // Prepare technical context
     const technicalContext = `
-  Price: $${features.price.toFixed(2)}
+  Price: $${features.price?.toFixed(2) || "N/A"}
+  VWAP: ${features.vwap ? "$" + features.vwap.toFixed(2) : "N/A"}
+  Volume: ${features.volume ? features.volume.toLocaleString() : "N/A"}
+  Order Flow: ${features.order_flow || "N/A"}
+  Volume Trend: ${features.volume_trend || "N/A"}
   SMA50: ${features.sma50?.toFixed(2) || "N/A"}
   SMA200: ${features.sma200?.toFixed(2) || "N/A"}
   RSI: ${features.rsi?.toFixed(2) || "N/A"}
-  MACD: ${features.macd?.toFixed(3) || "N/A"} (Signal: ${features.macd_signal?.toFixed(3) || "N/A"})
   Trend: ${features.trend_flag ? "Strong Uptrend" : "Neutral/Weak"}
   Breakout: ${features.breakout_flag ? "Yes" : "No"}
-  Momentum: ${features.momentum_flag ? "Positive" : "Negative"}
   Relative Vol: ${features.rvol?.toFixed(2) || "N/A"}x
   `;
 
@@ -68,7 +70,7 @@ Snippet: ${snippet}...`;
 
   TASK:
   1. Generate a brief 1-sentence descriptor (company_description) explaining what ${ticker} does, and identify its broad Industry.
-  2. Analyze the Technical Structure first (Trend, Momentum, Moving Averages).
+  2. Analyze the Technical Structure first. Focus deeply on Strong Order Flow, current Price vs VWAP, Liquidity (Volume), and Oversold bounce potential (using RSI < 40).
   3. Use News to Identify Catalysts/Risks that support or contradict the technicals.
   4. Determine a recommendation (Strong Buy, Buy, Hold, Sell, Strong Sell).
   5. Write a 1-sentence quick thesis.

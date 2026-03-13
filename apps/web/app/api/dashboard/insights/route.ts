@@ -288,32 +288,48 @@ async function generateRiskAlerts(client: Client) {
 async function analyzeSectorRotation(client: Client) {
   try {
     const query = `
-      SELECT symbol, daily_return_pct as avg_return, rsi_14 as avg_rsi
-      FROM gold_ohlcv_daily_metrics
-      WHERE symbol IN ('XLK', 'XLV', 'XLF', 'XLY', 'XLC', 'XLI', 'XLP', 'XLE', 'XLU', 'XLRE', 'XLB')
-      AND date = (SELECT MAX(date) FROM gold_ohlcv_daily_metrics)
-      ORDER BY daily_return_pct DESC
+      WITH latest_data AS (
+        SELECT 
+          m.symbol,
+          m.daily_return_pct,
+          m.rsi_14,
+          c.sector as industry_group
+        FROM gold_ohlcv_daily_metrics m
+        JOIN company_sectors c ON m.symbol = c.symbol
+        WHERE m.date = (SELECT MAX(date) FROM gold_ohlcv_daily_metrics)
+          AND c.sector IS NOT NULL AND c.sector != 'Unknown' AND c.sector != ''
+      ),
+      sector_performance AS (
+        SELECT 
+          industry_group,
+          COUNT(*) as stock_count,
+          AVG(daily_return_pct) as avg_return,
+          AVG(rsi_14) as avg_rsi
+        FROM latest_data 
+        GROUP BY industry_group
+        HAVING COUNT(*) > 5
+      )
+      SELECT 
+        industry_group as exchange,
+        stock_count,
+        avg_return,
+        avg_rsi,
+        CASE 
+          WHEN avg_return > 2 THEN 'strong_buy'
+          WHEN avg_return > 0 THEN 'buy'
+          WHEN avg_return > -2 THEN 'hold'
+          ELSE 'sell'
+        END as signal
+      FROM sector_performance
+      ORDER BY avg_return DESC
+      LIMIT 12
     `;
 
     const result = await client.query(query);
 
-    const sectorNames: Record<string, string> = {
-      'XLK': 'Technology',
-      'XLV': 'Healthcare',
-      'XLF': 'Financials',
-      'XLY': 'Consumer Discretionary',
-      'XLC': 'Communication Services',
-      'XLI': 'Industrials',
-      'XLP': 'Consumer Staples',
-      'XLE': 'Energy',
-      'XLU': 'Utilities',
-      'XLRE': 'Real Estate',
-      'XLB': 'Materials'
-    };
-
     const exchanges = result.rows.map((row: any) => ({
-      exchange: sectorNames[row.symbol] || row.symbol,
-      stockCount: 1,
+      exchange: row.exchange,
+      stockCount: row.stock_count,
       averageReturn: safeParseFloat(row.avg_return),
       averageRSI: safeParseFloat(row.avg_rsi),
       signal: row.avg_return > 1.5 ? 'strong_buy' : (row.avg_return > 0 ? 'buy' : (row.avg_return > -1.5 ? 'hold' : 'sell'))

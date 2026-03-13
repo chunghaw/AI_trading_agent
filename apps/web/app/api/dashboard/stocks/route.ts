@@ -10,12 +10,12 @@ const safeParseFloat = (value: any): number | null => {
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  
+
   // Parse query parameters
   const page = parseInt(searchParams.get('page') || '1');
   const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100); // Max 100 per page
   const offset = (page - 1) * limit;
-  
+
   // Filter parameters
   const symbol = searchParams.get('symbol')?.toUpperCase();
   const minPrice = safeParseFloat(searchParams.get('minPrice'));
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
   const macdSignal = searchParams.get('macdSignal'); // 'bullish', 'bearish', 'neutral'
   const volumeTrend = searchParams.get('volumeTrend'); // 'rising', 'falling', 'flat'
   const exchange = searchParams.get('exchange');
-  
+
   // Sort parameters
   const sortBy = searchParams.get('sortBy') || 'market_cap';
   const sortOrder = searchParams.get('sortOrder') || 'desc';
@@ -128,7 +128,7 @@ export async function GET(request: NextRequest) {
       'rsi': 'rsi',
       'daily_return_pct': 'daily_return_pct'
     };
-    
+
     const validSortColumns = Object.keys(columnMapping);
     const dbColumn = columnMapping[sortBy] || 'market_cap';
     const orderDirection = sortOrder.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
@@ -144,7 +144,7 @@ export async function GET(request: NextRequest) {
           g.atr_14 as atr, g.vwap, g.daily_return_pct, g.volume_trend, g.volume_price_relationship,
           ROW_NUMBER() OVER (PARTITION BY g.symbol ORDER BY g.date DESC) as rn
         FROM gold_ohlcv_daily_metrics g
-        WHERE g.close > 0 AND g.date >= CURRENT_DATE - INTERVAL '30 days'
+        ${whereClause} AND g.close > 0 AND g.date >= (SELECT MAX(date) FROM gold_ohlcv_daily_metrics) - INTERVAL '30 days'
       ),
       enriched_data AS (
         SELECT 
@@ -204,7 +204,7 @@ export async function GET(request: NextRequest) {
     const stocks = stocksResult.rows.map(row => {
       const rsi = safeParseFloat(row.rsi);
       const volumeTrend = row.volume_trend || 'flat';
-      
+
       return {
         symbol: row.symbol,
         company: row.company_name || `${row.symbol} Inc.`,
@@ -296,8 +296,8 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Dashboard stocks API error:', error);
     return NextResponse.json(
-      { 
-        success: false, 
+      {
+        success: false,
         error: 'Failed to fetch stocks data',
         details: error instanceof Error ? error.message : 'Unknown error'
       },

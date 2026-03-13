@@ -288,54 +288,47 @@ async function generateRiskAlerts(client: Client) {
 async function analyzeSectorRotation(client: Client) {
   try {
     const query = `
-      WITH latest_data AS (
-        SELECT 
-          m.symbol,
-          m.daily_return_pct,
-          m.rsi_14,
-          COALESCE(m.stock_type, m.market, 'Market ETF') as industry_group
-        FROM gold_ohlcv_daily_metrics m
-        WHERE m.date = (SELECT MAX(date) FROM gold_ohlcv_daily_metrics)
-      ),
-      sector_performance AS (
-        SELECT 
-          industry_group,
-          COUNT(*) as stock_count,
-          AVG(daily_return_pct) as avg_return,
-          AVG(rsi_14) as avg_rsi
-        FROM latest_data 
-        WHERE industry_group IS NOT NULL
-        GROUP BY industry_group
-        HAVING COUNT(*) > 5  -- Only robust sectors
-      )
-      SELECT 
-        industry_group as exchange,
-        stock_count,
-        avg_return,
-        avg_rsi,
-        CASE 
-          WHEN avg_return > 2 THEN 'strong_buy'
-          WHEN avg_return > 0 THEN 'buy'
-          WHEN avg_return > -2 THEN 'hold'
-          ELSE 'sell'
-        END as signal
-      FROM sector_performance
-      ORDER BY avg_return DESC
-      LIMIT 10
+      SELECT symbol, daily_return_pct as avg_return, rsi_14 as avg_rsi
+      FROM gold_ohlcv_daily_metrics
+      WHERE symbol IN ('XLK', 'XLV', 'XLF', 'XLY', 'XLC', 'XLI', 'XLP', 'XLE', 'XLU', 'XLRE', 'XLB')
+      AND date = (SELECT MAX(date) FROM gold_ohlcv_daily_metrics)
+      ORDER BY daily_return_pct DESC
     `;
 
     const result = await client.query(query);
 
+    const sectorNames: Record<string, string> = {
+      'XLK': 'Technology',
+      'XLV': 'Healthcare',
+      'XLF': 'Financials',
+      'XLY': 'Consumer Discretionary',
+      'XLC': 'Communication Services',
+      'XLI': 'Industrials',
+      'XLP': 'Consumer Staples',
+      'XLE': 'Energy',
+      'XLU': 'Utilities',
+      'XLRE': 'Real Estate',
+      'XLB': 'Materials'
+    };
+
+    const exchanges = result.rows.map((row: any) => ({
+      exchange: sectorNames[row.symbol] || row.symbol,
+      stockCount: 1,
+      averageReturn: safeParseFloat(row.avg_return),
+      averageRSI: safeParseFloat(row.avg_rsi),
+      signal: row.avg_return > 1.5 ? 'strong_buy' : (row.avg_return > 0 ? 'buy' : (row.avg_return > -1.5 ? 'hold' : 'sell'))
+    }));
+
+    const positiveCount = exchanges.filter((e: any) => e.averageReturn > 0).length;
+    let overallTrend = 'neutral';
+    if (exchanges.length > 0) {
+      if (positiveCount > exchanges.length * 0.6) overallTrend = 'positive';
+      else if (positiveCount < exchanges.length * 0.4) overallTrend = 'negative';
+    }
+
     return {
-      exchanges: result.rows.map((row: any) => ({
-        exchange: row.exchange,
-        stockCount: row.stock_count,
-        averageReturn: safeParseFloat(row.avg_return),
-        averageRSI: safeParseFloat(row.avg_rsi),
-        signal: row.signal
-      })),
-      overallTrend: result.rows.length > 0 ?
-        (result.rows[0].avg_return > 0 ? 'positive' : 'negative') : 'neutral'
+      exchanges,
+      overallTrend
     };
   } catch (error) {
     console.error('Error analyzing sector rotation:', error);

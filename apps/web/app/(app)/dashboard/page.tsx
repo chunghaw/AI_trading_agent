@@ -4,7 +4,6 @@ import React, { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { TrendingUp, TrendingDown, Activity, AlertTriangle, BarChart3, Filter } from "lucide-react";
-import { TickerManagement } from "@/components/ticker/TickerManagement";
 import { AddTickerDialog } from "@/components/ticker/AddTickerDialog";
 
 interface MarketIndicator {
@@ -390,7 +389,7 @@ export default function DashboardPage() {
                   {insights.sectorRotation.overallTrend.toUpperCase() + " TREND"}
                 </span>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
                 {insights.sectorRotation.exchanges.map((sector) => (
                   <div key={sector.exchange} className="p-3 bg-white/5 rounded-lg border border-transparent hover:border-white/10 transition-colors">
                     <div className="flex justify-between items-start mb-2">
@@ -404,9 +403,9 @@ export default function DashboardPage() {
                       </span>
                     </div>
                     <div className="flex justify-between items-end mt-1">
-                      <div className="text-xs text-gray-500">{sector.stockCount} assets</div>
+                      <div className="text-xs text-gray-400" title="Relative Strength Index">RSI: {formatNumber(sector.averageRSI, 1)}</div>
                       <div className={`font-medium ${sector.averageReturn && sector.averageReturn >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                        {sector.averageReturn && sector.averageReturn >= 0 ? '+' : ''}{formatNumber(sector.averageReturn, 1)}%
+                        {sector.averageReturn && sector.averageReturn >= 0 ? '+' : ''}{formatNumber(sector.averageReturn, 2)}%
                       </div>
                     </div>
                   </div>
@@ -682,17 +681,6 @@ export default function DashboardPage() {
             </div>
           </Card>
         )}
-
-        {/* Ticker Management Section */}
-        <div className="space-y-4 pt-8 mt-8 border-t border-white/10">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-2xl font-bold text-white mb-1">Ticker Management</h2>
-              <p className="text-sm text-gray-400">Manage your watchlisted assets and data ingestion queue.</p>
-            </div>
-          </div>
-          <TickerManagement />
-        </div>
       </div>
     </div>
   );

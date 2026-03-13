@@ -144,7 +144,7 @@ export async function GET(request: NextRequest) {
           g.atr_14 as atr, g.vwap, g.daily_return_pct, g.volume_trend, g.volume_price_relationship,
           ROW_NUMBER() OVER (PARTITION BY g.symbol ORDER BY g.date DESC) as rn
         FROM gold_ohlcv_daily_metrics g
-        ${whereClause} AND g.close > 0 AND g.date >= (SELECT MAX(date) FROM gold_ohlcv_daily_metrics) - INTERVAL '30 days'
+        ${whereClause} AND g.close > 0 AND g.date >= (SELECT MAX(date) FROM gold_ohlcv_daily_metrics) - INTERVAL '90 days'
       ),
       enriched_data AS (
         SELECT 

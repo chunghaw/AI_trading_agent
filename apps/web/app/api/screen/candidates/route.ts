@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
       runId = request.runId;
     } else if (request.runDate) {
       const runResult = await client.query(
-        "SELECT id FROM screen_runs WHERE run_date = $1 AND status = 'completed' ORDER BY finished_at DESC LIMIT 1",
+        "SELECT id FROM screen_runs WHERE run_date <= $1 AND status = 'completed' ORDER BY run_date DESC, finished_at DESC LIMIT 1",
         [request.runDate]
       );
       if (runResult.rows.length > 0) {
@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
       } else {
         return NextResponse.json({
           success: false,
-          error: `No completed run found for date ${request.runDate}`,
+          error: `No completed run found on or before date ${request.runDate}`,
         }, { status: 404 });
       }
     } else {

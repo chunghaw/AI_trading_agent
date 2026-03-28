@@ -103,41 +103,36 @@ Snippet: ${snippet}...`;
   }`;
 
     try {
-        const completion = await openai.chat.completions.create({
-            model: "gpt-4o", // Using full model for better reasoning
-            temperature: 0.2,
-            response_format: { type: "json_object" },
-            messages: [
-                {
-                    role: "system",
-                    content: "You are a disciplined financial analyst. Output valid JSON.",
-                },
-                {
-                    role: "user",
-                    content: prompt,
-                },
-            ],
-        });
-
-        const content = completion.choices[0].message.content;
-        if (!content) throw new Error("Empty response");
-
-        const parsed = JSON.parse(content);
+        // OPENAI HAS BEEN DISABLED FOR DEMO (API KEY EXPIRED / STORAGE LIMITS)
+        const parsed = {
+            company_description: `Demo Company Info for ${ticker}`,
+            industry: "Demo Industry",
+            tone: "positive",
+            newsScore: 15,
+            catalysts: [{ label: "Strong Technical Breakout", evidence_urls: [] }],
+            risks: [{ label: "Market Volatility", evidence_urls: [] }],
+            earnings_or_events: [],
+            one_sentence_thesis: `This is a mock thesis for ${ticker} indicating a strong technical setup.`,
+            detailed_thesis: `This is a highly sophisticated, detailed mock thesis for ${ticker}.\n\nIt combines Technical Structure, News sentiment, and Catalyst/Risk impacts.\n\n(AI Analysis is currently disabled for this demo version).`,
+            recommendation: "Buy",
+            confidence: "High",
+            action_plan: "Buy on pullback to moving average."
+        };
 
         return {
             summary: {
-                company_description: parsed.company_description || "",
-                industry: parsed.industry || "Unknown",
-                tone: ["positive", "neutral", "negative"].includes(parsed.tone) ? parsed.tone : "neutral",
-                newsScore: Math.min(20, Math.max(-20, Number(parsed.newsScore) || 0)),
-                catalysts: Array.isArray(parsed.catalysts) ? parsed.catalysts : [],
-                risks: Array.isArray(parsed.risks) ? parsed.risks : [],
-                earnings_or_events: Array.isArray(parsed.earnings_or_events) ? parsed.earnings_or_events : [],
-                one_sentence_thesis: parsed.one_sentence_thesis || "Analysis complete.",
-                detailed_thesis: parsed.detailed_thesis || parsed.one_sentence_thesis || "Analysis complete.",
-                recommendation: parsed.recommendation || "Hold",
-                confidence: parsed.confidence || "Medium",
-                action_plan: parsed.action_plan || "Monitor for setup.",
+                company_description: parsed.company_description,
+                industry: parsed.industry,
+                tone: parsed.tone as "positive" | "neutral" | "negative",
+                newsScore: parsed.newsScore,
+                catalysts: parsed.catalysts,
+                risks: parsed.risks,
+                earnings_or_events: parsed.earnings_or_events,
+                one_sentence_thesis: parsed.one_sentence_thesis,
+                detailed_thesis: parsed.detailed_thesis,
+                recommendation: parsed.recommendation as "Strong Buy" | "Buy" | "Hold" | "Sell" | "Strong Sell",
+                confidence: parsed.confidence as "High" | "Medium" | "Low",
+                action_plan: parsed.action_plan,
             },
             citations,
         };
